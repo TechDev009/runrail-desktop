@@ -44,6 +44,8 @@ export interface PreviewScenario {
   readonly simulator?: "no-xcode" | "no-idb"
   /** Android emulators: no SDK, or no KVM to start one. */
   readonly android?: "no-sdk" | "no-kvm"
+  /** The Claude Agent SDK not downloaded yet (`sdk-missing`), or also failing to download (`sdk-offline`). */
+  readonly claudeSdk?: "missing" | "offline"
 }
 
 export const PREVIEW_PRS = ["passing", "running", "failing", "draft", "approved", "changes", "conflicts", "merged", "closed", "none", "disconnected"] as const
@@ -80,6 +82,7 @@ export function parsePreviewScenario(value: string | null | undefined): PreviewS
     ...(words.includes("computer-no-access") ? { computer: "no-access" as const } : words.includes("computer-allowed") ? { computer: "allowed" as const } : {}),
     ...(words.includes("simulator-no-xcode") ? { simulator: "no-xcode" as const } : words.includes("simulator-no-idb") ? { simulator: "no-idb" as const } : {}),
     ...(words.includes("android-no-sdk") ? { android: "no-sdk" as const } : words.includes("android-no-kvm") ? { android: "no-kvm" as const } : {}),
+    ...(words.includes("sdk-offline") ? { claudeSdk: "offline" as const } : words.includes("sdk-missing") ? { claudeSdk: "missing" as const } : {}),
   }
 }
 
@@ -199,9 +202,9 @@ const SHELL = new Set(["OPENAI_API_KEY", "GROQ_API_KEY"])
 export const RAW_CREDENTIAL_KEYS = new Set(["secret", "token", "apikey", "key", "password", "accesstoken", "refreshtoken", "credential"])
 export const SYSTEM_NAMESPACES = ["account.", "connection.", "auth."]
 /** Read-only questions the system engine also answers, so the providers page can name installed tools, and the git host answers. */
-export const SYSTEM_METHODS = new Set(["harness.status", "codehost.list", "codehost.set", "codehost.connect", "codehost.disconnect", "codehost.status", "codehost.remotes", "conversation.peek", "usage.read", "thread.copy", "git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.post", "git.pr.merge", "workflow.due", "workflow.upcoming", "connector.setup.list", "connector.setup.save", "connector.setup.remove", "push.vapid", "push.send"])
+export const SYSTEM_METHODS = new Set(["harness.status", "claude.sdk.status", "claude.sdk.install", "codehost.list", "codehost.set", "codehost.connect", "codehost.disconnect", "codehost.status", "codehost.remotes", "conversation.peek", "usage.read", "thread.copy", "git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.post", "git.pr.merge", "workflow.due", "workflow.upcoming", "connector.setup.list", "connector.setup.save", "connector.setup.remove", "push.vapid", "push.send"])
 /** Answered only by the system engine, so one reader keeps tool starts to one at a time. */
-export const SYSTEM_ONLY_METHODS = new Set(["conversation.peek", "usage.read", "thread.copy", "push.vapid", "push.send"])
+export const SYSTEM_ONLY_METHODS = new Set(["conversation.peek", "usage.read", "claude.sdk.status", "claude.sdk.install", "thread.copy", "push.vapid", "push.send"])
 export const CREDENTIAL_NAMESPACES = [...SYSTEM_NAMESPACES, "provider.", "model.", "connector.setup."]
 export const MAX_PARAM_NODES = 20_000
 export const CALLER_ADDRESS_METHODS = new Set(["provider.select", "provider.discover", "model.discover"])
@@ -315,9 +318,11 @@ export class FakeConnections {
   private chosenDefault: { connectionId: string; model: string } | undefined
   private chosenImage: { connectionId: string; model: string; route: "images" | "chat" } | undefined
   private readonly toolStatus: () => unknown
+  private claudeSdkReady: boolean
 
   constructor(scenario: PreviewScenario = {}, toolStatus: () => unknown = () => []) {
     this.scenario = scenario
+    this.claudeSdkReady = scenario.claudeSdk === undefined
     this.toolStatus = toolStatus
     const seed = scenario.seed ?? "default"
     if (seed === "empty") return
@@ -544,6 +549,18 @@ export class FakeConnections {
     this.push(login, { type: "failed", code })
   }
 
+  private claudeSdk(): unknown {
+    return {
+      ready: this.claudeSdkReady,
+      source: this.claudeSdkReady ? "downloaded" : "installable",
+      package: "@anthropic-ai/claude-agent-sdk",
+      version: "0.3.288",
+      npmUrl: "https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk",
+      termsUrl: "https://code.claude.com/docs/en/legal-and-compliance",
+      installCommand: "bun add -g @anthropic-ai/claude-agent-sdk@^0.3.288",
+    }
+  }
+
   async rpc(method: string, params: Params): Promise<unknown> {
     switch (method) {
       case "account.list":
@@ -715,6 +732,15 @@ export class FakeConnections {
         return this.toolStatus()
       case "usage.read":
         return { plan: this.usage(params) }
+      case "claude.sdk.status":
+        return this.claudeSdk()
+      case "claude.sdk.install": {
+        if (params.confirm !== true) throw invalid("confirm must be true")
+        await new Promise((resolve) => setTimeout(resolve, 900))
+        if (this.scenario.claudeSdk === "offline") throw new HostError("CONTROL_CLAUDE_SDK_INSTALL_FAILED", "agent SDK download failed: fetch failed", 502)
+        this.claudeSdkReady = true
+        return this.claudeSdk()
+      }
       case "connection.presets":
         return { presets: PRESETS, custom: CUSTOM }
       case "connection.detect": {

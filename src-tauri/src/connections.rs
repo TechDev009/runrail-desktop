@@ -125,10 +125,13 @@ const SYSTEM_NAMESPACES: &[&str] = &["account.", "connection.", "auth."];
 /// And `workflow.upcoming`: how many start by themselves, and the next scheduled one, for the menu
 /// bar item.
 /// And the built-in connectors' settings, `connector.setup.*`, which hold no key: a key has its own
-/// command.
-const SYSTEM_METHODS: &[&str] = &["harness.status", "codehost.list", "codehost.set", "codehost.connect", "codehost.disconnect", "codehost.status", "codehost.remotes", "conversation.peek", "usage.read", "thread.copy", "git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.post", "git.pr.merge", "workflow.due", "workflow.upcoming", "connector.setup.list", "connector.setup.save", "connector.setup.remove", "push.vapid", "push.send"];
-/// Answered only by the system engine, so one reader keeps tool starts to one at a time.
-const SYSTEM_ONLY_METHODS: &[&str] = &["conversation.peek", "usage.read", "thread.copy", "push.vapid", "push.send"];
+/// command. And `claude.sdk.status` and `claude.sdk.install`: whether the Claude Agent SDK is
+/// downloaded, and its download, pinned and checked against its SHA-512, which the person asks
+/// for in the app.
+const SYSTEM_METHODS: &[&str] = &["harness.status", "claude.sdk.status", "claude.sdk.install", "codehost.list", "codehost.set", "codehost.connect", "codehost.disconnect", "codehost.status", "codehost.remotes", "conversation.peek", "usage.read", "thread.copy", "git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.post", "git.pr.merge", "workflow.due", "workflow.upcoming", "connector.setup.list", "connector.setup.save", "connector.setup.remove", "push.vapid", "push.send"];
+/// Answered only by the system engine, so one reader keeps tool starts to one at a time, and one
+/// engine downloads the SDK.
+const SYSTEM_ONLY_METHODS: &[&str] = &["conversation.peek", "usage.read", "claude.sdk.status", "claude.sdk.install", "thread.copy", "push.vapid", "push.send"];
 /// The older provider methods let the caller name an address and the shell variable to send
 /// there. The web view gets neither: a connection fixes both.
 const CALLER_ADDRESS_METHODS: &[&str] = &["provider.select", "provider.discover", "model.discover"];
@@ -446,6 +449,10 @@ mod tests {
         assert!(is_refused("thread-1", "conversation.peek", json!({ "threadId": "t2", "workspace": "/Users/me/code/web" })));
         assert!(guard_renderer_rpc(SYSTEM_ENGINE_ID, "usage.read", &json!({ "tool": "claude-code", "connectionId": "c1" })).is_ok());
         assert!(is_refused("thread-1", "usage.read", json!({ "tool": "codex" })));
+        for method in ["claude.sdk.status", "claude.sdk.install"] {
+            assert!(guard_renderer_rpc(SYSTEM_ENGINE_ID, method, &json!({ "confirm": true })).is_ok(), "{method}");
+            assert!(is_refused("thread-1", method, json!({ "confirm": true })), "{method}");
+        }
         for method in ["git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.post", "git.pr.merge"] {
             assert!(guard_renderer_rpc(SYSTEM_ENGINE_ID, method, &json!({ "owner": "example-org", "repo": "web", "number": 1 })).is_ok(), "{method}");
         }
@@ -454,7 +461,7 @@ mod tests {
         for method in ["connector.setup.list", "connector.setup.save", "connector.setup.remove"] {
             assert!(guard_renderer_rpc(SYSTEM_ENGINE_ID, method, &json!({ "id": "jira", "on": true, "site": "your-team.atlassian.net", "email": "me@example.com" })).is_ok(), "{method}");
         }
-        for method in ["connector.invoke", "connector.setup.", "connector.setup.listx", "workflow.run.start", "workflow.save", "workflow.duex", "workflow.", "harness.list", "harness.statusx", "terminal.create", "turn.enqueue", "background.list", "codehost.listx", "codehost.", "codehost.remotesx", "git.remote.list", "conversation.peekx", "session.conversation.read", "usage.readx", "usage.", "plan.limits", "git.pr.create", "git.pr.mergex", "git.pr.review", "git.pr.searchx", "git.pr."] {
+        for method in ["connector.invoke", "connector.setup.", "connector.setup.listx", "workflow.run.start", "workflow.save", "workflow.duex", "workflow.", "harness.list", "harness.statusx", "terminal.create", "turn.enqueue", "background.list", "codehost.listx", "codehost.", "codehost.remotesx", "git.remote.list", "conversation.peekx", "session.conversation.read", "usage.readx", "usage.", "claude.sdk", "claude.sdk.", "claude.sdk.statusx", "plan.limits", "git.pr.create", "git.pr.mergex", "git.pr.review", "git.pr.searchx", "git.pr."] {
             assert!(is_refused(SYSTEM_ENGINE_ID, method, json!({})), "{method}");
         }
     }

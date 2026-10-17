@@ -35,6 +35,7 @@ import {
   removeProject,
   runtimeOf,
   set,
+  setPrefs,
   setProjectSkill,
   threadById,
   threadOnScreen,
@@ -53,6 +54,7 @@ import { rememberRefusal } from "./refusals"
 import { notePlanReading, planFrames, type PlanFrame } from "./limits"
 import { planLimitsOn, readAccountUsage } from "./planUsage"
 import { HELD_FOR_LIMIT, mayHoldForLimit, planLimitRefusal, threadAccount } from "./limitCheck"
+import { CLAUDE_SDK_CODE, CLAUDE_SDK_NOTICE, claudeSdkRefusal, installClaudeSdk, mayAskForSdk } from "./claudeSdk"
 import { forgetContext, rememberContext } from "./threadContext"
 import { effectivePermission, withAccess, type Access } from "./access"
 import { announce } from "./notifications"
@@ -941,12 +943,20 @@ function dispatch(threadId: string, prompt: QueuedPrompt, display?: string): voi
     return { timeline: added.timeline, lastError: undefined }
   })
   let held = false
+  let heldForSdk = false
   void (async () => {
     try {
       // Checked here, the one place every send passes: a queue, a goal loop, or a setup run.
       const refusal = sendRefusal(threadId)
       if (refusal !== undefined) throw refusal
       const thread = threadById(threadId)
+      const sdk = thread !== undefined && mayAskForSdk(thread) ? await claudeSdkRefusal(thread) : undefined
+      if (sdk !== undefined) {
+        // An engine starting or restarting puts back the timeline it read; the card goes on after.
+        await ensureEngine(threadId).catch(() => undefined)
+        heldForSdk = true
+        throw sdk
+      }
       const limit = thread !== undefined && prompt.anyway !== true && mayHoldForLimit(thread) ? await planLimitRefusal(thread) : undefined
       if (limit !== undefined) {
         held = true
@@ -960,6 +970,16 @@ function dispatch(threadId: string, prompt: QueuedPrompt, display?: string): voi
       patchRuntime(threadId, (current) => ({ timeline: markUser(current.timeline, key, "sent") }))
     } catch (error) {
       const failure = toHostError(error)
+      if (heldForSdk) {
+        // One card asks for every message held in the thread; the answer sends them all.
+        patchRuntime(threadId, (current) => {
+          const marked = markUser(current.timeline, key, "failed", failure.code, failure.message)
+          const asking = marked.items.some((item) => item.kind === "notice" && item.code === CLAUDE_SDK_NOTICE)
+          return { timeline: asking ? marked : appendNotice(marked, { code: CLAUDE_SDK_NOTICE, level: "info" }), queuePaused: true }
+        })
+        if (runtimeOf(threadId).goal?.status === "running") patchRuntime(threadId, (current) => ({ ...(current.goal === undefined ? {} : { goal: { ...current.goal, status: "stopped" } }) }))
+        return
+      }
       patchRuntime(threadId, (current) => {
         const marked = markUser(current.timeline, key, "failed", failure.code, held ? HELD_FOR_LIMIT : failure.message)
         // A held message gets the card a turn the limit refused ends with, which says it all.
@@ -979,6 +999,35 @@ export function retry(threadId: string, key: string, anyway = false): void {
   if (item?.kind !== "user") return
   patchRuntime(threadId, (current) => ({ timeline: removeItem(current.timeline, key), queuePaused: false }))
   send(threadId, { text: item.text, ...(item.requestId === undefined ? {} : { requestId: item.requestId }), ...(anyway ? { anyway } : {}) })
+}
+
+/**
+ * The person's answer on the Claude Agent SDK card: download it, restart the Claude Code engines so
+ * they use it, then send what waited; or send without it, and stop asking.
+ */
+export async function answerClaudeSdk(threadId: string, install: boolean): Promise<void> {
+  if (install) {
+    if (!(await installClaudeSdk())) return
+    restartClaudeCode(threadId)
+    // This thread's engine started in print mode; its held messages go to the new one.
+    await restartEngine(threadId)
+  } else setPrefs({ claudeSdk: "without" })
+  patchRuntime(threadId, (current) => {
+    let timeline = current.timeline
+    for (const item of current.timeline.items) if (item.kind === "notice" && item.code === CLAUDE_SDK_NOTICE) timeline = removeItem(timeline, item.key)
+    return { timeline }
+  })
+  for (const item of runtimeOf(threadId).timeline.items) if (item.kind === "user" && item.state === "failed" && item.errorCode === CLAUDE_SDK_CODE) retry(threadId, item.key)
+}
+
+/** Downloads the SDK from Settings; Claude Code threads pick it up as each one is idle. */
+export async function installClaudeSdkEverywhere(): Promise<void> {
+  if (await installClaudeSdk()) restartClaudeCode()
+}
+
+/** A Claude Code engine chooses the SDK or print mode as it starts. */
+function restartClaudeCode(except?: string): void {
+  for (const thread of get().threads) if (thread.backend === "claude-code" && thread.id !== except) applyRestart(thread.id)
 }
 
 /** Sends the thread's last message again, for a fresh answer; the earlier answer stays above. */

@@ -238,6 +238,8 @@ export interface Prefs {
   readonly continueAfterLimit: boolean
   /** Reading Claude Code's and Codex's plan limits starts them as the person, so only after a yes; "ask" is not asked yet and reads nothing. */
   readonly planLimits: "ask" | "on" | "off"
+  /** Claude Code's first message asks to download the Claude Agent SDK until the person says to go on without it. */
+  readonly claudeSdk: "ask" | "without"
   /** The first-run walkthrough was finished or skipped. */
   readonly onboarded: boolean
   readonly checkUpdates: boolean
@@ -486,6 +488,7 @@ export const DEFAULT_PREFS: Prefs = {
   threadMessages: "project",
   continueAfterLimit: false,
   planLimits: "ask",
+  claudeSdk: "ask",
   onboarded: false,
   checkUpdates: true,
   contextDisplay: "used",
@@ -701,6 +704,7 @@ const PrefsSchema = z.object({
   threadMessages: z.enum(["off", "project", "all"]).catch("project"),
   continueAfterLimit: z.boolean().catch(false),
   planLimits: z.enum(["ask", "on", "off"]).catch("ask"),
+  claudeSdk: z.enum(["ask", "without"]).catch("ask"),
   onboarded: z.boolean().catch(false),
   checkUpdates: z.boolean().catch(true),
   contextDisplay: z.enum(["used", "near-full"]).catch("used"),

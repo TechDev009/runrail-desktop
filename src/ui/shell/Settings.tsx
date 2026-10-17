@@ -1,10 +1,11 @@
 import { ArrowLeft, AudioLines, Bot, Cable, Check, CircleAlert, Cpu, Download, FileText, FolderOpen, History, Keyboard, Mic, Minus, Plus, RotateCcw, Search, Settings2, ShieldCheck, Sparkles, SquareTerminal, Trash, Wrench, X } from "lucide-react"
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react"
 import { useShallow } from "zustand/react/shallow"
-import { confirmAction, EDITOR_LABELS, openDialog, pickProject, reveal, useEditors } from "../../app/actions"
+import { confirmAction, EDITOR_LABELS, openDialog, openUrl, pickProject, reveal, useEditors } from "../../app/actions"
 import { useCatalog } from "../../app/catalog"
 import { resetDiagnostics, useDiagnostics } from "../../app/diagnostics"
-import { projectCapability, projectContract, restartEngines, closeProject } from "../../app/engines"
+import { installClaudeSdkEverywhere, projectCapability, projectContract, restartEngines, closeProject } from "../../app/engines"
+import { readClaudeSdk, useClaudeSdk } from "../../app/claudeSdk"
 import { NIFRA_SETTING_HINT, nifraOn } from "../../app/nifra"
 import { readAllProjectGit } from "../../app/projectGit"
 import { setPlanLimits } from "../../app/planUsage"
@@ -717,10 +718,11 @@ function AgentSection() {
       <Row
         id="plan-limits"
         label="Show plan limits"
-        hint="Shows how much of your Claude Code and Codex plans you have used. To find out, Runrail starts Claude Code and Codex signed in as you and asks for their usage: at start, when you press Refresh, and for Codex when you come back to the window. For Claude Code it first downloads the Claude Agent SDK from npm into Runrail's own folder, once. Turned off, nothing more is read."
+        hint="Shows how much of your Claude Code and Codex plans you have used. To find out, Runrail starts Claude Code and Codex signed in as you and asks for their usage: at start, when you press Refresh, and for Codex when you come back to the window. Claude Code's usage is read through the Claude Agent SDK, so it shows once that is installed. Turned off, nothing more is read."
       >
         <Toggle label="Show plan limits" checked={prefs.planLimits === "on"} onChange={setPlanLimits} />
       </Row>
+      <ClaudeSdkRow />
       <Row id="file-links" label="Files named in answers open in" hint={`A file the agent names in an answer opens in Runrail's Files pane at its line, or in ${EDITOR_LABELS[editor]}. Right-click one for the other.`}>
         <Segmented
           label="Files named in answers open in"
@@ -741,6 +743,45 @@ function AgentSection() {
         <Toggle label="Run git hooks" checked={prefs.gitHooks} onChange={(gitHooks) => setPrefs({ gitHooks })} />
       </Row>
     </div>
+  )
+}
+
+/** The Claude Agent SDK: installed, or a way to install it after "Continue without it". */
+function ClaudeSdkRow() {
+  const { status, installing, error } = useClaudeSdk()
+  useEffect(() => {
+    void readClaudeSdk()
+  }, [])
+  // An engine that cannot say, or one with the SDK built in, has nothing to offer here.
+  if (status === undefined || status.source === "registered") return null
+  return (
+    <Row
+      id="claude-sdk"
+      label="Claude Agent SDK"
+      hint={
+        <>
+          Lets Claude Code ask before it edits files or runs commands; without it, Claude Code refuses anything it would ask about. Runrail downloads it once from{" "}
+          <button type="button" className="link-button" onClick={() => void openUrl(status.npmUrl)}>
+            npm
+          </button>{" "}
+          into its own folder. It is Anthropic's package, under{" "}
+          <button type="button" className="link-button" onClick={() => void openUrl(status.termsUrl)}>
+            Anthropic's terms
+          </button>
+          .{error !== undefined && !installing && ` Couldn't download it: ${error}`}
+        </>
+      }
+    >
+      {status.ready ? (
+        <span className="setting-value">{status.source === "downloaded" ? `Installed, ${status.version}` : "Installed"}</span>
+      ) : status.source === "installable" ? (
+        <Button size="sm" icon={<Download size={13} />} loading={installing} onClick={() => void installClaudeSdkEverywhere()}>
+          {error === undefined ? "Install" : "Try again"}
+        </Button>
+      ) : (
+        <span className="setting-value">Not installed</span>
+      )}
+    </Row>
   )
 }
 

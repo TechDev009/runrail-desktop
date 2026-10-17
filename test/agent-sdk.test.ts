@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { mkdtemp, readdir, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { agentSdkLoader, agentSdkPin, installAgentSdk, untar, type AgentSdkPin } from "../sidecar/agentSdk"
+import { agentSdkInstaller, agentSdkLoader, agentSdkPin, installAgentSdk, untar, type AgentSdkPin } from "../sidecar/agentSdk"
 
 const folders: string[] = []
 afterEach(async () => {
@@ -62,16 +62,19 @@ function registry(tgz: Uint8Array<ArrayBuffer>, status = 200): { readonly fetch:
   }
 }
 
-test("the SDK is fetched from npm once, on first load, and loaded from disk after", async () => {
+test("loading never downloads; the SDK comes from npm once, when the installer is run, and from disk after", async () => {
   const folder = await scratch()
   const { pin, tgz } = served(PACKAGE)
   const npm = registry(tgz)
-  const load = agentSdkLoader(pin, folder, npm.fetch)
-  expect(npm.urls).toEqual([])
+  const load = agentSdkLoader(pin, folder)
+  const installer = agentSdkInstaller(pin, folder, npm.fetch)
+  expect(await load()).toBeUndefined()
+  expect([installer.version, installer.installed(), npm.urls]).toEqual(["0.3.288", false, []])
+  await installer.install()
+  expect(npm.urls).toEqual(["https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.288.tgz"])
+  expect(installer.installed()).toBe(true)
   const sdk = (await load()) as { query: () => string }
   expect(sdk.query()).toBe("from npm")
-  expect(npm.urls).toEqual(["https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/claude-agent-sdk-0.3.288.tgz"])
-  await agentSdkLoader(pin, folder, npm.fetch)()
   expect(npm.urls).toHaveLength(1)
   expect(await readdir(folder)).toEqual(["0.3.288"])
 })
@@ -80,8 +83,8 @@ test("a download that does not match the pinned SHA-512 is refused before anythi
   const folder = await scratch()
   const { pin } = served(PACKAGE)
   const tampered = served(tar(entry("package/package.json", "{}"), entry("package/sdk.mjs", "export const query = () => 'evil'"))).tgz
-  await expect(agentSdkLoader(pin, folder, registry(tampered).fetch)()).rejects.toThrow("does not match its pinned SHA-512")
-  await expect(agentSdkLoader(pin, folder, registry(tampered, 404).fetch)()).rejects.toThrow("HTTP 404")
+  await expect(agentSdkInstaller(pin, folder, registry(tampered).fetch).install()).rejects.toThrow("does not match its pinned SHA-512")
+  await expect(agentSdkInstaller(pin, folder, registry(tampered, 404).fetch).install()).rejects.toThrow("HTTP 404")
   expect(await readdir(folder)).toEqual([])
   await expect(installAgentSdk({ ...pin, integrity: "sha1-abc" }, join(folder, "x"), registry(tampered).fetch)).rejects.toThrow("integrity is invalid")
   await expect(installAgentSdk({ ...pin, version: "../../evil" }, join(folder, "x"), registry(tampered).fetch)).rejects.toThrow("version is invalid")

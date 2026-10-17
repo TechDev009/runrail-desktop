@@ -4,6 +4,12 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+- Runrail asks before it downloads the Claude Agent SDK. Claude Code's first
+  message waits on a card that explains what the SDK does, links its npm page
+  and Anthropic's terms, and offers Install and continue or Continue without
+  it; Settings, Agent can install it later. Before, the app downloaded it on
+  first use without asking.
+
 ## [0.1.0] - 2026-10-16
 
 First public release, for macOS, Linux, and (experimental) Windows.

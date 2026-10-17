@@ -198,7 +198,7 @@ export function Onboarding() {
           </div>
           <div className="onboarding-group">What it does</div>
           <Note icon={<Play size={14} />}>Starts {listed(tools)}, signed in as you, asks for {tools.length === 1 ? "its" : "their"} usage, and closes {tools.length === 1 ? "it" : "them"}: at start, when you press Refresh{tools.includes(BACKEND_LABELS.codex) ? ", and for Codex when you come back to the window" : ""}.</Note>
-          {tools.includes(BACKEND_LABELS["claude-code"]) && <Note icon={<Download size={14} />}>For Claude Code, it first downloads the Claude Agent SDK from npm into Runrail's own folder, once.</Note>}
+          {tools.includes(BACKEND_LABELS["claude-code"]) && <Note icon={<Download size={14} />}>Claude Code's usage is read through the Claude Agent SDK, which Runrail asks to download before Claude Code's first message.</Note>}
           <Note icon={<Settings size={14} />}>Turn it off any time in Settings, Agent.</Note>
         </>
       )

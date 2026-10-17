@@ -4877,3 +4877,21 @@ button.welcome-card:hover > svg {
   font-size: var(--fs-sm);
   cursor: pointer;
 }
+
+/* The Claude Agent SDK card borrows the limit card: a question, not a fault. */
+.claude-sdk-card .limit-always {
+  cursor: default;
+}
+
+.claude-sdk-note {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.claude-sdk-error {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-4);
+  color: var(--red);
+  font-size: var(--fs-sm);
+}

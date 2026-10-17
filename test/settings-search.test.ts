@@ -38,7 +38,8 @@ describe("settings search", () => {
   })
 
   test("show plan limits is found by its own words and takes no other row's search", () => {
-    for (const words of ["plan limits", "limits", "agent sdk", "npm", "quota rings"]) expect(searchSettings(words)[0]?.id).toBe("plan-limits")
+    for (const words of ["plan limits", "limits", "quota rings"]) expect(searchSettings(words)[0]?.id).toBe("plan-limits")
+    for (const words of ["agent sdk", "npm", "print mode"]) expect(searchSettings(words)[0]?.id).toBe("claude-sdk")
     expect(searchSettings("usage limit")[0]?.id).toBe("continue-after-limit")
     const label = "show plan limits"
     for (const entry of SETTINGS_INDEX.filter((item) => item.id !== "plan-limits")) {

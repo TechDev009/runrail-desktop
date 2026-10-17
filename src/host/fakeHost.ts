@@ -2304,7 +2304,7 @@ export function createFakeHost(scenario: PreviewScenario = {}): Host {
     sessionId: "system",
     behavior: { mode: "ask", effort: "medium", permissionDefault: "deny", rules: [] },
     instance: 0,
-    contract: { protocol: 1, apiVersion: "1.0", supportedProtocols: [1], runrailVersion: "preview", capabilities: [...Object.keys(CAPABILITIES), "conversation.peek", "usage.read", "thread.copy", "push"], capabilityStatus: { ...CAPABILITIES, "conversation.peek": "available", "usage.read": "available", "thread.copy": "available", push: "available" } },
+    contract: { protocol: 1, apiVersion: "1.0", supportedProtocols: [1], runrailVersion: "preview", capabilities: [...Object.keys(CAPABILITIES), "conversation.peek", "usage.read", "claude.sdk", "thread.copy", "push"], capabilityStatus: { ...CAPABILITIES, "conversation.peek": "available", "usage.read": "available", "claude.sdk": "available", "thread.copy": "available", push: "available" } },
   }
   let instance = 0
   let picks = 0

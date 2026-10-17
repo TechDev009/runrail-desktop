@@ -170,10 +170,11 @@ Linux: `bun run release:config`, then `bun scripts/linux.ts release`
 Refresh the bundled engine first, and build each architecture you ship
 (`--target aarch64-apple-darwin`, `--target x86_64-apple-darwin`). The engine
 does not contain the Claude Agent SDK, whose licence reserves all rights: it
-pins the version and SHA-512 from `bun.lock`, and fetches that package from npm
-into the app's data folder the first time a Claude Code thread or usage read
-needs it (`sidecar/agentSdk.ts`). Plan usage is read only once the person turns
-plan limits on (setup asks), so a launch alone fetches nothing. Bump the SDK with `bun install` before
+pins the version and SHA-512 from `bun.lock`, and downloads that package from
+npm into the app's data folder only when the person allows it: Claude Code's
+first message asks, and Settings, Agent has an Install button
+(`sidecar/agentSdk.ts`, the engine's `claude.sdk.install`). A launch alone
+downloads nothing. Bump the SDK with `bun install` before
 building to ship a newer pin:
 
 ```bash

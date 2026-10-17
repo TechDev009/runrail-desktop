@@ -5,10 +5,10 @@ import { dirname, join, relative, resolve } from "node:path"
 import { pathToFileURL } from "node:url"
 
 /**
- * The Claude Agent SDK, fetched from npm the first time the engine needs it instead of shipped
- * inside the app: its licence reserves all rights, so each person gets it from npm under
- * Anthropic's own terms. The version and its SHA-512 are pinned when the sidecar is built
- * (scripts/sidecar.ts), and a download that does not match them is refused before it is unpacked.
+ * The Claude Agent SDK, downloaded from npm when the person allows it instead of shipped inside
+ * the app: its licence reserves all rights, so each person gets it from npm under Anthropic's own
+ * terms. The version and its SHA-512 are pinned when the sidecar is built (scripts/sidecar.ts),
+ * and a download that does not match them is refused before it is unpacked.
  */
 
 export interface AgentSdkPin {
@@ -36,15 +36,25 @@ export function agentSdkPin(lock: string): AgentSdkPin {
   return { version: match[1], integrity: match[2] }
 }
 
-/** Loads the pinned SDK from `directory`, downloading it there first when it is not yet. */
-export function agentSdkLoader(pin: AgentSdkPin, directory: string, fetchImpl: Fetch = (url, init) => fetch(url, init)): () => Promise<unknown> {
+/** Loads the pinned SDK from `directory` once it is downloaded there; it never downloads. */
+export function agentSdkLoader(pin: AgentSdkPin, directory: string): () => Promise<unknown> {
   return async () => {
     const home = join(directory, pin.version)
     const manifest = join(home, "package.json")
-    if (!existsSync(manifest)) await installAgentSdk(pin, home, fetchImpl)
+    if (!existsSync(manifest)) return undefined
     const entry = resolve(home, entryOf(JSON.parse(await readFile(manifest, "utf8")) as unknown))
     if (relative(home, entry).startsWith("..")) throw new Error("agent SDK entry is outside its folder")
     return import(pathToFileURL(entry).href)
+  }
+}
+
+/** Downloads the pinned SDK into `directory`, run by the engine's `claude.sdk.install` after a yes. */
+export function agentSdkInstaller(pin: AgentSdkPin, directory: string, fetchImpl: Fetch = (url, init) => fetch(url, init)): { readonly version: string; readonly installed: () => boolean; readonly install: () => Promise<void> } {
+  const home = join(directory, pin.version)
+  return {
+    version: pin.version,
+    installed: () => existsSync(join(home, "package.json")),
+    install: () => installAgentSdk(pin, home, fetchImpl),
   }
 }
 

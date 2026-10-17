@@ -93,7 +93,7 @@ Settings with a key or a browser sign-in.
 Runrail has no account and sends nothing to its authors. It talks only to:
 
 - the model providers and coding tools you use, with your own sign-ins;
-- npm, once, to fetch the Claude Agent SDK the first time a Claude Code thread needs it;
+- npm, once, to download the Claude Agent SDK after you allow it (Runrail asks before Claude Code's first message);
 - GitHub, for the update check, and through your own `gh` sign-in for pull requests;
 - Hugging Face, only if you download a Whisper model for local dictation;
 - your phone's push service, only if you turn on phone notifications;
@@ -166,9 +166,10 @@ bun run sidecar
 bun run tauri dev
 ```
 
-The sidecar is Runrail compiled without the Claude Agent SDK: the engine fetches the SDK version
-`bun.lock` pins from npm the first time a Claude Code thread or usage read needs it, and runs the
-`claude` you installed. The window is transparent so macOS can draw the sidebar material behind
+The sidecar is Runrail compiled without the Claude Agent SDK: the engine downloads the SDK version
+`bun.lock` pins from npm once you allow it (Claude Code's first message asks, and Settings, Agent
+has an Install button), and runs the `claude` you installed. Until then Claude Code runs in print
+mode and cannot ask before tools. The window is transparent so macOS can draw the sidebar material behind
 it, which needs Tauri's `macOSPrivateApi` and keeps this build out of the Mac App Store.
 
 ### Test

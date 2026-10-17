@@ -964,7 +964,7 @@ impl Supervisor {
         command.args(&args).current_dir(cwd);
         command.envs(login_environment().vars.iter().map(|(key, value)| (key.as_str(), value.as_str())));
         command.env("RUNRAIL_DESKTOP", "1");
-        // A release sidecar fetches the Claude Agent SDK here the first time it needs it.
+        // A release sidecar downloads the Claude Agent SDK here once the person allows it.
         command.env("RUNRAIL_AGENT_SDK_DIR", self.app_data.join("agent-sdk"));
         Ok(command)
     }

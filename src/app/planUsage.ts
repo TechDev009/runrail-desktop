@@ -49,7 +49,7 @@ const readAt = new Map<string, number>()
 const inFlight = new Map<string, Promise<void>>()
 let supported: Promise<boolean> | undefined
 
-/** A reading starts the tool signed in as the person, and Claude Code's first fetches the Agent SDK, so only after a yes. */
+/** A reading starts the tool signed in as the person, so only after a yes. Claude Code's needs the Agent SDK, which the person installs separately. */
 export function planLimitsOn(): boolean {
   return get().prefs.planLimits === "on"
 }

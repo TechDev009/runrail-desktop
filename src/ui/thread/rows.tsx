@@ -34,7 +34,7 @@ import {
   Wrench,
 } from "lucide-react"
 import { memo, useEffect, useState, type ReactNode } from "react"
-import { askAgain, offersSessionApproval, resolveApproval, restartEngine, retry } from "../../app/engines"
+import { answerClaudeSdk, askAgain, offersSessionApproval, resolveApproval, restartEngine, retry } from "../../app/engines"
 import { APPROVAL_SETTLE_MS } from "../../app/attention"
 import { forkThread } from "../../app/workflows"
 import { openPanelHere } from "../../app/panels"
@@ -44,6 +44,8 @@ import { forkAt } from "../../app/fork"
 import { continueAfterReset, dropResume, isLimitNotice, limitReset, openLimit, readLimitMessage, repeatsMessage, resumeNow } from "../../app/limitResume"
 import { resetText } from "../../app/limits"
 import { PLAN_LIMIT_CODE } from "../../app/limitCheck"
+import { CLAUDE_SDK_CODE, CLAUDE_SDK_NOTICE, CLAUDE_SDK_NPM_URL, CLAUDE_SDK_TERMS_URL, useClaudeSdk } from "../../app/claudeSdk"
+import { openUrl } from "../../app/actions"
 import { clock } from "../../app/stayRunning"
 import { hasCapability } from "../../protocol/schemas"
 import { API_RETRY, isBusy } from "../../thread/reducer"
@@ -72,7 +74,7 @@ export const UserRow = memo(function UserRow({ item, threadId }: { readonly item
   const from = messageFrom(item.text)
   const ci = ciLogsOf(item.text)
   return (
-    <div className={cx("row-user", item.state === "sending" && "is-sending", item.state === "failed" && "is-failed")}>
+    <div className={cx("row-user", item.state === "sending" && "is-sending", item.state === "failed" && item.errorCode !== CLAUDE_SDK_CODE && "is-failed")}>
       <div className="user-bubble">
         {item.steer === true && <span className="user-tag">Steer</span>}
         {item.images !== undefined && item.images.length > 0 && (
@@ -107,7 +109,12 @@ export const UserRow = memo(function UserRow({ item, threadId }: { readonly item
         </div>
       )}
       {item.state === "sending" && <div className="user-state">Sending…</div>}
-      {item.state === "failed" && (
+      {item.state === "failed" && item.errorCode === CLAUDE_SDK_CODE && (
+        <div className="user-state" role="status">
+          <Hourglass size={12} aria-hidden="true" /> Waiting for your answer below
+        </div>
+      )}
+      {item.state === "failed" && item.errorCode !== CLAUDE_SDK_CODE && (
         <div className="user-state is-error" role="alert" title={item.errorCode}>
           <TriangleAlert size={12} /> {notSent(item)}
           {/* A message held for a used-up plan goes on its own when the limit resets; this sends it now regardless. */}
@@ -1136,8 +1143,53 @@ export function noticeCopy(item: NoticeItem): string {
 
 export const NoticeRow = memo(function NoticeRow({ item, threadId }: { readonly item: NoticeItem; readonly threadId: string }) {
   if (isLimitNotice(item)) return <LimitCard item={item} threadId={threadId} />
+  if (item.code === CLAUDE_SDK_NOTICE) return <ClaudeSdkCard threadId={threadId} />
   return <PlainNotice item={item} threadId={threadId} />
 })
+
+/** Asks, before Claude Code's first message goes, to download the Claude Agent SDK. */
+function ClaudeSdkCard({ threadId }: { readonly threadId: string }) {
+  const { status, installing, error } = useClaudeSdk()
+  const [busy, setBusy] = useState(false)
+  const answer = (install: boolean): void => {
+    setBusy(true)
+    void answerClaudeSdk(threadId, install).finally(() => setBusy(false))
+  }
+  return (
+    <div className="row-notice is-limit claude-sdk-card" role="status">
+      <Download size={13} />
+      <div className="limit-body">
+        <span className="limit-when">Claude Code works best with the Claude Agent SDK.</span>
+        <span>With it, Claude Code asks before it edits files or runs commands. Without it, Claude Code refuses anything it would ask about.</span>
+        <span className="claude-sdk-note">
+          Runrail downloads it once from npm into its own folder. It is Anthropic's package, under Anthropic's terms:{" "}
+          <button type="button" className="user-context-link" onClick={() => void openUrl(status?.npmUrl ?? CLAUDE_SDK_NPM_URL)}>
+            npm page
+          </button>
+          ,{" "}
+          <button type="button" className="user-context-link" onClick={() => void openUrl(status?.termsUrl ?? CLAUDE_SDK_TERMS_URL)}>
+            Anthropic's terms
+          </button>
+          .
+        </span>
+        {error !== undefined && !installing && (
+          <span className="claude-sdk-error" role="alert">
+            <TriangleAlert size={12} aria-hidden="true" /> Couldn't download it: {error}
+          </span>
+        )}
+        <div className="limit-actions">
+          <Button size="sm" variant="primary" icon={<Download size={12} />} loading={installing || busy} disabled={busy} onClick={() => answer(true)}>
+            {installing ? "Downloading…" : error === undefined ? "Install and continue" : "Try again"}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={installing || busy} onClick={() => answer(false)}>
+            Continue without it
+          </Button>
+          <span className="limit-always">You can install it later in Settings, Agent.</span>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /**
  * A usage limit: when it resets, and, until a message follows, a way to continue

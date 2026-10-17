@@ -1,8 +1,7 @@
 /**
  * Builds the engine sidecar from a Runrail checkout. The Claude Agent SDK is not bundled: its
- * licence reserves all rights, so the sidecar fetches the version pinned here from npm the first
- * time the engine needs it (sidecar/agentSdk.ts), into the folder the host names in
- * RUNRAIL_AGENT_SDK_DIR.
+ * licence reserves all rights, so the sidecar downloads the version pinned here from npm when the
+ * person allows it (sidecar/agentSdk.ts), into the folder the host names in RUNRAIL_AGENT_SDK_DIR.
  *
  *   bun scripts/sidecar.ts                                builds for this machine from ../runrail
  *   bun scripts/sidecar.ts --target x86_64-apple-darwin   builds for another target (any key of BUN_TARGETS)
@@ -58,11 +57,14 @@ const entry = join(work, "entry.ts")
 writeFileSync(
   entry,
   [
-    `import { registerClaudeAgentSdkLoader } from ${JSON.stringify(library)}`,
+    `import { registerClaudeAgentSdkInstaller, registerClaudeAgentSdkLoader } from ${JSON.stringify(library)}`,
     `import { runCliMain } from ${JSON.stringify(cli)}`,
-    `import { agentSdkLoader } from ${JSON.stringify(join(root, "sidecar", "agentSdk.ts"))}`,
+    `import { agentSdkInstaller, agentSdkLoader } from ${JSON.stringify(join(root, "sidecar", "agentSdk.ts"))}`,
     "const directory = process.env.RUNRAIL_AGENT_SDK_DIR",
-    `if (directory !== undefined && directory.length > 0) registerClaudeAgentSdkLoader(agentSdkLoader(${JSON.stringify(pin)}, directory))`,
+    "if (directory !== undefined && directory.length > 0) {",
+    `  registerClaudeAgentSdkLoader(agentSdkLoader(${JSON.stringify(pin)}, directory))`,
+    `  registerClaudeAgentSdkInstaller(agentSdkInstaller(${JSON.stringify(pin)}, directory))`,
+    "}",
     "await runCliMain()",
     "",
   ].join("\n"),
@@ -73,7 +75,7 @@ const outfile = join(root, "src-tauri", "binaries", `runrail-${triple}${triple.i
 const build = Bun.spawn([process.execPath, "build", entry, "--compile", `--target=${bunTarget}`, "--outfile", outfile], { cwd: root, stdout: "inherit", stderr: "inherit" })
 const status = await build.exited
 if (status !== 0) process.exit(status)
-console.log(`sidecar built from ${runrail}: ${outfile} (fetches @anthropic-ai/claude-agent-sdk@${pin.version} on first use)`)
+console.log(`sidecar built from ${runrail}: ${outfile} (downloads @anthropic-ai/claude-agent-sdk@${pin.version} when allowed)`)
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
