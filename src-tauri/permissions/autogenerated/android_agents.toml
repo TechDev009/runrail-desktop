@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-agents"
+description = "Enables the android_agents command without any pre-configured scope."
+commands.allow = ["android_agents"]
+
+[[permission]]
+identifier = "deny-android-agents"
+description = "Denies the android_agents command without any pre-configured scope."
+commands.deny = ["android_agents"]

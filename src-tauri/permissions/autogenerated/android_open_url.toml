@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-open-url"
+description = "Enables the android_open_url command without any pre-configured scope."
+commands.allow = ["android_open_url"]
+
+[[permission]]
+identifier = "deny-android-open-url"
+description = "Denies the android_open_url command without any pre-configured scope."
+commands.deny = ["android_open_url"]

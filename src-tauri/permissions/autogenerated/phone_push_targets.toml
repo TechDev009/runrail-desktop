@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-phone-push-targets"
+description = "Enables the phone_push_targets command without any pre-configured scope."
+commands.allow = ["phone_push_targets"]
+
+[[permission]]
+identifier = "deny-phone-push-targets"
+description = "Denies the phone_push_targets command without any pre-configured scope."
+commands.deny = ["phone_push_targets"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-devices"
+description = "Enables the android_devices command without any pre-configured scope."
+commands.allow = ["android_devices"]
+
+[[permission]]
+identifier = "deny-android-devices"
+description = "Denies the android_devices command without any pre-configured scope."
+commands.deny = ["android_devices"]

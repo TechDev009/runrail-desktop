@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-phone-unshare"
+description = "Enables the phone_unshare command without any pre-configured scope."
+commands.allow = ["phone_unshare"]
+
+[[permission]]
+identifier = "deny-phone-unshare"
+description = "Denies the phone_unshare command without any pre-configured scope."
+commands.deny = ["phone_unshare"]

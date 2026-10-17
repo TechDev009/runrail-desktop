@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-preview-retain"
+description = "Enables the preview_retain command without any pre-configured scope."
+commands.allow = ["preview_retain"]
+
+[[permission]]
+identifier = "deny-preview-retain"
+description = "Denies the preview_retain command without any pre-configured scope."
+commands.deny = ["preview_retain"]

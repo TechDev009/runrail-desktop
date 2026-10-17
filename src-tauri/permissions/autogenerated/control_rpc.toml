@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-control-rpc"
+description = "Enables the control_rpc command without any pre-configured scope."
+commands.allow = ["control_rpc"]
+
+[[permission]]
+identifier = "deny-control-rpc"
+description = "Denies the control_rpc command without any pre-configured scope."
+commands.deny = ["control_rpc"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-phone-forget"
+description = "Enables the phone_forget command without any pre-configured scope."
+commands.allow = ["phone_forget"]
+
+[[permission]]
+identifier = "deny-phone-forget"
+description = "Denies the phone_forget command without any pre-configured scope."
+commands.deny = ["phone_forget"]

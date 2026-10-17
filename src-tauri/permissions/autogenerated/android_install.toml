@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-install"
+description = "Enables the android_install command without any pre-configured scope."
+commands.allow = ["android_install"]
+
+[[permission]]
+identifier = "deny-android-install"
+description = "Denies the android_install command without any pre-configured scope."
+commands.deny = ["android_install"]

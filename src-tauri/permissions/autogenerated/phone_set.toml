@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-phone-set"
+description = "Enables the phone_set command without any pre-configured scope."
+commands.allow = ["phone_set"]
+
+[[permission]]
+identifier = "deny-phone-set"
+description = "Denies the phone_set command without any pre-configured scope."
+commands.deny = ["phone_set"]

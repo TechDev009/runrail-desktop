@@ -1,0 +1,813 @@
+/* Reviews: the pull request list beside the rail, and the pull request it shows. */
+
+.reviews {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+.reviews-list {
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  flex: none;
+  min-height: 0;
+  background: var(--bg);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.reviews-list-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  height: var(--header-h);
+  /* The traffic lights overhang the rail by this much. */
+  padding: 0 var(--sp-8) 0 max(var(--sp-12), calc(var(--traffic-lights) - var(--rail-w) + var(--sp-12)));
+  flex: none;
+}
+
+.reviews-title {
+  flex: 1;
+  font-weight: 600;
+}
+
+.reviews-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  margin: 0 var(--sp-8) var(--sp-8);
+  padding: 0 var(--sp-8);
+  height: var(--control-h);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-3);
+  flex: none;
+}
+
+.reviews-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font-size: var(--fs-ui);
+}
+
+.reviews-search:focus-within {
+  box-shadow: 0 0 0 1px var(--accent-line);
+}
+
+.reviews-search-hint {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.reviews-groups {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--sp-6) var(--sp-8);
+}
+
+.reviews-group + .reviews-group {
+  margin-top: var(--sp-8);
+}
+
+.reviews-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.reviews-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  flex: 1;
+  height: var(--row-h);
+  padding: 0 var(--sp-6);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-align: left;
+}
+
+.reviews-group-toggle:hover {
+  color: var(--text-2);
+}
+
+.reviews-count {
+  min-width: 18px;
+  padding: 0 var(--sp-6);
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.reviews-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.reviews-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-6) var(--sp-8);
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
+
+.reviews-row:hover {
+  background: var(--surface-hover);
+}
+
+.reviews-row.is-active {
+  background: var(--surface-active);
+}
+
+.reviews-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+  font-size: var(--fs-ui);
+}
+
+.reviews-row-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.reviews-more,
+.reviews-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  padding: var(--sp-6) var(--sp-8);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.reviews-note.is-error {
+  color: var(--red);
+}
+
+.reviews-foot {
+  padding: var(--sp-8) var(--sp-12);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  flex: none;
+}
+
+.reviews-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 var(--sp-6);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.reviews-badge.tone-green {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.reviews-badge.tone-red {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.reviews-badge.tone-amber {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.reviews-badge.tone-purple {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.reviews-badge.tone-gray {
+  background: var(--surface-3);
+  color: var(--text-2);
+}
+
+.reviews-checks-icon {
+  display: inline-flex;
+}
+
+.reviews .tone-green {
+  color: var(--green);
+}
+
+.reviews .tone-red {
+  color: var(--red);
+}
+
+.reviews .tone-amber {
+  color: var(--amber);
+}
+
+.reviews .tone-purple {
+  color: var(--purple);
+}
+
+.reviews .tone-gray {
+  color: var(--text-3);
+}
+
+.reviews-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface);
+}
+
+.reviews-detail-top {
+  height: var(--sp-8);
+  flex: none;
+}
+
+.reviews-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  padding: 0 var(--sp-20);
+  border-bottom: 1px solid var(--border-subtle);
+  flex: none;
+}
+
+.reviews-bar-spacer {
+  flex: 1;
+}
+
+.reviews-add {
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+
+.reviews-del {
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+
+.reviews-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.reviews-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.reviews-summary {
+  display: flex;
+  gap: var(--sp-32);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sp-24) var(--sp-28);
+}
+
+.reviews-main {
+  flex: 1;
+  min-width: 0;
+  max-width: var(--column);
+}
+
+.reviews-kicker {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.reviews-heading {
+  margin: var(--sp-8) 0 var(--sp-6);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.reviews-byline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-20);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.reviews-byline code,
+.reviews-step code,
+.reviews-command code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+}
+
+.reviews-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-20);
+  width: 280px;
+  flex: none;
+}
+
+.reviews-side h2 {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-8);
+  margin-bottom: var(--sp-6);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.reviews-side .muted,
+.reviews-line {
+  font-size: var(--fs-sm);
+}
+
+.reviews-checks,
+.reviews-people {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  font-size: var(--fs-sm);
+}
+
+.reviews-checks li,
+.reviews-people li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+
+.reviews-checks li > :nth-child(2),
+.reviews-people li > :first-child {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.reviews-thread {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  width: 100%;
+  padding: var(--sp-6) var(--sp-8);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.reviews-thread:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.reviews-changes {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.reviews-files {
+  width: 260px;
+  flex: none;
+  overflow-y: auto;
+  padding: var(--sp-12) var(--sp-8);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.reviews-files-head {
+  padding: 0 var(--sp-6) var(--sp-8);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.reviews-dir + .reviews-dir {
+  margin-top: var(--sp-6);
+}
+
+.reviews-dir-name {
+  padding: var(--sp-2) var(--sp-6);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.reviews-file {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  width: 100%;
+  padding: var(--sp-4) var(--sp-6) var(--sp-4) var(--sp-16);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.reviews-file:hover {
+  background: var(--surface-hover);
+}
+
+.reviews-file.is-active {
+  background: var(--surface-active);
+}
+
+.reviews-file.is-viewed .reviews-file-name {
+  color: var(--text-3);
+}
+
+.reviews-file-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reviews-diffs {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: var(--sp-12) var(--sp-16) var(--sp-24);
+}
+
+.reviews-diff {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.reviews-diff-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  padding: var(--sp-4) var(--sp-8);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.reviews-diff-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  flex: 1;
+  min-width: 0;
+  height: var(--row-h);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+
+.reviews-diff-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+}
+
+.reviews-viewed {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.reviews-connect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-14);
+  width: calc(100% - var(--sp-48));
+  max-width: 540px;
+  margin: var(--sp-40) auto 0;
+}
+
+/* Connecting GitHub: one card with what Reviews does, the steps, and the one action. */
+.reviews-connect-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-20);
+  width: 100%;
+  padding: var(--sp-28) var(--sp-24) var(--sp-24);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, var(--surface-2)), var(--surface-2) 45%);
+  box-shadow: var(--edge-light);
+}
+
+.reviews-connect-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-8);
+  text-align: center;
+}
+
+.reviews-connect-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.reviews-connect-hero h1 {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.reviews-connect-hero p {
+  max-width: 46ch;
+  color: var(--text-3);
+  font-size: var(--fs-ui);
+  line-height: 1.55;
+}
+
+.reviews-steps {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.reviews-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-12);
+  padding: var(--sp-14) var(--sp-16);
+}
+
+.reviews-step + .reviews-step {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.reviews-step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.reviews-step.is-done .reviews-step-icon {
+  border-color: transparent;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.reviews-step.is-next .reviews-step-icon {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.reviews-step-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+  padding-top: var(--sp-2);
+}
+
+.reviews-step-title {
+  font-weight: 500;
+}
+
+.reviews-step.is-done .reviews-step-title {
+  color: var(--text-2);
+}
+
+.reviews-step-body {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.reviews-step-state {
+  flex: none;
+  padding-top: var(--sp-4);
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+.reviews-step.is-done .reviews-step-state {
+  color: var(--green);
+}
+
+.reviews-step.is-next .reviews-step-state {
+  color: var(--accent);
+}
+
+.reviews-command {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  margin-top: var(--sp-6);
+  width: fit-content;
+  padding: var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-10);
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.reviews-connect-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+}
+
+.reviews-connect-actions .btn {
+  justify-content: center;
+  width: 100%;
+  height: 38px;
+}
+
+.reviews-connect-foot {
+  color: var(--text-4);
+  font-size: var(--fs-xs);
+}
+
+/* A narrow window keeps the list and drops the status column under the description. */
+.app.is-narrow .reviews-list {
+  width: 260px;
+}
+
+.app.is-medium .reviews-summary {
+  flex-direction: column;
+}
+
+.app.is-medium .reviews-side {
+  width: auto;
+}
+
+/* The latest review of a pull request, above its description. */
+.review-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+  margin: var(--sp-12) 0 var(--sp-16);
+  padding: var(--sp-12);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.review-result-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+}
+
+.review-result-head h2 {
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+
+.review-result-note {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-8);
+  font-size: var(--fs-sm);
+}
+
+.review-result-summary {
+  color: var(--text-2);
+}
+
+.review-findings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  list-style: none;
+}
+
+.review-finding {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-8) var(--sp-10);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.review-finding.is-dismissed {
+  opacity: 0.55;
+}
+
+.review-finding-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-8);
+}
+
+.review-finding-title {
+  font-weight: 600;
+}
+
+.review-finding-where {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.review-finding-actions,
+.review-result-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+}
+
+.review-result-foot {
+  justify-content: flex-end;
+}
+
+.review-post {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+  max-height: 50vh;
+  overflow: auto;
+}
+
+.review-post h3 {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.review-post-comment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.review-post-text {
+  margin: 0;
+  padding: var(--sp-8);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

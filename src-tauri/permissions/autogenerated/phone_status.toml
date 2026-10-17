@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-phone-status"
+description = "Enables the phone_status command without any pre-configured scope."
+commands.allow = ["phone_status"]
+
+[[permission]]
+identifier = "deny-phone-status"
+description = "Denies the phone_status command without any pre-configured scope."
+commands.deny = ["phone_status"]

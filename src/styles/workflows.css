@@ -1,0 +1,271 @@
+/* Workflows: a trigger and a vertical list of steps with side branches. Shares the Agents layout. */
+
+.workflows .agents-detail .workflows-body {
+  max-width: 1040px;
+}
+
+.workflows-count {
+  margin-left: var(--sp-4);
+  color: var(--text-3);
+}
+
+.workflows-item-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflows-chip {
+  flex: none;
+  padding: 0 var(--sp-6);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  line-height: 18px;
+}
+
+.workflows-chip.is-on {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.workflows-proposal {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  padding: var(--sp-10) var(--sp-12);
+  border: 1px solid var(--amber);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.workflows-proposal p {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.workflows-head {
+  gap: var(--sp-8);
+}
+
+.workflows-head .agents-run-title {
+  align-self: stretch;
+}
+
+.workflows-head .agents-run-title .muted {
+  flex: none;
+}
+
+.workflows-name {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.workflows-name:focus-visible {
+  outline: none;
+  box-shadow: 0 1px 0 var(--accent-line);
+}
+
+.workflows-on {
+  gap: var(--sp-6);
+  font-size: var(--fs-sm);
+}
+
+.workflows-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--sp-20);
+  align-items: start;
+}
+
+.workflows-flow {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflows-flow > li {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The line between two cards. */
+.workflows-joint {
+  width: 1px;
+  height: var(--sp-16);
+  margin-left: var(--sp-20);
+  background: var(--border-subtle);
+}
+
+.workflows-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+}
+
+.workflows-card {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 420px;
+  max-width: 100%;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: var(--sp-8) var(--sp-12);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.workflows-card:hover {
+  background: var(--surface-hover);
+}
+
+.workflows-card.is-focus {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.workflows-card.is-trigger,
+.workflows-card.is-decision {
+  border-style: dashed;
+}
+
+.workflows-card.is-approval {
+  border-color: var(--amber);
+}
+
+.workflows-kind {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.workflows-card-title {
+  font-weight: 500;
+}
+
+.workflows-card-line {
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A decision's stop and a check's way back, to the side of the list. */
+.workflows-side {
+  display: inline-flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: var(--sp-4);
+  max-width: 260px;
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+}
+
+.workflows-branch {
+  margin: var(--sp-4) 0 0 calc(var(--sp-20) + var(--sp-6));
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.workflows-inspector {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+  padding: var(--sp-12);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+/* A workflow's link is shown once, so all of it stays in view. */
+.workflows-inspector .conn-command > code {
+  overflow-x: visible;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.workflows-runs {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--sp-16);
+  align-items: start;
+}
+
+.workflows-run-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workflows-run {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+  min-width: 0;
+}
+
+.workflows-message {
+  margin: 0;
+  padding: var(--sp-8);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.workflows-notices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-8) var(--sp-12);
+  border-left: 2px solid var(--accent-line);
+  font-size: var(--fs-sm);
+}
+
+.workflows-notices p {
+  margin: 0;
+}
+
+.workflows-opened {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+@media (max-width: 900px) {
+  .workflows-board,
+  .workflows-runs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workflows-inspector {
+    position: static;
+  }
+}

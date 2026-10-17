@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-quit-guard"
+description = "Enables the quit_guard command without any pre-configured scope."
+commands.allow = ["quit_guard"]
+
+[[permission]]
+identifier = "deny-quit-guard"
+description = "Denies the quit_guard command without any pre-configured scope."
+commands.deny = ["quit_guard"]

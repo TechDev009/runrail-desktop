@@ -1,0 +1,25 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "title": "Runrail",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 880,
+        "minHeight": 600,
+        "visible": false,
+        "resizable": true,
+        "decorations": true,
+        "transparent": false,
+        "backgroundThrottling": "disabled"
+      }
+    ]
+  },
+  "bundle": {
+    "publisher": "Runrail",
+    "license": "AGPL-3.0-only",
+    "shortDescription": "Desktop cockpit for coding agents",
+    "longDescription": "Runrail Desktop runs coding agents on a local, supervised Runrail engine: its own agent loop or Claude Code, Codex, GitHub Copilot and Pi, each thread in its own git worktree."
+  }
+}

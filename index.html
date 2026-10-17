@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0e1013" />
+    <meta name="description" content="Runrail desktop control cockpit" />
+    <title>Runrail</title>
+    <script>
+      // The splash takes the theme the app last applied, before any bundle loads; with none saved,
+      // the system's look decides (the media query in splash.css).
+      {
+        const root = document.documentElement
+        const key = "runrail.theme"
+        try {
+          const saved = localStorage.getItem(key)
+          if (saved === "dark" || saved === "light") root.dataset.splash = saved
+        } catch {
+          // Storage can be off; the system's look stands in.
+        }
+        new MutationObserver(() => {
+          const theme = root.dataset.theme
+          try {
+            if (theme === "dark" || theme === "light") localStorage.setItem(key, theme)
+          } catch {
+            // Next launch falls back to the system's look.
+          }
+        }).observe(root, { attributeFilter: ["data-theme"] })
+      }
+    </script>
+    <link rel="stylesheet" href="/splash.css" />
+  </head>
+
+  <body>
+    <div id="splash" role="status" aria-label="Loading Runrail" data-tauri-drag-region>
+      <div class="splash-icon" aria-hidden="true">
+        <img src="/runrail-icon.png" width="96" height="96" alt="" />
+        <span class="splash-pulse"></span>
+      </div>
+      <div aria-hidden="true">Runrail</div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

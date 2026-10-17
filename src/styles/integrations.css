@@ -1,0 +1,255 @@
+/* Integrations: connectors, MCP servers, who may use what, plugins and skills. Shares the Agents layout. */
+
+.integrations .agents-detail .integrations-body {
+  max-width: 1040px;
+}
+
+.integrations-item-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.integrations-count {
+  min-width: 18px;
+  padding: 0 var(--sp-6);
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.integrations-count.is-some {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.integrations-footnote {
+  margin-top: auto;
+  padding-top: var(--sp-16);
+}
+
+.integrations-head h1 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.integrations-head p {
+  max-width: 72ch;
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--sp-12);
+}
+
+/* A connector: its mark, what it does, how it signs in, and its actions in a footer. */
+.integrations-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+  min-width: 0;
+  padding: var(--sp-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  transition: border-color var(--t-fast) var(--ease);
+}
+
+.integrations-card:hover {
+  border-color: var(--border-strong);
+}
+
+.integrations-card.is-connected {
+  border-color: color-mix(in srgb, var(--green) 30%, var(--border));
+}
+
+.integrations-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-12);
+}
+
+.integrations-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--mark) 16%, transparent);
+  color: var(--mark);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  --mark: var(--text-2);
+}
+
+.integrations-logo.is-linear {
+  --mark: var(--purple);
+}
+
+.integrations-logo.is-slack {
+  --mark: var(--amber);
+}
+
+.integrations-logo.is-jira {
+  --mark: var(--blue);
+}
+
+.integrations-card.is-off .integrations-logo {
+  opacity: 0.7;
+}
+
+.integrations-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.integrations-card-title strong {
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+
+.integrations-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex: none;
+  height: 22px;
+  padding: 0 var(--sp-8);
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.integrations-state.is-ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.integrations-state.is-warn {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.integrations-does {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.integrations-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-8);
+  padding: var(--sp-8) var(--sp-10);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+}
+
+.integrations-line svg {
+  flex: none;
+  margin-top: var(--sp-2);
+}
+
+.integrations-line code {
+  font-family: var(--font-mono);
+}
+
+.integrations-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-6);
+  margin-top: auto;
+  padding-top: var(--sp-12);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.integrations-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+}
+
+.integrations-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.integrations-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.integrations-table th,
+.integrations-table td {
+  padding: var(--sp-8) var(--sp-14);
+  border-top: 1px solid var(--border-subtle);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.integrations-table thead th {
+  border-top: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.integrations-table tbody th {
+  font-weight: 500;
+}
+
+.integrations-table tr.is-off th {
+  color: var(--text-3);
+}
+
+.integrations-grant.is-read {
+  border-color: color-mix(in srgb, var(--blue) 40%, var(--border));
+  color: var(--blue);
+}
+
+.integrations-grant.is-ask {
+  border-color: color-mix(in srgb, var(--amber) 50%, var(--border));
+  color: var(--amber);
+}
+
+.integrations-grant.is-write {
+  border-color: color-mix(in srgb, var(--green) 40%, var(--border));
+  color: var(--green);
+}
+
+.integrations-grant.is-off {
+  border-style: dashed;
+  color: var(--text-3);
+}
+
+.integrations-extensions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+}

@@ -1,0 +1,76 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Secrets, keys, and signing material (updater key, Developer ID .p12, App Store Connect .p8)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+
+# Runrail
+src-tauri/binaries/
+.tmp-*/
+coverage/
+.code-review-graph/
+# Generated per release from the environment (scripts/release.ts)
+src-tauri/tauri.release.conf.json
+release/
+
+# Compiled measurement tools (scripts/perf)
+scripts/perf/coldstart
+scripts/perf/framebench
+
+# Local tool caches
+.serena/
+
+# Local runtime state
+.runrail/
+
+# Plans and working notes stay on this machine
+.pi/
+.planning/
+/*PLAN*.md
+/*_report.md
+# Files under docs/ stay local unless listed here.
+/docs/*
+!/docs/FEATURES.md
+!/docs/LINUX.md
+!/docs/PERFORMANCE.md
+!/docs/RELEASE.md
+
+# Personal coding-agent settings (code-review-graph hooks, editor rules)
+.claude/
+.cursor/
+.kiro/
+/.mcp.json
+/.opencode.json
+/.cursorrules
+/.windsurfrules
+/CLAUDE.md
+/GEMINI.md

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-startup-ready"
+description = "Enables the startup_ready command without any pre-configured scope."
+commands.allow = ["startup_ready"]
+
+[[permission]]
+identifier = "deny-startup-ready"
+description = "Denies the startup_ready command without any pre-configured scope."
+commands.deny = ["startup_ready"]

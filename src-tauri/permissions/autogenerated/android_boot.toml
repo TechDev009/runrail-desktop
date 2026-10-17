@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-boot"
+description = "Enables the android_boot command without any pre-configured scope."
+commands.allow = ["android_boot"]
+
+[[permission]]
+identifier = "deny-android-boot"
+description = "Denies the android_boot command without any pre-configured scope."
+commands.deny = ["android_boot"]

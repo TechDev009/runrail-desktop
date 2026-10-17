@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-simulator-shutdown"
+description = "Enables the simulator_shutdown command without any pre-configured scope."
+commands.allow = ["simulator_shutdown"]
+
+[[permission]]
+identifier = "deny-simulator-shutdown"
+description = "Denies the simulator_shutdown command without any pre-configured scope."
+commands.deny = ["simulator_shutdown"]

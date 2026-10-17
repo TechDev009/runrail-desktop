@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-background-hold"
+description = "Enables the background_hold command without any pre-configured scope."
+commands.allow = ["background_hold"]
+
+[[permission]]
+identifier = "deny-background-hold"
+description = "Denies the background_hold command without any pre-configured scope."
+commands.deny = ["background_hold"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-state-load"
+description = "Enables the state_load command without any pre-configured scope."
+commands.allow = ["state_load"]
+
+[[permission]]
+identifier = "deny-state-load"
+description = "Denies the state_load command without any pre-configured scope."
+commands.deny = ["state_load"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-thread-forget"
+description = "Enables the thread_forget command without any pre-configured scope."
+commands.allow = ["thread_forget"]
+
+[[permission]]
+identifier = "deny-thread-forget"
+description = "Denies the thread_forget command without any pre-configured scope."
+commands.deny = ["thread_forget"]

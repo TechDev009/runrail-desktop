@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-remove"
+description = "Enables the remote_remove command without any pre-configured scope."
+commands.allow = ["remote_remove"]
+
+[[permission]]
+identifier = "deny-remote-remove"
+description = "Denies the remote_remove command without any pre-configured scope."
+commands.deny = ["remote_remove"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-control-health"
+description = "Enables the control_health command without any pre-configured scope."
+commands.allow = ["control_health"]
+
+[[permission]]
+identifier = "deny-control-health"
+description = "Denies the control_health command without any pre-configured scope."
+commands.deny = ["control_health"]

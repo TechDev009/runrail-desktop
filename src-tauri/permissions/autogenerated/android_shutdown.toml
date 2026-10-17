@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-shutdown"
+description = "Enables the android_shutdown command without any pre-configured scope."
+commands.allow = ["android_shutdown"]
+
+[[permission]]
+identifier = "deny-android-shutdown"
+description = "Denies the android_shutdown command without any pre-configured scope."
+commands.deny = ["android_shutdown"]

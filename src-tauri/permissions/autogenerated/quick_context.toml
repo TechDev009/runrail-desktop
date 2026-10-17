@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-quick-context"
+description = "Enables the quick_context command without any pre-configured scope."
+commands.allow = ["quick_context"]
+
+[[permission]]
+identifier = "deny-quick-context"
+description = "Denies the quick_context command without any pre-configured scope."
+commands.deny = ["quick_context"]

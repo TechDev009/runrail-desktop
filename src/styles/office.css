@@ -1,0 +1,1810 @@
+/* Office mode: rooms for projects, people for threads, and the open thread in a drawer. */
+
+.office {
+  --drawer-w: 640px;
+
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.office-floor {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+/* One compact header: title, counts, filters, Today, Waiting, Office/List. */
+.office-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8) var(--sp-12);
+  min-height: var(--header-h);
+  padding: 0 var(--sp-12) 0 var(--sp-16);
+  border-bottom: 1px solid var(--border-subtle);
+  flex: none;
+}
+
+/* The thread header's rule for the macOS traffic lights, for the floor's header. */
+.app.has-rail .office-header {
+  padding-left: max(var(--sp-12), calc(var(--traffic-lights) - var(--rail-w) + var(--sp-12)));
+}
+
+.office-title {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+
+/* The chips carry the same counts, so the summary gives way first. */
+.office-summary {
+  flex: 0 100 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.office-spacer {
+  flex: 1;
+  align-self: stretch;
+}
+
+.office-scroll {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--sp-14);
+  min-height: 0;
+  padding: var(--sp-14) var(--sp-16) var(--sp-24);
+  overflow-y: auto;
+}
+
+/* The chips scroll sideways rather than wrap, so the header keeps one row on a narrow floor. */
+.office-filters {
+  display: flex;
+  flex: 0 1 auto;
+  gap: var(--sp-4);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.office-filters::-webkit-scrollbar {
+  display: none;
+}
+
+.office-filter {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-6);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.office-filter:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.office-filter[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+
+.office-filter-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-4);
+}
+
+.office-filter.is-work .office-filter-dot {
+  background: var(--blue);
+}
+
+.office-filter.is-ask .office-filter-dot {
+  background: var(--amber);
+}
+
+.office-filter.is-fail .office-filter-dot {
+  background: var(--red);
+}
+
+.office-filter.is-done .office-filter-dot {
+  background: var(--green);
+}
+
+.office-filter-count {
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+@container (max-width: 1180px) {
+  .office-summary {
+    display: none;
+  }
+}
+
+.office-rooms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
+  align-items: start;
+  gap: var(--sp-14);
+}
+
+.room {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--px-floor);
+  overflow: hidden;
+  container-type: inline-size;
+}
+
+/* The wall: the room's name plate on the left, what hangs on the wall and "+" on the right. */
+.room-wall {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-12);
+  position: relative;
+  min-height: 80px;
+  padding: var(--sp-10) var(--sp-10) var(--sp-10) var(--sp-16);
+  border-bottom: 3px solid var(--wall-edge);
+  background: var(--wall);
+}
+
+/* Fuji's wisteria hangs from the top of the wall, behind the name plate. */
+.room-wisteria {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  justify-content: space-around;
+  pointer-events: none;
+}
+
+.room-wisteria svg {
+  display: block;
+  shape-rendering: crispEdges;
+}
+
+.room-plate,
+.room-wall-end {
+  position: relative;
+}
+
+.room-plate {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+  padding-bottom: var(--sp-2);
+}
+
+.room-wall-end {
+  display: flex;
+  flex: none;
+  align-items: flex-end;
+  gap: var(--sp-8);
+}
+
+.room-props {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-10);
+}
+
+/* A narrower room hangs less: the shelf goes first, then a poster beside a window, then all but the plant. */
+@container (max-width: 600px) {
+  .room-props .px-prop-shelf {
+    display: none;
+  }
+}
+
+@container (max-width: 480px) {
+  .room-props:has(.px-prop-window) .px-prop-poster {
+    display: none;
+  }
+}
+
+@container (max-width: 380px) {
+  .room-props .px-prop-window,
+  .room-props .px-prop-poster {
+    display: none;
+  }
+}
+
+.px-prop {
+  display: block;
+  shape-rendering: crispEdges;
+}
+
+.px-wood {
+  fill: var(--px-wood);
+}
+
+.px-book-1 {
+  fill: var(--px-book-1);
+}
+
+.px-book-2 {
+  fill: var(--px-book-2);
+}
+
+.px-book-3 {
+  fill: var(--px-book-3);
+}
+
+.px-book-4 {
+  fill: var(--px-book-4);
+}
+
+.px-book-5 {
+  fill: var(--px-book-5);
+}
+
+.px-glass {
+  fill: var(--px-glass);
+}
+
+.px-sky {
+  fill: var(--px-sky);
+}
+
+.px-sky-2 {
+  fill: var(--px-sky-2);
+}
+
+.px-star {
+  fill: var(--px-star);
+}
+
+.px-cloud {
+  fill: var(--px-cloud);
+}
+
+.px-sill {
+  fill: var(--wall-edge);
+}
+
+.px-poster {
+  fill: var(--accent);
+}
+
+.px-poster-ink {
+  fill: var(--bg);
+}
+
+.px-poster-card {
+  fill: var(--surface);
+}
+
+.px-leaf {
+  fill: var(--px-leaf);
+}
+
+.px-leaf-dark {
+  fill: var(--px-leaf-dark);
+}
+
+.px-pot {
+  fill: var(--px-pot);
+}
+
+.px-pot-rim {
+  fill: var(--px-pot-rim);
+}
+
+/* The window shows the night in the dark theme and the day in the light one. */
+.px-day {
+  display: none;
+}
+
+:root[data-theme="light"] .px-day {
+  display: inline;
+}
+
+:root[data-theme="light"] .px-night {
+  display: none;
+}
+
+.room-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-3);
+}
+
+.room-add:hover {
+  border-style: solid;
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.room-name-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  min-width: 0;
+}
+
+.room-lamp {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-xs);
+  background: var(--text-4);
+  flex: none;
+}
+
+.room-lamp.is-work {
+  background: var(--blue);
+}
+
+.room-lamp.is-ask {
+  background: var(--amber);
+}
+
+.room-lamp.is-fail {
+  background: var(--red);
+}
+
+.room-name {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-msg);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-branch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: 20px;
+  padding: 0 var(--sp-6);
+  border-radius: var(--radius-xs);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+/* One line, cut with an ellipsis: the people below carry the same facts. */
+.room-meta {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.room-meta > span + span::before {
+  content: "·";
+  margin: 0 var(--sp-6);
+  color: var(--text-4);
+  font-weight: 400;
+}
+
+.room-meta .is-ask {
+  color: var(--amber);
+  font-weight: 500;
+}
+
+.room-meta .is-fail {
+  color: var(--red);
+  font-weight: 500;
+}
+
+.room-plan {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  font-variant-numeric: tabular-nums;
+}
+
+.room-plan-bar {
+  width: 44px;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  overflow: hidden;
+}
+
+.room-plan-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+}
+
+.room-floor {
+  --px-floor-tile: color-mix(in srgb, var(--px-floor-dot) 60%, transparent);
+
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-6);
+  min-height: 190px;
+  padding: var(--sp-12) var(--sp-10) var(--sp-10);
+  background-color: var(--px-floor);
+  background-image:
+    linear-gradient(45deg, var(--px-floor-tile) 25%, transparent 25%, transparent 75%, var(--px-floor-tile) 75%),
+    linear-gradient(45deg, var(--px-floor-tile) 25%, transparent 25%, transparent 75%, var(--px-floor-tile) 75%);
+  background-position:
+    0 0,
+    14px 14px;
+  background-size: 28px 28px;
+}
+
+/* Matcha's tea house lays tatami: long mats with a seam down the middle. */
+:root[data-palette="matcha"] .room-floor {
+  background-image:
+    linear-gradient(90deg, transparent 0 calc(50% - 1px), var(--px-floor-dot) calc(50% - 1px) calc(50% + 1px), transparent calc(50% + 1px)),
+    linear-gradient(0deg, transparent 0 calc(100% - 2px), var(--px-floor-dot) calc(100% - 2px));
+  background-position: 0 0;
+  background-size: 112px 56px;
+}
+
+.room-empty {
+  margin: auto;
+  color: var(--text-4);
+  font-size: var(--fs-sm);
+}
+
+.room-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-6);
+  width: 118px;
+  height: 160px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.room-more:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+/* A flower palette's plant ends the floor (ui/seasonal.tsx); on a full row it wraps to the next. */
+.room-plant {
+  display: block;
+  flex: none;
+  margin-left: auto;
+  shape-rendering: crispEdges;
+}
+
+.room-group {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: var(--sp-8);
+  min-width: 0;
+  padding: var(--sp-8) var(--sp-8) var(--sp-8) var(--sp-10);
+  border-radius: var(--radius);
+  background: var(--purple-soft);
+}
+
+.room-group > svg {
+  color: var(--purple);
+  flex: none;
+}
+
+.room-group-label {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.room-group-sub {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A person: the scene is pixel art; everything around it is the app's own type and icons. */
+.person {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-6);
+  width: 118px;
+  padding: var(--sp-20) var(--sp-4) var(--sp-4);
+  border-radius: var(--radius);
+  transition:
+    background var(--t-fast) var(--ease),
+    opacity var(--t) var(--ease);
+}
+
+.person:hover {
+  background: var(--surface-hover);
+}
+
+.person.is-selected {
+  background: var(--surface-hover);
+  box-shadow: inset 0 0 0 1.5px var(--border-strong);
+}
+
+.person.is-dimmed {
+  opacity: 0.28;
+}
+
+/* One glyph in the tone's color over the head: ··· working, ? needs you, ! failed, a check done, z idle. */
+.person-bubble {
+  --tone: var(--text-3);
+
+  position: absolute;
+  top: var(--sp-4);
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 var(--sp-6);
+  border: 1px solid color-mix(in srgb, var(--tone) 40%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--tone) 15%, var(--px-floor));
+  color: var(--tone);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.person.is-work .person-bubble {
+  --tone: var(--blue);
+}
+
+.person.is-ask .person-bubble {
+  --tone: var(--amber);
+}
+
+.person.is-fail .person-bubble {
+  --tone: var(--red);
+}
+
+.person.is-done .person-bubble {
+  --tone: var(--green);
+}
+
+.person-scene {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  height: 86px;
+  margin-top: var(--sp-8);
+}
+
+.px-scene {
+  display: block;
+  overflow: visible;
+}
+
+.person[data-pose="offline"] .px-scene {
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.px rect,
+.px-helper rect {
+  shape-rendering: crispEdges;
+}
+
+.px-shadow {
+  fill: var(--px-shadow);
+}
+
+.px-chair {
+  fill: var(--px-chair);
+}
+
+.px-desk-top {
+  fill: var(--px-desk-top);
+}
+
+.px-desk-front {
+  fill: var(--px-desk-front);
+}
+
+.px-desk-leg {
+  fill: var(--px-desk-leg);
+}
+
+.px-laptop {
+  fill: var(--px-laptop);
+}
+
+.px-laptop-base {
+  fill: var(--px-laptop-base);
+}
+
+.px-mug {
+  fill: var(--px-mug);
+}
+
+.px-tea {
+  fill: var(--px-tea);
+}
+
+.px-steam {
+  fill: var(--px-steam);
+  opacity: 0.6;
+}
+
+.px-acc-1 {
+  fill: var(--px-acc-1);
+}
+
+.px-acc-2 {
+  fill: var(--px-acc-2);
+}
+
+.px-acc-3 {
+  fill: var(--px-acc-3);
+}
+
+.px-paper {
+  fill: var(--px-paper);
+}
+
+.px-eye {
+  fill: var(--px-eye);
+}
+
+.px-glow {
+  fill: var(--text-4);
+}
+
+.person.is-work .px-glow {
+  fill: var(--blue);
+}
+
+.person.is-ask .px-glow {
+  fill: var(--amber);
+}
+
+.person.is-fail .px-glow {
+  fill: var(--red);
+}
+
+.person.is-done .px-glow {
+  fill: var(--green);
+}
+
+.px-helper-hair {
+  fill: var(--px-hair-1);
+}
+
+.px-helper-shirt {
+  fill: var(--px-helper);
+}
+
+.px-helper-legs {
+  fill: var(--px-helper-legs);
+}
+
+.person-helpers {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-20);
+}
+
+.person-helpers-more {
+  color: var(--purple);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+/* Above the weather, which falls past the desks but never across a name. */
+.person-tag {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-6) var(--sp-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  text-align: left;
+}
+
+.person-title {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+.person-unread {
+  width: 6px;
+  height: 6px;
+  margin-top: var(--sp-4);
+  border-radius: 50%;
+  background: var(--blue);
+  flex: none;
+}
+
+/* Two lines, kept for every plate so a row of people lines up; the button's tooltip has the whole title. */
+.person-name {
+  display: -webkit-box;
+  min-height: 2.6em;
+  overflow: hidden;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.person-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-width: 0;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.person-model {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.person-context {
+  width: 18px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  overflow: hidden;
+  flex: none;
+}
+
+.person-context > span {
+  display: block;
+  height: 100%;
+  background: var(--text-2);
+}
+
+.person-context.is-filling > span {
+  background: var(--amber);
+}
+
+.person-context.is-full > span {
+  background: var(--red);
+}
+
+.person-flags {
+  display: inline-flex;
+  gap: var(--sp-2);
+  margin-left: auto;
+  flex: none;
+}
+
+/*
+ * Poses. Only work moves, on the floor's one clock: a room's data-a, data-b, and data-c flip every
+ * 250 ms, 500 ms, and 1 s, and are absent while the room is out of view, the window is hidden, or
+ * motion is reduced. Only transform and opacity change. In SVG a px is one pixel-art cell.
+ */
+.room[data-b="1"] .person[data-pose="typing"] .px-body,
+.room[data-a="1"] .person[data-pose="typing"] .px-hand-left,
+.room[data-a="0"] .person[data-pose="typing"] .px-hand-right,
+.room[data-c="1"] .person:is([data-pose="reading"], [data-pose="browsing"], [data-pose="running"]) .px-body,
+.room[data-b="1"][data-c="1"] .person[data-pose="thinking"] .px-body,
+.room[data-a="1"] .person[data-pose="delegating"] .px-helper:nth-child(1),
+.room[data-a="0"] .person[data-pose="delegating"] .px-helper:nth-child(2),
+.room[data-b="1"] .person[data-pose="delegating"] .px-helper:nth-child(3),
+.room[data-a="1"] .person[data-pose="raised"] .px-wave {
+  transform: translateY(-1px);
+}
+
+.room[data-b="1"] .person[data-pose="running"] .px-glow {
+  opacity: 0.35;
+}
+
+.room[data-b="1"] .person[data-pose="raised"] .person-bubble {
+  transform: translate(-50%, -3px);
+}
+
+/* A working person's dots breathe on the same clock. */
+.room[data-b="1"] .person.is-work .person-bubble {
+  opacity: 0.55;
+}
+
+/*
+ * Sakura's petals fall a cell a beat on the same clock, eight beats from the canopy, drifting a cell
+ * sideways halfway down. When the clock stops, motion reduced included, they rest where they are.
+ */
+.room[data-a="1"] .room-plant {
+  --beat-a: 1;
+}
+
+.room[data-b="1"] .room-plant {
+  --beat-b: 2;
+}
+
+.room[data-c="1"] .room-plant {
+  --beat-c: 4;
+}
+
+.px-petal {
+  --petal: 0;
+  --fall: mod(var(--beat-a, 0) + var(--beat-b, 0) + var(--beat-c, 0) + var(--petal), 8);
+  transform: translate(calc(round(down, var(--fall) / 4, 1) * 1px), calc(var(--fall) * 1px));
+}
+
+/* Steam rises off a cup in puffs, one wisp a beat, on the same clock. */
+.room[data-b="1"] .px-steam-1,
+.room[data-b="0"] .px-steam-2 {
+  opacity: 0.15;
+}
+
+.room[data-a="1"] .px-steam {
+  transform: translateY(-1px);
+}
+
+/* Sakura's night hangs a paper lantern on the wall; it brightens and dims on the clock. */
+.room-lantern {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: var(--sp-16);
+}
+
+:root[data-theme="light"] .room-lantern {
+  display: none;
+}
+
+.room-lantern-cord {
+  width: 1px;
+  height: 8px;
+  background: var(--px-lantern-cord);
+}
+
+.room-lantern-light {
+  width: 12px;
+  height: 16px;
+  border-radius: var(--radius-xs);
+  background: var(--px-lantern);
+  box-shadow: 0 0 14px 4px var(--px-lantern-glow);
+  opacity: 0.8;
+}
+
+.room[data-c="1"] .room-lantern-light {
+  opacity: 1;
+}
+
+/*
+ * The palette's weather (Weather.tsx) falls over the floor and takes no clicks. It runs
+ * only while the room's clock does, so it holds still off screen and in a hidden window, and it is
+ * not drawn at all with reduced motion. Only transform and opacity change.
+ */
+.room-weather {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 1;
+  height: 270px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.fx {
+  /* Where each flake falls and how long it takes come from Weather.tsx. */
+  --fx-x: 50%;
+  --fx-s: 10s;
+  --fx-d: 0s;
+
+  position: absolute;
+  top: -14px;
+  left: var(--fx-x);
+  width: 6px;
+  height: 5px;
+  border-radius: var(--radius-petal);
+  opacity: 0;
+  animation-duration: var(--fx-s);
+  animation-timing-function: linear;
+  animation-delay: var(--fx-d);
+  animation-iteration-count: infinite;
+  animation-play-state: paused;
+}
+
+.room[data-a] .fx {
+  animation-play-state: running;
+}
+
+.fx.is-big {
+  width: 7px;
+  height: 6px;
+}
+
+.fx-tone-1 {
+  background: var(--fx-1);
+}
+
+.fx-tone-2 {
+  background: var(--fx-2);
+}
+
+.fx-tone-3 {
+  background: var(--fx-3);
+}
+
+.fx-tone-snow {
+  background: var(--fx-snow);
+}
+
+.fx-sway {
+  animation-name: fx-sway;
+}
+
+.fx-leaf {
+  width: 7px;
+  height: 4px;
+  border-radius: var(--radius-leaf);
+  animation-name: fx-sway;
+}
+
+.fx-rain {
+  width: 1px;
+  height: 10px;
+  border-radius: var(--radius-hair);
+  animation-name: fx-rain;
+}
+
+.fx-snow,
+.fx-snow.is-big {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  animation-name: fx-snow;
+}
+
+.fx-snow.is-big {
+  width: 4px;
+  height: 4px;
+}
+
+/* Dust drifts up through the lamplight on the default palette's night; by day there is none. */
+.fx-rise,
+.fx-rise.is-big {
+  top: auto;
+  bottom: 6px;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  animation-name: fx-rise;
+}
+
+:root[data-theme="light"] .fx-rise {
+  display: none;
+}
+
+@keyframes fx-sway {
+  0% {
+    transform: translate(0, -14px) rotate(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: 0.95;
+  }
+  25% {
+    transform: translate(16px, 60px) rotate(70deg);
+  }
+  50% {
+    transform: translate(-8px, 125px) rotate(150deg);
+  }
+  75% {
+    transform: translate(14px, 190px) rotate(230deg);
+  }
+  92% {
+    opacity: 0.9;
+  }
+  100% {
+    transform: translate(2px, 262px) rotate(310deg);
+    opacity: 0;
+  }
+}
+
+@keyframes fx-rain {
+  0% {
+    transform: translate(0, -20px);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translate(-34px, 270px);
+    opacity: 0.15;
+  }
+}
+
+@keyframes fx-snow {
+  0% {
+    transform: translate(0, -10px);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.95;
+  }
+  50% {
+    transform: translate(10px, 125px);
+  }
+  100% {
+    transform: translate(-6px, 262px);
+    opacity: 0;
+  }
+}
+
+@keyframes fx-rise {
+  0% {
+    transform: translate(0, 0);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(8px, -160px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .room-weather {
+    display: none;
+  }
+}
+
+/* The open thread beside the floor; it takes the whole width when expanded or beside the side panel. */
+.office-drawer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: var(--drawer-w);
+  max-width: 70%;
+  min-width: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+  flex: none;
+}
+
+.office-drawer.is-wide {
+  width: auto;
+  max-width: none;
+  border-left: 0;
+  flex: 1;
+}
+
+.office-drawer > .thread-view {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Game layer: the level chip, today's quests, quest files, and the shift report. */
+
+.meter {
+  position: relative;
+  flex-shrink: 0;
+  width: 48px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+}
+
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--amber);
+}
+
+.meter.is-done > span {
+  background: var(--green);
+}
+
+.level-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.level-chip:hover {
+  background: var(--surface-hover);
+}
+
+.level-chip-icon {
+  color: var(--amber);
+}
+
+.level-chip-level {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.level-chip-xp {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.quest-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+  min-width: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.quest-meter-icon {
+  display: inline-flex;
+  color: var(--text-3);
+}
+
+.quest-meter.is-done .quest-meter-icon {
+  color: var(--green);
+}
+
+.quest-meter-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.quest-meter-count {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.today-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  height: var(--control-h-sm);
+  padding: 0 var(--sp-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.today-pill:hover,
+.today-pill.is-active {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.today-pill-icon {
+  color: var(--amber);
+}
+
+.today-pill .meter {
+  width: 40px;
+  height: 3px;
+}
+
+.today-pill-count {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+/* A repository's quest file is waiting in the panel. */
+.today-pill-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.today-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-12);
+  padding: var(--sp-12);
+}
+
+.today-quests {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-10);
+  width: 100%;
+}
+
+.today-quests .quest-meter {
+  display: flex;
+}
+
+.today-quests .quest-meter-title {
+  flex: 1;
+}
+
+.today-body .quest-notice {
+  width: 100%;
+}
+
+.quest-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+  padding: var(--sp-8) var(--sp-10) var(--sp-8) var(--sp-14);
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+  border-radius: var(--radius-lg);
+  background: var(--amber-soft);
+  font-size: var(--fs-sm);
+}
+
+.quest-notice.is-invalid {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
+.quest-notice-icon {
+  flex-shrink: 0;
+  color: var(--amber);
+}
+
+.quest-notice-text {
+  flex-grow: 1;
+  min-width: 0;
+  color: var(--text-2);
+}
+
+.quest-notice-text strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.quest-badge {
+  flex-shrink: 0;
+  padding: var(--sp-2) var(--sp-8);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.quest-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-14);
+}
+
+.quest-dialog-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.quest-dialog-season {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.quest-dialog-meta,
+.quest-dialog-edits {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.quest-dialog-edits {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  margin-top: var(--sp-4);
+}
+
+.quest-dialog-note {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-ui);
+}
+
+.quest-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  list-style: none;
+}
+
+.quest-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  padding: var(--sp-10) var(--sp-14);
+}
+
+.quest-list-item + .quest-list-item {
+  border-top: 1px solid var(--border);
+}
+
+.quest-list-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+.quest-list-text {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.quest-list-title {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.quest-list-rule {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.quest-list-xp {
+  flex-shrink: 0;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.shift {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-16);
+}
+
+.shift-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-16);
+}
+
+.shift-date {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.shift-level {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  padding: var(--sp-10) var(--sp-14);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.shift-level-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius);
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.shift-level-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 180px;
+}
+
+.shift-level-text .meter {
+  width: 100%;
+}
+
+.shift-level-name {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.shift-level-rank {
+  margin-left: var(--sp-4);
+  color: var(--text-2);
+  font-size: var(--fs-ui);
+  font-weight: 400;
+}
+
+.shift-level-next {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.shift-empty {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.shift-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--sp-10);
+}
+
+.shift-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-12) var(--sp-14);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.shift-card-value {
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.shift-card-label {
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.shift-card-detail {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.shift-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-10);
+}
+
+.shift-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+
+.shift-section-count {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+}
+
+.shift-quest-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+}
+
+.shift-quest-source {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.shift-quests {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--sp-10) var(--sp-16);
+}
+
+.shift-lessons {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-10);
+}
+
+.shift-lesson {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-10) var(--sp-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  font-size: var(--fs-sm);
+}
+
+.shift-lesson-title {
+  font-weight: 500;
+}
+
+.shift-lesson-body {
+  color: var(--text-2);
+  line-height: var(--lh-ui);
+}
+
+.shift-lesson-body code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+}
+
+/* Peek card: a thread's state beside its person; "Open thread" moves it to the drawer. */
+.peek-card {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  width: 340px;
+  max-width: calc(100% - var(--sp-16));
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xl);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-3);
+  overflow: hidden;
+  animation: peek-in var(--t) var(--ease);
+}
+
+.peek-card:focus {
+  outline: none;
+}
+
+.peek-card:focus-visible {
+  box-shadow: var(--shadow-3), 0 0 0 2px var(--focus);
+}
+
+@keyframes peek-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .peek-card {
+    animation: none;
+  }
+}
+
+.peek-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  padding: var(--sp-10) var(--sp-10) 0 var(--sp-14);
+}
+
+.peek-status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  padding: var(--sp-2) var(--sp-8);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.peek-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.peek-time {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+
+.peek-spacer {
+  flex: 1;
+}
+
+.peek-title {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-10) var(--sp-14) 0;
+  min-width: 0;
+}
+
+.peek-name {
+  font-size: var(--fs-msg);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.peek-meta {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.peek-reply {
+  display: -webkit-box;
+  margin: var(--sp-10) var(--sp-14) 0;
+  color: var(--text-2);
+  font-size: var(--fs-ui);
+  line-height: 1.5;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.peek-approval {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+  margin: var(--sp-12) var(--sp-14) 0;
+  padding: var(--sp-10);
+  border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--amber) 9%, transparent);
+}
+
+.peek-approval-question {
+  color: var(--amber);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.peek-approval-detail {
+  display: block;
+  max-height: 72px;
+  padding: var(--sp-6) var(--sp-8);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.peek-actions {
+  display: flex;
+  gap: var(--sp-6);
+}
+
+.peek-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-8);
+  margin: var(--sp-12) var(--sp-14) 0;
+  padding: var(--sp-8) var(--sp-10);
+  border: 1px solid color-mix(in srgb, var(--red) 30%, transparent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--red) 11%, transparent);
+  color: var(--red);
+  font-size: var(--fs-sm);
+}
+
+.peek-compose {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  margin: var(--sp-12);
+  padding: var(--sp-6) var(--sp-6) var(--sp-6) var(--sp-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.peek-compose:focus-within {
+  border-color: var(--border-strong);
+}
+
+.peek-compose input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-ui);
+  outline: none;
+}
+
+.peek-compose input::placeholder {
+  color: var(--text-4);
+}
+
+.peek-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  cursor: pointer;
+}
+
+.peek-send:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-auth-open"
+description = "Enables the auth_open command without any pre-configured scope."
+commands.allow = ["auth_open"]
+
+[[permission]]
+identifier = "deny-auth-open"
+description = "Denies the auth_open command without any pre-configured scope."
+commands.deny = ["auth_open"]

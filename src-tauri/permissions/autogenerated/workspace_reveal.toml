@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-reveal"
+description = "Enables the workspace_reveal command without any pre-configured scope."
+commands.allow = ["workspace_reveal"]
+
+[[permission]]
+identifier = "deny-workspace-reveal"
+description = "Denies the workspace_reveal command without any pre-configured scope."
+commands.deny = ["workspace_reveal"]

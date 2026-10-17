@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-simulator-open-url"
+description = "Enables the simulator_open_url command without any pre-configured scope."
+commands.allow = ["simulator_open_url"]
+
+[[permission]]
+identifier = "deny-simulator-open-url"
+description = "Denies the simulator_open_url command without any pre-configured scope."
+commands.deny = ["simulator_open_url"]

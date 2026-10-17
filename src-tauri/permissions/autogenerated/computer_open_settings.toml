@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-computer-open-settings"
+description = "Enables the computer_open_settings command without any pre-configured scope."
+commands.allow = ["computer_open_settings"]
+
+[[permission]]
+identifier = "deny-computer-open-settings"
+description = "Denies the computer_open_settings command without any pre-configured scope."
+commands.deny = ["computer_open_settings"]

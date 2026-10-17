@@ -1,0 +1,152 @@
+/* Evals: suites from the project's history and the scores of setups on them. Shares the Agents layout. */
+
+.evals-cases {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.evals-case {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  min-width: 0;
+  padding: var(--sp-6) var(--sp-10);
+  font-size: var(--fs-sm);
+}
+
+.evals-case + .evals-case {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.evals-case-id {
+  flex: none;
+  color: var(--text-2);
+}
+
+.evals-case-tests {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-3);
+}
+
+.evals-verdict {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-xs);
+}
+
+.evals-limit,
+.evals-name {
+  flex: 0 1 220px;
+}
+
+.evals-setup {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  font-size: var(--fs-sm);
+}
+
+.evals-board,
+.evals-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.evals-board th,
+.evals-board td,
+.evals-grid th,
+.evals-grid td {
+  padding: var(--sp-6) var(--sp-8);
+  text-align: left;
+  font-weight: 400;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.evals-board thead th,
+.evals-grid thead th {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.evals-board tbody th {
+  font-weight: 500;
+}
+
+.evals-best {
+  margin-left: var(--sp-6);
+  padding: 1px var(--sp-6);
+  color: var(--green);
+  background: var(--green-soft);
+  border-radius: var(--radius-xs);
+  font-size: var(--fs-xs);
+}
+
+.evals-rate {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+}
+
+.evals-rate-bar {
+  display: inline-block;
+  width: 72px;
+  height: 6px;
+  overflow: hidden;
+  background: var(--accent-soft);
+  border-radius: var(--radius-hair);
+}
+
+.evals-rate-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+}
+
+.evals-cell {
+  display: inline-flex;
+  gap: var(--sp-4);
+}
+
+.evals-job {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  color: var(--text-3);
+  background: var(--accent-soft);
+  border: 0;
+  border-radius: var(--radius-xs);
+  cursor: pointer;
+}
+
+.evals-job:disabled {
+  cursor: default;
+}
+
+.evals-job.is-passed {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.evals-job.is-failed,
+.evals-job.is-error {
+  color: var(--red);
+  background: var(--red-soft);
+}
+
+.evals-job:not(:disabled):hover {
+  outline: 1px solid var(--accent-line);
+}

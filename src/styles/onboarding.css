@@ -1,0 +1,324 @@
+/* First run: one centered column over the whole window, progress on top, actions pinned below. */
+
+.onboarding {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.onboarding-top {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-40) 0 var(--sp-16);
+}
+
+.onboarding-steps {
+  display: flex;
+  gap: var(--sp-6);
+}
+
+.onboarding-steps i {
+  width: 18px;
+  height: 3px;
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
+  transition: width var(--t) var(--ease), background var(--t) var(--ease);
+}
+
+.onboarding-steps i.is-done {
+  background: var(--text-3);
+}
+
+.onboarding-steps i.is-now {
+  width: 28px;
+  background: var(--text);
+}
+
+.onboarding-scroll {
+  overflow-y: auto;
+  /* Content scrolling under the pinned actions fades out instead of being cut. */
+  mask-image: linear-gradient(to bottom, black calc(100% - var(--sp-24)), transparent);
+}
+
+.onboarding-col {
+  width: min(460px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: clamp(var(--sp-16), 7vh, var(--sp-48)) 0 var(--sp-24);
+  animation: onboarding-in 220ms var(--ease);
+}
+
+@keyframes onboarding-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-col {
+    animation: none;
+  }
+}
+
+.onboarding h1 {
+  margin: 0 0 var(--sp-6);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.onboarding-sub {
+  margin: 0 0 var(--sp-20);
+  color: var(--text-2);
+  font-size: var(--fs-ui);
+  line-height: 1.55;
+}
+
+.onboarding-quiet {
+  margin: calc(-1 * var(--sp-10)) 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.onboarding-icon {
+  display: block;
+  margin-bottom: var(--sp-20);
+  border-radius: var(--radius-lg);
+}
+
+.onboarding-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.onboarding-list {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--inset);
+  overflow: hidden;
+}
+
+.onboarding-list + .onboarding-list {
+  margin-top: var(--sp-10);
+}
+
+.onboarding-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+  width: 100%;
+  min-height: 46px;
+  padding: var(--sp-8) var(--sp-12);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text);
+  font-size: var(--fs-ui);
+  text-align: left;
+}
+
+.onboarding-item:first-child {
+  border-top: 0;
+}
+
+.onboarding-choice:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.onboarding-choice.is-selected {
+  background: var(--surface-hover);
+}
+
+.onboarding-choice:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.onboarding-choice.is-disabled {
+  opacity: 0.55;
+}
+
+.onboarding-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.onboarding-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  font-weight: 500;
+}
+
+.onboarding-meta {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.onboarding-choice .onboarding-meta {
+  white-space: normal;
+}
+
+.onboarding-more {
+  min-height: 38px;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.onboarding-mono {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.onboarding-mono.tool-claude-code {
+  color: var(--brand-claude);
+}
+
+.onboarding-mono-img {
+  flex: none;
+  border-radius: var(--radius-sm);
+}
+
+.onboarding-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  height: 18px;
+  padding: 0 var(--sp-6);
+  border-radius: var(--radius-xs);
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 400;
+}
+
+.onboarding-badge.is-ok {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.onboarding-ring {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--raised);
+  border-radius: 50%;
+}
+
+.onboarding-radio,
+.onboarding-check {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--border-strong);
+}
+
+.onboarding-radio {
+  position: relative;
+  border-radius: 50%;
+}
+
+.is-selected > .onboarding-radio {
+  border-color: var(--text);
+}
+
+.is-selected > .onboarding-radio::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--text);
+}
+
+.onboarding-check {
+  border-radius: var(--radius-xs);
+}
+
+.onboarding-check.is-on {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--text-on-accent);
+}
+
+.onboarding-note {
+  display: flex;
+  gap: var(--sp-8);
+  margin-top: var(--sp-10);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.onboarding-note svg {
+  flex: none;
+  margin-top: var(--sp-2);
+}
+
+.onboarding-group {
+  margin: var(--sp-16) 0 var(--sp-6);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.onboarding-group + .onboarding-note {
+  margin-top: 0;
+}
+
+.onboarding-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-8);
+  margin-top: var(--sp-12);
+}
+
+.onboarding-cards div {
+  padding: var(--sp-10) var(--sp-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.onboarding-cards b {
+  display: block;
+  margin-bottom: var(--sp-2);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.onboarding-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  width: min(460px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: var(--sp-16) 0 var(--sp-28);
+}
+
+.onboarding-skip {
+  margin-right: auto;
+  color: var(--text-3);
+}

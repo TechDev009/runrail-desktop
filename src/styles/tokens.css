@@ -1,0 +1,1601 @@
+/*
+ * Design tokens. A neutral black cockpit: no surface, line, or text carries a hue. Color is kept
+ * for status (running, waiting, failed, done), the diff, code, and the terminal. The accent is
+ * monochrome unless the person picks one in Settings. A flower palette (Sakura, Ume, Fuji, Ajisai,
+ * Tsubaki, Matcha) tints surfaces, lines and text faintly and brings an accent of its own.
+ * Theme, palette, density, and accent come from data attributes on <html> (set in app/boot.ts).
+ * Status is never color alone: every status also has an icon and a text label.
+ * This is the only file with raw colors, font sizes, and radii (test/tokens.test.ts checks that,
+ * and that the first three text tiers pass WCAG AA on every surface).
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces, darkest to lightest: chrome, inset, content, then two raised steps. */
+  --bg: #000000;
+  --inset: #0d0d0d;
+  --surface: #181818;
+  --surface-2: #212121;
+  --surface-3: #282828;
+  /* A control's groove, and the chip that sits raised in it. */
+  --track: #1f1f1f;
+  --raised: #343434;
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --surface-active: rgba(255, 255, 255, 0.1);
+  --overlay-scrim: rgba(0, 0, 0, 0.6);
+
+  /* Lines */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+
+  /* Text: primary, secondary, tertiary, and faint (placeholders and disabled only). */
+  --text: #f5f5f5;
+  --text-2: rgba(255, 255, 255, 0.7);
+  --text-3: rgba(255, 255, 255, 0.52);
+  --text-4: rgba(255, 255, 255, 0.38);
+
+  /* Accent: monochrome by default. */
+  --accent: #ffffff;
+  --accent-hover: #e3e3e3;
+  --accent-soft: rgba(255, 255, 255, 0.08);
+  --accent-line: rgba(255, 255, 255, 0.24);
+  --text-on-accent: #000000;
+  --link: var(--text);
+  --link-line: rgba(255, 255, 255, 0.36);
+  --focus: rgba(255, 255, 255, 0.62);
+  --selection: rgba(255, 255, 255, 0.2);
+  --knob: #ffffff;
+  --knob-on: var(--text-on-accent);
+  --brand-claude: #e08a6d;
+  --brand-claude-soft: rgba(217, 119, 87, 0.16);
+  --swatch-mono: #ffffff;
+  --swatch-blue: #6aa6ff;
+  --swatch-violet: #c79bff;
+  --swatch-orange: #ff9d5c;
+  --swatch-green: #5fd38d;
+  --swatch-teal: #3fcfbf;
+  --swatch-rose: #ff8fb1;
+  --swatch-amber: #f5b544;
+  --swatch-indigo: #9aa5ff;
+  --swatch-cyan: #5ccfe6;
+  --swatch-theme: var(--palette-accent);
+  /* The palette's own accent, which the Theme accent uses; on the default palette it is mono. */
+  --palette-accent: #ffffff;
+  --palette-accent-hover: #e3e3e3;
+  --palette-accent-soft: rgba(255, 255, 255, 0.08);
+  --palette-accent-line: rgba(255, 255, 255, 0.24);
+  --palette-on-accent: #000000;
+  --palette-focus: rgba(255, 255, 255, 0.62);
+
+  /* Theme previews in Settings draw both themes, whichever is on. */
+  --preview-dark-bg: #181818;
+  --preview-dark-side: #000000;
+  --preview-dark-line: rgba(255, 255, 255, 0.22);
+  --preview-dark-bubble: #2f2f2f;
+  --preview-light-bg: #ffffff;
+  --preview-light-side: #f3f3f3;
+  --preview-light-line: rgba(0, 0, 0, 0.16);
+  --preview-light-bubble: #e9e9e9;
+  /* Palette cards in Settings draw every palette, whichever is on. */
+  --pv-default-dark-bg: #181818;
+  --pv-default-dark-side: #000000;
+  --pv-default-dark-line: rgba(255, 255, 255, 0.22);
+  --pv-default-dark-bubble: #2f2f2f;
+  --pv-default-dark-accent: #ffffff;
+  --pv-default-light-bg: #ffffff;
+  --pv-default-light-side: #f3f3f3;
+  --pv-default-light-line: rgba(0, 0, 0, 0.16);
+  --pv-default-light-bubble: #e9e9e9;
+  --pv-default-light-accent: #1a1a1a;
+  --pv-sakura-dark-bg: #1c1417;
+  --pv-sakura-dark-side: #0c0809;
+  --pv-sakura-dark-line: rgba(255, 228, 238, 0.22);
+  --pv-sakura-dark-bubble: #3a2b31;
+  --pv-sakura-dark-accent: #f4a3c1;
+  --pv-sakura-light-bg: #fffbfc;
+  --pv-sakura-light-side: #f6eef1;
+  --pv-sakura-light-line: rgba(60, 14, 34, 0.16);
+  --pv-sakura-light-bubble: #f2e7eb;
+  --pv-sakura-light-accent: #b03866;
+  --pv-ume-dark-bg: #1d1414;
+  --pv-ume-dark-side: #0d0808;
+  --pv-ume-dark-line: rgba(255, 230, 230, 0.22);
+  --pv-ume-dark-bubble: #3c2b2c;
+  --pv-ume-dark-accent: #ff8da3;
+  --pv-ume-light-bg: #fffbfa;
+  --pv-ume-light-side: #f5eeed;
+  --pv-ume-light-line: rgba(64, 16, 20, 0.16);
+  --pv-ume-light-bubble: #f1e6e4;
+  --pv-ume-light-accent: #a6233f;
+  --pv-fuji-dark-bg: #18151f;
+  --pv-fuji-dark-side: #09080d;
+  --pv-fuji-dark-line: rgba(236, 230, 255, 0.22);
+  --pv-fuji-dark-bubble: #332c3f;
+  --pv-fuji-dark-accent: #c3a7ff;
+  --pv-fuji-light-bg: #fcfbfe;
+  --pv-fuji-light-side: #f1eff6;
+  --pv-fuji-light-line: rgba(30, 18, 64, 0.16);
+  --pv-fuji-light-bubble: #ebe8f2;
+  --pv-fuji-light-accent: #6a48c2;
+  --pv-ajisai-dark-bg: #15181f;
+  --pv-ajisai-dark-side: #08090d;
+  --pv-ajisai-dark-line: rgba(228, 236, 255, 0.22);
+  --pv-ajisai-dark-bubble: #2c3240;
+  --pv-ajisai-dark-accent: #9fb2ff;
+  --pv-ajisai-light-bg: #fbfcfe;
+  --pv-ajisai-light-side: #eef0f6;
+  --pv-ajisai-light-line: rgba(18, 28, 64, 0.16);
+  --pv-ajisai-light-bubble: #e8ebf3;
+  --pv-ajisai-light-accent: #3f55c4;
+  --pv-tsubaki-dark-bg: #151915;
+  --pv-tsubaki-dark-side: #080a08;
+  --pv-tsubaki-dark-line: rgba(232, 245, 232, 0.22);
+  --pv-tsubaki-dark-bubble: #2c332c;
+  --pv-tsubaki-dark-accent: #ff7383;
+  --pv-tsubaki-light-bg: #fcfdfb;
+  --pv-tsubaki-light-side: #f0f2ef;
+  --pv-tsubaki-light-line: rgba(14, 30, 14, 0.16);
+  --pv-tsubaki-light-bubble: #e9ece7;
+  --pv-tsubaki-light-accent: #b01a30;
+  --pv-matcha-dark-bg: #171a13;
+  --pv-matcha-dark-side: #090a07;
+  --pv-matcha-dark-line: rgba(240, 245, 226, 0.22);
+  --pv-matcha-dark-bubble: #2f3527;
+  --pv-matcha-dark-accent: #b2d67c;
+  --pv-matcha-light-bg: #fcfdf8;
+  --pv-matcha-light-side: #f1f2ea;
+  --pv-matcha-light-line: rgba(26, 32, 8, 0.16);
+  --pv-matcha-light-bubble: #eaece1;
+  --pv-matcha-light-accent: #4a6f20;
+
+  /* Status */
+  --blue: #5c9dff;
+  --blue-soft: rgba(92, 157, 255, 0.14);
+  --green: #40c977;
+  --green-soft: rgba(64, 201, 119, 0.13);
+  --red: #ff6b68;
+  --red-soft: rgba(255, 107, 104, 0.13);
+  --amber: #f2ad3d;
+  --amber-soft: rgba(242, 173, 61, 0.14);
+  --purple: #c27aff;
+  --purple-soft: rgba(194, 122, 255, 0.14);
+  --on-status: #000000;
+
+  /* Office mode: the pixel people keep their colors in both themes; their furniture follows the theme. */
+  --px-skin-1: #f2c9a0;
+  --px-skin-2: #e3b08a;
+  --px-skin-3: #d9a27a;
+  --px-skin-4: #a86e4c;
+  --px-skin-5: #7a4a33;
+  --px-skin-6: #5c3a28;
+  --px-hair-1: #2b1d16;
+  --px-hair-2: #1a1a2e;
+  --px-hair-3: #b5523b;
+  --px-hair-4: #0f0f14;
+  --px-hair-5: #e8c26a;
+  --px-hair-6: #6b6b80;
+  --px-hair-7: #8a5a3c;
+  --px-shirt-1: #7c6fd8;
+  --px-shirt-2: #2e8b7a;
+  --px-shirt-3: #c9a227;
+  --px-shirt-4: #d86a8e;
+  --px-shirt-5: #4a5ba8;
+  --px-shirt-6: #6b8e4e;
+  --px-shirt-7: #c66a3d;
+  --px-shirt-8: #3f8fc6;
+  --px-eye: #12131f;
+  --px-helper: #8b6cf0;
+  --px-helper-legs: #3a3a44;
+  --px-floor: #0b0b0b;
+  --px-floor-dot: rgba(255, 255, 255, 0.055);
+  --px-chair: #2c2c2c;
+  --px-desk-top: #4a4a4a;
+  --px-desk-front: #353535;
+  --px-desk-leg: #262626;
+  --px-laptop: #c8c8c8;
+  --px-laptop-base: #9e9e9e;
+  --px-mug: #e4e4e4;
+  --px-paper: #d4d4d4;
+  --px-shadow: rgba(0, 0, 0, 0.5);
+  /* Office rooms: the wall above each floor and what hangs on it. */
+  --wall: color-mix(in srgb, var(--surface) 72%, var(--bg));
+  --wall-edge: var(--surface-3);
+  --px-glass: #2b2b2b;
+  --px-sky: #0f1830;
+  --px-sky-2: #16233b;
+  --px-star: #e8c26a;
+  --px-cloud: #ffffff;
+  --px-wood: #6b5240;
+  --px-book-1: #7c6fd8;
+  --px-book-2: #2e8b7a;
+  --px-book-3: #c9a227;
+  --px-book-4: #d86a8e;
+  --px-book-5: #3f8fc6;
+  --px-leaf: #56a06a;
+  --px-leaf-dark: #3f7d4e;
+  --px-pot: #9a5b3c;
+  --px-pot-rim: #b26c48;
+  /* A palette's scene: a hat or clip, tea in the mug, steam, and the weather over the floor. */
+  --px-acc-1: transparent;
+  --px-acc-2: transparent;
+  --px-acc-3: transparent;
+  --px-tea: transparent;
+  --px-steam: rgba(255, 255, 255, 0.5);
+  --px-snow: #ffffff;
+  --px-rain: rgba(200, 215, 255, 0.7);
+  --px-lantern: #ffb3c9;
+  --px-lantern-cord: rgba(255, 228, 238, 0.3);
+  --px-lantern-glow: rgba(255, 150, 180, 0.45);
+  --fx-1: rgba(255, 236, 200, 0.5);
+  --fx-2: rgba(255, 236, 200, 0.4);
+  --fx-3: rgba(255, 236, 200, 0.5);
+  --fx-snow: #ffffff;
+
+  /* Diff */
+  --diff-add-bg: rgba(64, 201, 119, 0.09);
+  --diff-add-strong: rgba(64, 201, 119, 0.2);
+  --diff-del-bg: rgba(255, 107, 104, 0.09);
+  --diff-del-strong: rgba(255, 107, 104, 0.2);
+  --diff-hunk-bg: rgba(255, 255, 255, 0.04);
+
+  /* Code (Shiki's CSS-variables theme, see lib/highlight.ts) */
+  --syn-foreground: #e6e6e6;
+  --syn-background: transparent;
+  --syn-token-keyword: #ff7b72;
+  --syn-token-string: #a5d6ff;
+  --syn-token-string-expression: #7ee787;
+  --syn-token-function: #d2a8ff;
+  --syn-token-constant: #79c0ff;
+  --syn-token-parameter: #ffa657;
+  --syn-token-comment: #8a8a8a;
+  --syn-token-punctuation: #bdbdbd;
+  --syn-token-link: #a5d6ff;
+
+  /* Terminal (solid colors: xterm draws them itself) */
+  --term-bg: #0d0d0d;
+  --term-fg: #e6e6e6;
+  --term-cursor: #f5f5f5;
+  --term-selection: #3a3a3a;
+  --term-black: #1f1f1f;
+  --term-red: #ff6b68;
+  --term-green: #40c977;
+  --term-yellow: #f2ad3d;
+  --term-blue: #5c9dff;
+  --term-magenta: #c27aff;
+  --term-cyan: #4fc6d6;
+  --term-white: #bdbdbd;
+  --term-bright-black: #707070;
+  --term-bright-red: #ff8a87;
+  --term-bright-green: #6fdc9a;
+  --term-bright-yellow: #ffc76a;
+  --term-bright-blue: #85b6ff;
+  --term-bright-magenta: #d6a3ff;
+  --term-bright-cyan: #7fdbe6;
+  --term-bright-white: #ffffff;
+
+  /* Type */
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  /* Type ramp, one size per role: caption, label, UI, body, title, heading, display; code and
+     terminal have their own. Nothing else is used. */
+  --fs-xs: 11px;
+  --fs-sm: 12.5px;
+  --fs-ui: 13px;
+  --fs-msg: 14px;
+  --fs-mono: 12.5px;
+  --fs-term: 12px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 28px;
+  /* Letters inside a fixed 28px ring; they do not grow with the text size. */
+  --fs-ring: 9.5px;
+  --lh-ui: 1.4;
+  --lh-msg: 1.6;
+
+  /* Spacing: every padding, margin and gap is one of these steps (1px hairlines aside). */
+  --sp-2: 2px;
+  --sp-4: 4px;
+  --sp-6: 6px;
+  --sp-8: 8px;
+  --sp-10: 10px;
+  --sp-12: 12px;
+  --sp-14: 14px;
+  --sp-16: 16px;
+  --sp-20: 20px;
+  --sp-24: 24px;
+  --sp-28: 28px;
+  --sp-32: 32px;
+  --sp-40: 40px;
+  --sp-48: 48px;
+  --sp-56: 56px;
+
+  /* Geometry */
+  --radius-hair: 1px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-bubble: 18px;
+  --radius-full: 999px;
+  /* A falling petal and a tea leaf (office weather). */
+  --radius-petal: 70% 10% 70% 10%;
+  --radius-leaf: 70% 0 70% 0;
+  --row-h: 28px;
+  --control-h: 28px;
+  --control-h-sm: 24px;
+  --header-h: 44px;
+  /* A page's column (Extensions, Settings). */
+  --page-w: 880px;
+  /* The hidden sidebar's icon rail. */
+  --rail-w: 52px;
+  --column: 780px;
+  --gap: 8px;
+
+  /* Elevation: a hairline of light on top, a soft shadow below. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-3: 0 20px 56px rgba(0, 0, 0, 0.62), 0 0 0 1px rgba(255, 255, 255, 0.07);
+  --edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  /* The composer's lift: wide and faint, so it floats without a hard edge. */
+  --shadow-composer: 0 6px 24px rgba(0, 0, 0, 0.28);
+  /* Segmented control: a faint track and a raised pill for the choice. */
+  --segment-track: rgba(255, 255, 255, 0.06);
+  --segment-thumb: #3a3a3a;
+  --segment-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 0.5px 0 rgba(255, 255, 255, 0.08);
+  /* Effort slider: the filled part of the track and the knob on it; an accent colours the fill. */
+  --effort-fill: rgba(255, 255, 255, 0.2);
+  --effort-stop-on: rgba(255, 255, 255, 0.55);
+  --effort-knob: #f4f4f5;
+  --effort-knob-shadow: 0 1px 4px rgba(0, 0, 0, 0.5), 0 0 0 0.5px rgba(0, 0, 0, 0.35);
+  --effort-ink: var(--text);
+  /* Laid over the macOS sidebar material, so it reads as black glass. */
+  --glass-tint: rgba(0, 0, 0, 0.45);
+  /* With glass on: the content panel's edge, and menus, palette and dialogs as frosted surfaces. */
+  --panel-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07), 0 10px 30px rgba(0, 0, 0, 0.32);
+  --float-bg: rgba(33, 33, 33, 0.8);
+  --float-modal-bg: rgba(24, 24, 24, 0.86);
+  --float-blur: blur(28px) saturate(170%);
+  --glass-scrim: rgba(0, 0, 0, 0.34);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --t-fast: 120ms;
+  --t: 160ms;
+
+  /* Room for the macOS traffic lights (overlay title bar). */
+  --traffic-lights: 0px;
+}
+
+:root[data-platform="macos"] {
+  --traffic-lights: 72px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f3f3f3;
+  --inset: #f6f6f6;
+  --surface: #ffffff;
+  --surface-2: #f9f9f9;
+  --surface-3: #efefef;
+  --track: #ebebeb;
+  --raised: #ffffff;
+  --surface-hover: rgba(0, 0, 0, 0.045);
+  --surface-active: rgba(0, 0, 0, 0.08);
+  --overlay-scrim: rgba(0, 0, 0, 0.28);
+
+  --border: rgba(0, 0, 0, 0.09);
+  --border-strong: rgba(0, 0, 0, 0.16);
+  --border-subtle: rgba(0, 0, 0, 0.055);
+
+  --text: #1a1a1a;
+  --text-2: rgba(0, 0, 0, 0.7);
+  --text-3: rgba(0, 0, 0, 0.58);
+  --text-4: rgba(0, 0, 0, 0.36);
+
+  --accent: #1a1a1a;
+  --accent-hover: #333333;
+  --accent-soft: rgba(0, 0, 0, 0.06);
+  --accent-line: rgba(0, 0, 0, 0.24);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(0, 0, 0, 0.32);
+  --focus: rgba(0, 0, 0, 0.55);
+  --selection: rgba(0, 0, 0, 0.12);
+  --knob: #ffffff;
+  --brand-claude: #b4532f;
+  --brand-claude-soft: rgba(217, 119, 87, 0.14);
+  --swatch-mono: #1a1a1a;
+  --swatch-blue: #0b63d1;
+  --swatch-violet: #7446d4;
+  --swatch-orange: #b24a00;
+  --swatch-green: #1a7f37;
+  --swatch-teal: #0f766e;
+  --swatch-rose: #c0306a;
+  --swatch-amber: #8a5a00;
+  --swatch-indigo: #4338ca;
+  --swatch-cyan: #0e7490;
+  --palette-accent: #1a1a1a;
+  --palette-accent-hover: #333333;
+  --palette-accent-soft: rgba(0, 0, 0, 0.06);
+  --palette-accent-line: rgba(0, 0, 0, 0.24);
+  --palette-on-accent: #ffffff;
+  --palette-focus: rgba(0, 0, 0, 0.55);
+
+  --blue: #0b63d1;
+  --blue-soft: rgba(11, 99, 209, 0.1);
+  --green: #1a7f37;
+  --green-soft: rgba(26, 127, 55, 0.1);
+  --red: #cf222e;
+  --red-soft: rgba(207, 34, 46, 0.09);
+  --amber: #9a6700;
+  --amber-soft: rgba(191, 135, 0, 0.13);
+  --purple: #8250df;
+  --purple-soft: rgba(130, 80, 223, 0.1);
+  --on-status: #ffffff;
+
+  /* The office by day: a sunlit wall, an oak floor and desks, not the night turned over. */
+  --px-floor: #f7f2e9;
+  --px-floor-dot: rgba(122, 92, 46, 0.09);
+  --px-chair: #e3d8c6;
+  --px-desk-top: #dcc8a6;
+  --px-desk-front: #c8b089;
+  --px-desk-leg: #a98f68;
+  --px-laptop: #3f3f3f;
+  --px-laptop-base: #525252;
+  --px-mug: #ffffff;
+  --px-paper: #ffffff;
+  --px-shadow: rgba(92, 64, 24, 0.14);
+  --wall: color-mix(in srgb, var(--surface-3) 86%, #f3dcae);
+  --wall-edge: color-mix(in srgb, var(--surface-3) 78%, #b89668);
+  --px-glass: #d8cfc0;
+  --px-sky: #b9dcff;
+  --px-sky-2: #d6ebff;
+  --px-star: #f2b33d;
+  --px-steam: rgba(0, 0, 0, 0.2);
+
+  --diff-add-bg: rgba(26, 127, 55, 0.08);
+  --diff-add-strong: rgba(26, 127, 55, 0.2);
+  --diff-del-bg: rgba(207, 34, 46, 0.07);
+  --diff-del-strong: rgba(207, 34, 46, 0.18);
+  --diff-hunk-bg: rgba(0, 0, 0, 0.035);
+
+  --syn-foreground: #1f1f1f;
+  --syn-token-keyword: #cf222e;
+  --syn-token-string: #0a3069;
+  --syn-token-string-expression: #116329;
+  --syn-token-function: #8250df;
+  --syn-token-constant: #0550ae;
+  --syn-token-parameter: #953800;
+  --syn-token-comment: #6b6b6b;
+  --syn-token-punctuation: #3d3d3d;
+  --syn-token-link: #0a3069;
+
+  --term-bg: #fbfbfb;
+  --term-fg: #1f1f1f;
+  --term-cursor: #1a1a1a;
+  --term-selection: #d6d6d6;
+  --term-black: #3d3d3d;
+  --term-red: #cf222e;
+  --term-green: #1a7f37;
+  --term-yellow: #9a6700;
+  --term-blue: #0b63d1;
+  --term-magenta: #8250df;
+  --term-cyan: #1b7c83;
+  --term-white: #6b6b6b;
+  --term-bright-black: #8a8a8a;
+  --term-bright-red: #a40e26;
+  --term-bright-green: #116329;
+  --term-bright-yellow: #7d4e00;
+  --term-bright-blue: #0550ae;
+  --term-bright-magenta: #6639ba;
+  --term-bright-cyan: #136061;
+  --term-bright-white: #1f1f1f;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.06);
+  --shadow-3: 0 20px 56px rgba(0, 0, 0, 0.16), 0 0 0 1px rgba(0, 0, 0, 0.07);
+  --edge-light: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  --shadow-composer: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --segment-track: rgba(0, 0, 0, 0.05);
+  --segment-thumb: #ffffff;
+  --segment-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
+  --effort-fill: rgba(0, 0, 0, 0.14);
+  --effort-stop-on: rgba(0, 0, 0, 0.4);
+  --effort-knob: #ffffff;
+  --effort-knob-shadow: 0 1px 3px rgba(0, 0, 0, 0.22), 0 0 0 0.5px rgba(0, 0, 0, 0.12);
+  --glass-tint: rgba(255, 255, 255, 0.35);
+  --panel-shadow: 0 0 0 1px rgba(0, 0, 0, 0.07), 0 8px 24px rgba(0, 0, 0, 0.08);
+  --float-bg: rgba(249, 249, 249, 0.8);
+  --float-modal-bg: rgba(255, 255, 255, 0.86);
+  --glass-scrim: rgba(0, 0, 0, 0.16);
+}
+
+/* Optional accents. Each keeps its label readable on its own color (WCAG AA). */
+:root[data-accent="blue"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: #6aa6ff;
+  --accent-hover: #8ab9ff;
+  --accent-soft: rgba(106, 166, 255, 0.14);
+  --accent-line: rgba(106, 166, 255, 0.42);
+  --text-on-accent: #000000;
+  --link: var(--accent);
+  --link-line: rgba(106, 166, 255, 0.42);
+  --focus: rgba(106, 166, 255, 0.8);
+}
+
+:root[data-accent="violet"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: #c79bff;
+  --accent-hover: #d6b5ff;
+  --accent-soft: rgba(199, 155, 255, 0.14);
+  --accent-line: rgba(199, 155, 255, 0.42);
+  --text-on-accent: #000000;
+  --link: var(--accent);
+  --link-line: rgba(199, 155, 255, 0.42);
+  --focus: rgba(199, 155, 255, 0.8);
+}
+
+:root[data-accent="orange"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: #ff9d5c;
+  --accent-hover: #ffb480;
+  --accent-soft: rgba(255, 157, 92, 0.14);
+  --accent-line: rgba(255, 157, 92, 0.42);
+  --text-on-accent: #000000;
+  --link: var(--accent);
+  --link-line: rgba(255, 157, 92, 0.42);
+  --focus: rgba(255, 157, 92, 0.8);
+}
+
+:root[data-theme="light"][data-accent="blue"] {
+  --accent: #0b63d1;
+  --accent-hover: #0a56b8;
+  --accent-soft: rgba(11, 99, 209, 0.1);
+  --accent-line: rgba(11, 99, 209, 0.36);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(11, 99, 209, 0.36);
+  --focus: rgba(11, 99, 209, 0.9);
+}
+
+:root[data-theme="light"][data-accent="violet"] {
+  --accent: #7446d4;
+  --accent-hover: #6538c2;
+  --accent-soft: rgba(116, 70, 212, 0.1);
+  --accent-line: rgba(116, 70, 212, 0.36);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(116, 70, 212, 0.36);
+  --focus: rgba(116, 70, 212, 0.9);
+}
+
+:root[data-theme="light"][data-accent="orange"] {
+  --accent: #b24a00;
+  --accent-hover: #9a4000;
+  --accent-soft: rgba(178, 74, 0, 0.1);
+  --accent-line: rgba(178, 74, 0, 0.36);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(178, 74, 0, 0.36);
+  --focus: rgba(178, 74, 0, 0.9);
+}
+
+:root[data-accent="green"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: #5fd38d;
+  --accent-hover: #80dea5;
+  --accent-soft: rgba(95, 211, 141, 0.14);
+  --accent-line: rgba(95, 211, 141, 0.42);
+  --text-on-accent: #000000;
+  --link: var(--accent);
+  --link-line: rgba(95, 211, 141, 0.42);
+  --focus: rgba(95, 211, 141, 0.8);
+}
+
+:root[data-theme="light"][data-accent="green"] {
+  --accent: #1a7f37;
+  --accent-hover: #166d2f;
+  --accent-soft: rgba(26, 127, 55, 0.1);
+  --accent-line: rgba(26, 127, 55, 0.36);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(26, 127, 55, 0.36);
+  --focus: rgba(26, 127, 55, 0.9);
+}
+
+:root[data-accent="teal"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: #3fcfbf;
+  --accent-hover: #6cdccf;
+  --accent-soft: rgba(63, 207, 191, 0.14);
+  --accent-line: rgba(63, 207, 191, 0.42);
+  --text-on-accent: #000000;
+  --link: var(--accent);
+  --link-line: rgba(63, 207, 191, 0.42);
+  --focus: rgba(63, 207, 191, 0.8);
+}
+
+:root[data-theme="light"][data-accent="teal"] {
+  --accent: #0f766e;
+  --accent-hover: #0c645d;
+  --accent-soft: rgba(15, 118, 110, 0.1);
+  --accent-line: rgba(15, 118, 110, 0.36);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(15, 118, 110, 0.36);
+  --focus: rgba(15, 118, 110, 0.9);
+}
+
+:root[data-accent="rose"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: #ff8fb1;
+  --accent-hover: #ffaec7;
+  --accent-soft: rgba(255, 143, 177, 0.14);
+  --accent-line: rgba(255, 143, 177, 0.42);
+  --text-on-accent: #000000;
+  --link: var(--accent);
+  --link-line: rgba(255, 143, 177, 0.42);
+  --focus: rgba(255, 143, 177, 0.8);
+}
+
+:root[data-theme="light"][data-accent="rose"] {
+  --accent: #c0306a;
+  --accent-hover: #a8285c;
+  --accent-soft: rgba(192, 48, 106, 0.1);
+  --accent-line: rgba(192, 48, 106, 0.36);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(192, 48, 106, 0.36);
+  --focus: rgba(192, 48, 106, 0.9);
+}
+
+:root[data-accent="amber"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: #f5b544;
+  --accent-hover: #f8c86f;
+  --accent-soft: rgba(245, 181, 68, 0.14);
+  --accent-line: rgba(245, 181, 68, 0.42);
+  --text-on-accent: #000000;
+  --link: var(--accent);
+  --link-line: rgba(245, 181, 68, 0.42);
+  --focus: rgba(245, 181, 68, 0.8);
+}
+
+:root[data-theme="light"][data-accent="amber"] {
+  --accent: #8a5a00;
+  --accent-hover: #774d00;
+  --accent-soft: rgba(138, 90, 0, 0.1);
+  --accent-line: rgba(138, 90, 0, 0.36);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(138, 90, 0, 0.36);
+  --focus: rgba(138, 90, 0, 0.9);
+}
+
+:root[data-accent="indigo"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: #9aa5ff;
+  --accent-hover: #b6beff;
+  --accent-soft: rgba(154, 165, 255, 0.14);
+  --accent-line: rgba(154, 165, 255, 0.42);
+  --text-on-accent: #000000;
+  --link: var(--accent);
+  --link-line: rgba(154, 165, 255, 0.42);
+  --focus: rgba(154, 165, 255, 0.8);
+}
+
+:root[data-theme="light"][data-accent="indigo"] {
+  --accent: #4338ca;
+  --accent-hover: #3a30b0;
+  --accent-soft: rgba(67, 56, 202, 0.1);
+  --accent-line: rgba(67, 56, 202, 0.36);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(67, 56, 202, 0.36);
+  --focus: rgba(67, 56, 202, 0.9);
+}
+
+:root[data-accent="cyan"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: #5ccfe6;
+  --accent-hover: #84dbed;
+  --accent-soft: rgba(92, 207, 230, 0.14);
+  --accent-line: rgba(92, 207, 230, 0.42);
+  --text-on-accent: #000000;
+  --link: var(--accent);
+  --link-line: rgba(92, 207, 230, 0.42);
+  --focus: rgba(92, 207, 230, 0.8);
+}
+
+:root[data-theme="light"][data-accent="cyan"] {
+  --accent: #0e7490;
+  --accent-hover: #0c637c;
+  --accent-soft: rgba(14, 116, 144, 0.1);
+  --accent-line: rgba(14, 116, 144, 0.36);
+  --text-on-accent: #ffffff;
+  --link-line: rgba(14, 116, 144, 0.36);
+  --focus: rgba(14, 116, 144, 0.9);
+}
+
+/* Theme: the palette's own accent, in either theme. */
+:root[data-accent="theme"] {
+  --effort-fill: var(--accent);
+  --effort-stop-on: rgba(255, 255, 255, 0.7);
+  --effort-ink: var(--accent);
+  --accent: var(--palette-accent);
+  --accent-hover: var(--palette-accent-hover);
+  --accent-soft: var(--palette-accent-soft);
+  --accent-line: var(--palette-accent-line);
+  --text-on-accent: var(--palette-on-accent);
+  --link: var(--accent);
+  --link-line: var(--palette-accent-line);
+  --focus: var(--palette-focus);
+}
+
+/*
+ * Flower palettes. Each sets its surfaces, lines, text, office floor, code and terminal for both
+ * themes, and its accent as --palette-accent*, never --accent itself, so a chosen accent still wins.
+ * Its own block also holds its plant's colors (ui/seasonal.tsx), the same on either floor.
+ */
+/* Sakura (light) and Yozakura (dark). */
+:root[data-palette="sakura"] {
+  --preview-dark-bg: var(--pv-sakura-dark-bg);
+  --preview-light-bg: var(--pv-sakura-light-bg);
+  --preview-dark-side: var(--pv-sakura-dark-side);
+  --preview-light-side: var(--pv-sakura-light-side);
+  --preview-dark-line: var(--pv-sakura-dark-line);
+  --preview-light-line: var(--pv-sakura-light-line);
+  --preview-dark-bubble: var(--pv-sakura-dark-bubble);
+  --preview-light-bubble: var(--pv-sakura-light-bubble);
+  --px-sakura-bloom: #f6b8cf;
+  --px-sakura-bloom-mid: #ef97b8;
+  --px-sakura-bloom-deep: #d9719a;
+  --px-sakura-bloom-pale: #fbd9e6;
+  --px-sakura-bark: #6e4a3b;
+  --px-sakura-bark-dark: #4d3229;
+  --px-sakura-soil: #5b4a3f;
+  --px-sakura-soil-dark: #4a3c33;
+  /* Its office scene: outfits, the wall plant's pot, one accessory, the weather. */
+  --px-shirt-1: #f4a3c1;
+  --px-shirt-2: #f9e4ec;
+  --px-shirt-3: #9cc9a8;
+  --px-shirt-4: #e98bb0;
+  --px-shirt-5: #f2d0dc;
+  --px-shirt-6: #c4dcb4;
+  --px-shirt-7: #f7b8cf;
+  --px-shirt-8: #d9b3e6;
+  --px-pot: #5a3a2c;
+  --px-pot-rim: #6b4a3a;
+  --px-acc-1: #f4a3c1;
+  --px-acc-2: #ffd6e4;
+  --px-acc-3: #ffd6e4;
+  --fx-1: #f7b8cf;
+  --fx-2: #f4a3c1;
+  --fx-3: #ffd6e4;
+  --px-mug: #fbe3ec;
+  --px-tea: #f4a3c1;
+}
+
+:root[data-theme="dark"][data-palette="sakura"] {
+  --bg: #0c0809;
+  --inset: #130d10;
+  --surface: #1c1417;
+  --surface-2: #241a1e;
+  --surface-3: #2b2025;
+  --track: #22181c;
+  --raised: #3a2b31;
+  --surface-hover: rgba(255, 228, 238, 0.06);
+  --surface-active: rgba(255, 228, 238, 0.1);
+  --border: rgba(255, 228, 238, 0.09);
+  --border-strong: rgba(255, 228, 238, 0.15);
+  --border-subtle: rgba(255, 228, 238, 0.055);
+  --text: #f9eff3;
+  --text-2: rgba(255, 228, 238, 0.72);
+  --text-3: rgba(255, 228, 238, 0.58);
+  --text-4: rgba(255, 228, 238, 0.38);
+  --palette-accent: #f4a3c1;
+  --palette-accent-hover: #f8bfd4;
+  --palette-accent-soft: rgba(244, 163, 193, 0.14);
+  --palette-accent-line: rgba(244, 163, 193, 0.42);
+  --palette-on-accent: #1d0b13;
+  --palette-focus: rgba(244, 163, 193, 0.8);
+  --selection: rgba(244, 163, 193, 0.22);
+  --px-floor: #0f0a0c;
+  --px-floor-dot: rgba(255, 228, 238, 0.06);
+  --px-chair: #34262c;
+  --px-desk-top: #4e3b43;
+  --px-desk-front: #3b2c32;
+  --px-desk-leg: #2a1f24;
+  --diff-hunk-bg: rgba(255, 228, 238, 0.045);
+  --syn-token-keyword: #ff8fb8;
+  --syn-token-function: #e2b4ff;
+  --term-bg: #130d10;
+  --term-selection: #523742;
+  --segment-track: rgba(255, 228, 238, 0.06);
+  --segment-thumb: #40303a;
+  --px-sky: #1d1426;
+  --px-sky-2: #2a1a33;
+  --px-star: #ffd1e1;
+}
+
+:root[data-theme="light"][data-palette="sakura"] {
+  --bg: #f6eef1;
+  --inset: #f9f3f5;
+  --surface: #fffbfc;
+  --surface-2: #fbf5f7;
+  --surface-3: #f2e7eb;
+  --track: #ede1e6;
+  --raised: #fffdfe;
+  --surface-hover: rgba(60, 14, 34, 0.05);
+  --surface-active: rgba(60, 14, 34, 0.085);
+  --border: rgba(60, 14, 34, 0.1);
+  --border-strong: rgba(60, 14, 34, 0.17);
+  --border-subtle: rgba(60, 14, 34, 0.06);
+  --text: #2b1a21;
+  --text-2: rgba(60, 14, 34, 0.76);
+  --text-3: rgba(60, 14, 34, 0.66);
+  --text-4: rgba(60, 14, 34, 0.38);
+  --palette-accent: #b03866;
+  --palette-accent-hover: #982e57;
+  --palette-accent-soft: rgba(176, 56, 102, 0.1);
+  --palette-accent-line: rgba(176, 56, 102, 0.36);
+  --palette-on-accent: #ffffff;
+  --palette-focus: rgba(176, 56, 102, 0.9);
+  --selection: rgba(176, 56, 102, 0.14);
+  --px-floor: #fbf4f7;
+  --px-floor-dot: rgba(60, 14, 34, 0.07);
+  --px-chair: #e8d5dd;
+  --px-desk-top: #eddbe2;
+  --px-desk-front: #d9bfca;
+  --px-desk-leg: #c4a4b2;
+  --diff-hunk-bg: rgba(60, 14, 34, 0.04);
+  --syn-token-keyword: #b0245a;
+  --syn-token-function: #7d3fb8;
+  --term-bg: #fffbfc;
+  --term-selection: #f1d8e1;
+  --amber: #926200;
+  --amber-soft: rgba(146, 98, 0, 0.13);
+  --term-yellow: #8a5c00;
+  --term-cyan: #176f75;
+  --segment-track: rgba(60, 14, 34, 0.05);
+  --segment-thumb: #fffdfe;
+  --px-sky: #ffe3ee;
+  --px-sky-2: #d9ecff;
+  --px-star: #ffd66b;
+}
+
+/* Ume (light) and Yoru no ume (dark). */
+:root[data-palette="ume"] {
+  --preview-dark-bg: var(--pv-ume-dark-bg);
+  --preview-light-bg: var(--pv-ume-light-bg);
+  --preview-dark-side: var(--pv-ume-dark-side);
+  --preview-light-side: var(--pv-ume-light-side);
+  --preview-dark-line: var(--pv-ume-dark-line);
+  --preview-light-line: var(--pv-ume-light-line);
+  --preview-dark-bubble: var(--pv-ume-dark-bubble);
+  --preview-light-bubble: var(--pv-ume-light-bubble);
+  --px-ume-branch: #3b2620;
+  --px-ume-bloom: #e0607e;
+  --px-ume-bloom-deep: #b8304f;
+  --px-ume-stamen: #f4d36a;
+  --px-ume-vase: #2e3a4a;
+  --px-ume-vase-dark: #1f2833;
+  --px-ume-vase-light: #46566b;
+  /* Its office scene: outfits, the wall plant's pot, one accessory, the weather. */
+  --px-shirt-1: #c9405a;
+  --px-shirt-2: #7a2f3f;
+  --px-shirt-3: #f0d6d9;
+  --px-shirt-4: #a6233f;
+  --px-shirt-5: #e8b4bd;
+  --px-shirt-6: #5a3a3f;
+  --px-shirt-7: #f3e3e3;
+  --px-shirt-8: #8c3a4a;
+  --px-pot: #3a2422;
+  --px-pot-rim: #4a302c;
+  --px-acc-1: #e04a6a;
+  --px-acc-2: #c9405a;
+  --px-acc-3: #c9405a;
+  --fx-1: #ff8da3;
+  --fx-2: #e04a6a;
+  --fx-3: #ff8da3;
+}
+
+:root[data-theme="dark"][data-palette="ume"] {
+  --bg: #0d0808;
+  --inset: #140d0d;
+  --surface: #1d1414;
+  --surface-2: #251a1a;
+  --surface-3: #2c2021;
+  --track: #231818;
+  --raised: #3c2b2c;
+  --surface-hover: rgba(255, 230, 230, 0.06);
+  --surface-active: rgba(255, 230, 230, 0.1);
+  --border: rgba(255, 230, 230, 0.09);
+  --border-strong: rgba(255, 230, 230, 0.15);
+  --border-subtle: rgba(255, 230, 230, 0.055);
+  --text: #faefef;
+  --text-2: rgba(255, 230, 230, 0.72);
+  --text-3: rgba(255, 230, 230, 0.58);
+  --text-4: rgba(255, 230, 230, 0.38);
+  --palette-accent: #ff8da3;
+  --palette-accent-hover: #ffabbb;
+  --palette-accent-soft: rgba(255, 141, 163, 0.14);
+  --palette-accent-line: rgba(255, 141, 163, 0.42);
+  --palette-on-accent: #22080e;
+  --palette-focus: rgba(255, 141, 163, 0.8);
+  --selection: rgba(255, 141, 163, 0.22);
+  --px-floor: #100a0a;
+  --px-floor-dot: rgba(255, 230, 230, 0.06);
+  --px-chair: #36262a;
+  --px-desk-top: #523b3d;
+  --px-desk-front: #3d2c2e;
+  --px-desk-leg: #2c1f21;
+  --diff-hunk-bg: rgba(255, 230, 230, 0.045);
+  --syn-token-keyword: #ff8a96;
+  --syn-token-function: #f0b0e0;
+  --term-bg: #140d0d;
+  --term-selection: #563137;
+  --segment-track: rgba(255, 230, 230, 0.06);
+  --segment-thumb: #433033;
+  --px-sky: #1a1218;
+  --px-sky-2: #241820;
+  --px-star: #ffe0e6;
+}
+
+:root[data-theme="light"][data-palette="ume"] {
+  --bg: #f5eeed;
+  --inset: #f9f3f2;
+  --surface: #fffbfa;
+  --surface-2: #faf4f3;
+  --surface-3: #f1e6e4;
+  --track: #ebdfdd;
+  --raised: #fffdfd;
+  --surface-hover: rgba(64, 16, 20, 0.05);
+  --surface-active: rgba(64, 16, 20, 0.085);
+  --border: rgba(64, 16, 20, 0.1);
+  --border-strong: rgba(64, 16, 20, 0.17);
+  --border-subtle: rgba(64, 16, 20, 0.06);
+  --text: #2c1a1b;
+  --text-2: rgba(64, 16, 20, 0.76);
+  --text-3: rgba(64, 16, 20, 0.66);
+  --text-4: rgba(64, 16, 20, 0.38);
+  --palette-accent: #a6233f;
+  --palette-accent-hover: #8f1d36;
+  --palette-accent-soft: rgba(166, 35, 63, 0.1);
+  --palette-accent-line: rgba(166, 35, 63, 0.36);
+  --palette-on-accent: #ffffff;
+  --palette-focus: rgba(166, 35, 63, 0.9);
+  --selection: rgba(166, 35, 63, 0.14);
+  --px-floor: #fbf4f3;
+  --px-floor-dot: rgba(64, 16, 20, 0.07);
+  --px-chair: #e9d5d4;
+  --px-desk-top: #eed9d8;
+  --px-desk-front: #dbbdbc;
+  --px-desk-leg: #c6a1a0;
+  --diff-hunk-bg: rgba(64, 16, 20, 0.04);
+  --syn-token-keyword: #a61f35;
+  --syn-token-function: #8a2f80;
+  --term-bg: #fffbfa;
+  --term-selection: #efd4d8;
+  --amber: #926200;
+  --amber-soft: rgba(146, 98, 0, 0.13);
+  --term-yellow: #8a5c00;
+  --term-cyan: #176f75;
+  --segment-track: rgba(64, 16, 20, 0.05);
+  --segment-thumb: #fffdfd;
+  --px-sky: #eef1f6;
+  --px-sky-2: #f8e6e8;
+  --px-star: #ffd66b;
+  --fx-snow: rgba(150, 160, 184, 0.75);
+  --px-snow: #c9d0dc;
+}
+
+/* Fuji (light) and Fuji at night (dark). */
+:root[data-palette="fuji"] {
+  --preview-dark-bg: var(--pv-fuji-dark-bg);
+  --preview-light-bg: var(--pv-fuji-light-bg);
+  --preview-dark-side: var(--pv-fuji-dark-side);
+  --preview-light-side: var(--pv-fuji-light-side);
+  --preview-dark-line: var(--pv-fuji-dark-line);
+  --preview-light-line: var(--pv-fuji-light-line);
+  --preview-dark-bubble: var(--pv-fuji-dark-bubble);
+  --preview-light-bubble: var(--pv-fuji-light-bubble);
+  --px-fuji-trellis: #6b5140;
+  --px-fuji-leaf: #6f9150;
+  --px-fuji-bloom-deep: #7d5cc6;
+  --px-fuji-bloom: #a487e3;
+  --px-fuji-bloom-pale: #d4c4f6;
+  --px-fuji-ground: #585048;
+  /* Its office scene: outfits, the wall plant's pot, one accessory, the weather. */
+  --px-shirt-1: #b490f5;
+  --px-shirt-2: #8f6fd6;
+  --px-shirt-3: #e6dcff;
+  --px-shirt-4: #6a48c2;
+  --px-shirt-5: #cdb8ff;
+  --px-shirt-6: #9d86c9;
+  --px-shirt-7: #f0eaff;
+  --px-shirt-8: #7d62b8;
+  --px-pot: #4a3f5c;
+  --px-pot-rim: #5a4d6e;
+  --px-acc-1: #b490f5;
+  --px-acc-2: #8f6fd6;
+  --px-acc-3: #8f6fd6;
+  --fx-1: #c3a7ff;
+  --fx-2: #a98ae8;
+  --fx-3: #e6dcff;
+}
+
+:root[data-theme="dark"][data-palette="fuji"] {
+  --bg: #09080d;
+  --inset: #0f0d15;
+  --surface: #18151f;
+  --surface-2: #1f1b28;
+  --surface-3: #26212f;
+  --track: #1d1925;
+  --raised: #332c3f;
+  --surface-hover: rgba(236, 230, 255, 0.06);
+  --surface-active: rgba(236, 230, 255, 0.1);
+  --border: rgba(236, 230, 255, 0.09);
+  --border-strong: rgba(236, 230, 255, 0.15);
+  --border-subtle: rgba(236, 230, 255, 0.055);
+  --text: #f3f0fb;
+  --text-2: rgba(236, 230, 255, 0.72);
+  --text-3: rgba(236, 230, 255, 0.58);
+  --text-4: rgba(236, 230, 255, 0.38);
+  --palette-accent: #c3a7ff;
+  --palette-accent-hover: #d4bfff;
+  --palette-accent-soft: rgba(195, 167, 255, 0.14);
+  --palette-accent-line: rgba(195, 167, 255, 0.42);
+  --palette-on-accent: #150c28;
+  --palette-focus: rgba(195, 167, 255, 0.8);
+  --selection: rgba(195, 167, 255, 0.22);
+  --px-floor: #0c0b11;
+  --px-floor-dot: rgba(236, 230, 255, 0.06);
+  --px-chair: #2b2635;
+  --px-desk-top: #433b51;
+  --px-desk-front: #332d3e;
+  --px-desk-leg: #25212d;
+  --diff-hunk-bg: rgba(236, 230, 255, 0.045);
+  --syn-token-keyword: #d79bff;
+  --syn-token-function: #b9b0ff;
+  --term-bg: #0f0d15;
+  --term-selection: #413857;
+  --segment-track: rgba(236, 230, 255, 0.06);
+  --segment-thumb: #3a3248;
+  --px-sky: #17142a;
+  --px-sky-2: #221c3a;
+  --px-star: #e6dcff;
+}
+
+:root[data-theme="light"][data-palette="fuji"] {
+  --bg: #f1eff6;
+  --inset: #f5f3f9;
+  --surface: #fcfbfe;
+  --surface-2: #f7f5fb;
+  --surface-3: #ebe8f2;
+  --track: #e6e2ef;
+  --raised: #fefdff;
+  --surface-hover: rgba(30, 18, 64, 0.05);
+  --surface-active: rgba(30, 18, 64, 0.085);
+  --border: rgba(30, 18, 64, 0.1);
+  --border-strong: rgba(30, 18, 64, 0.17);
+  --border-subtle: rgba(30, 18, 64, 0.06);
+  --text: #1f1a2c;
+  --text-2: rgba(30, 18, 64, 0.76);
+  --text-3: rgba(30, 18, 64, 0.66);
+  --text-4: rgba(30, 18, 64, 0.38);
+  --palette-accent: #6a48c2;
+  --palette-accent-hover: #5a3cab;
+  --palette-accent-soft: rgba(106, 72, 194, 0.1);
+  --palette-accent-line: rgba(106, 72, 194, 0.36);
+  --palette-on-accent: #ffffff;
+  --palette-focus: rgba(106, 72, 194, 0.9);
+  --selection: rgba(106, 72, 194, 0.14);
+  --px-floor: #f7f5fb;
+  --px-floor-dot: rgba(30, 18, 64, 0.07);
+  --px-chair: #dcd6e8;
+  --px-desk-top: #e1dcec;
+  --px-desk-front: #c8c0da;
+  --px-desk-leg: #ada3c4;
+  --diff-hunk-bg: rgba(30, 18, 64, 0.04);
+  --syn-token-keyword: #8a2fb8;
+  --syn-token-function: #5b3fc0;
+  --term-bg: #fcfbfe;
+  --term-selection: #e2dbf3;
+  --amber: #926200;
+  --amber-soft: rgba(146, 98, 0, 0.13);
+  --term-yellow: #8a5c00;
+  --term-cyan: #176f75;
+  --segment-track: rgba(30, 18, 64, 0.05);
+  --segment-thumb: #fefdff;
+  --px-sky: #e9e1ff;
+  --px-sky-2: #dcebff;
+  --px-star: #ffd66b;
+}
+
+/* Ajisai (light) and Ajisai in rain (dark). */
+:root[data-palette="ajisai"] {
+  --preview-dark-bg: var(--pv-ajisai-dark-bg);
+  --preview-light-bg: var(--pv-ajisai-light-bg);
+  --preview-dark-side: var(--pv-ajisai-dark-side);
+  --preview-light-side: var(--pv-ajisai-light-side);
+  --preview-dark-line: var(--pv-ajisai-dark-line);
+  --preview-light-line: var(--pv-ajisai-light-line);
+  --preview-dark-bubble: var(--pv-ajisai-dark-bubble);
+  --preview-light-bubble: var(--pv-ajisai-light-bubble);
+  --px-ajisai-leaf: #4f7a45;
+  --px-ajisai-leaf-dark: #3a5f34;
+  --px-ajisai-bloom: #7f93e6;
+  --px-ajisai-bloom-violet: #8f7fd8;
+  --px-ajisai-bloom-pale: #c3cdf6;
+  --px-ajisai-pot: #a3623f;
+  --px-ajisai-pot-dark: #7b4830;
+  /* Its office scene: outfits, the wall plant's pot, one accessory, the weather. */
+  --px-shirt-1: #4a6cd4;
+  --px-shirt-2: #7b6fd8;
+  --px-shirt-3: #9fb2ff;
+  --px-shirt-4: #3f55c4;
+  --px-shirt-5: #6e8ee8;
+  --px-shirt-6: #8fa0d8;
+  --px-shirt-7: #c3cff5;
+  --px-shirt-8: #5e5ab8;
+  --px-pot: #3a4a5c;
+  --px-pot-rim: #4a5c70;
+  --px-acc-1: #f2c94c;
+  --px-acc-2: #e0b53a;
+  --px-acc-3: #e0b53a;
+  --fx-1: rgba(170, 190, 255, 0.55);
+  --fx-2: rgba(200, 215, 255, 0.45);
+  --fx-3: rgba(170, 190, 255, 0.55);
+}
+
+:root[data-theme="dark"][data-palette="ajisai"] {
+  --bg: #08090d;
+  --inset: #0d0f15;
+  --surface: #15181f;
+  --surface-2: #1b1f28;
+  --surface-3: #22262f;
+  --track: #191c25;
+  --raised: #2c3240;
+  --surface-hover: rgba(228, 236, 255, 0.06);
+  --surface-active: rgba(228, 236, 255, 0.1);
+  --border: rgba(228, 236, 255, 0.09);
+  --border-strong: rgba(228, 236, 255, 0.15);
+  --border-subtle: rgba(228, 236, 255, 0.055);
+  --text: #eff2fb;
+  --text-2: rgba(228, 236, 255, 0.72);
+  --text-3: rgba(228, 236, 255, 0.58);
+  --text-4: rgba(228, 236, 255, 0.38);
+  --palette-accent: #9fb2ff;
+  --palette-accent-hover: #bac8ff;
+  --palette-accent-soft: rgba(159, 178, 255, 0.14);
+  --palette-accent-line: rgba(159, 178, 255, 0.42);
+  --palette-on-accent: #0b1028;
+  --palette-focus: rgba(159, 178, 255, 0.8);
+  --selection: rgba(159, 178, 255, 0.22);
+  --px-floor: #0b0c11;
+  --px-floor-dot: rgba(228, 236, 255, 0.06);
+  --px-chair: #252a35;
+  --px-desk-top: #3b4252;
+  --px-desk-front: #2d333f;
+  --px-desk-leg: #21252e;
+  --diff-hunk-bg: rgba(228, 236, 255, 0.045);
+  --syn-token-keyword: #b49cff;
+  --syn-token-function: #8ec5ff;
+  --term-bg: #0d0f15;
+  --term-selection: #363d57;
+  --segment-track: rgba(228, 236, 255, 0.06);
+  --segment-thumb: #323848;
+  --px-sky: #141b2a;
+  --px-sky-2: #1b2436;
+  --px-star: #9fb2ff;
+}
+
+:root[data-theme="light"][data-palette="ajisai"] {
+  --bg: #eef0f6;
+  --inset: #f3f4f9;
+  --surface: #fbfcfe;
+  --surface-2: #f5f7fb;
+  --surface-3: #e8ebf3;
+  --track: #e2e6f0;
+  --raised: #fdfeff;
+  --surface-hover: rgba(18, 28, 64, 0.05);
+  --surface-active: rgba(18, 28, 64, 0.085);
+  --border: rgba(18, 28, 64, 0.1);
+  --border-strong: rgba(18, 28, 64, 0.17);
+  --border-subtle: rgba(18, 28, 64, 0.06);
+  --text: #1a1e2c;
+  --text-2: rgba(18, 28, 64, 0.76);
+  --text-3: rgba(18, 28, 64, 0.66);
+  --text-4: rgba(18, 28, 64, 0.38);
+  --palette-accent: #3f55c4;
+  --palette-accent-hover: #3448ad;
+  --palette-accent-soft: rgba(63, 85, 196, 0.1);
+  --palette-accent-line: rgba(63, 85, 196, 0.36);
+  --palette-on-accent: #ffffff;
+  --palette-focus: rgba(63, 85, 196, 0.9);
+  --selection: rgba(63, 85, 196, 0.14);
+  --px-floor: #f5f6fb;
+  --px-floor-dot: rgba(18, 28, 64, 0.07);
+  --px-chair: #d6dbe8;
+  --px-desk-top: #dce0ec;
+  --px-desk-front: #c0c7da;
+  --px-desk-leg: #a3acc4;
+  --diff-hunk-bg: rgba(18, 28, 64, 0.04);
+  --syn-token-keyword: #6a3fc0;
+  --syn-token-function: #2f5fc4;
+  --term-bg: #fbfcfe;
+  --term-selection: #d9def4;
+  --amber: #926200;
+  --amber-soft: rgba(146, 98, 0, 0.13);
+  --term-yellow: #8a5c00;
+  --term-cyan: #176f75;
+  --segment-track: rgba(18, 28, 64, 0.05);
+  --segment-thumb: #fdfeff;
+  --px-sky: #cbd4e6;
+  --px-sky-2: #dde3ef;
+  --px-star: #9fb2ff;
+  --fx-1: rgba(63, 85, 196, 0.7);
+  --fx-2: rgba(90, 112, 214, 0.6);
+  --fx-3: rgba(63, 85, 196, 0.7);
+  --px-rain: rgba(255, 255, 255, 0.8);
+}
+
+/* Tsubaki (light) and Tsubaki at dusk (dark). */
+:root[data-palette="tsubaki"] {
+  --preview-dark-bg: var(--pv-tsubaki-dark-bg);
+  --preview-light-bg: var(--pv-tsubaki-light-bg);
+  --preview-dark-side: var(--pv-tsubaki-dark-side);
+  --preview-light-side: var(--pv-tsubaki-light-side);
+  --preview-dark-line: var(--pv-tsubaki-dark-line);
+  --preview-light-line: var(--pv-tsubaki-light-line);
+  --preview-dark-bubble: var(--pv-tsubaki-dark-bubble);
+  --preview-light-bubble: var(--pv-tsubaki-light-bubble);
+  --px-tsubaki-leaf: #2f5a34;
+  --px-tsubaki-leaf-dark: #244628;
+  --px-tsubaki-leaf-gloss: #4f8a55;
+  --px-tsubaki-bloom: #c8203a;
+  --px-tsubaki-bloom-dark: #8e1226;
+  --px-tsubaki-stamen: #f2c94c;
+  --px-tsubaki-ground: #5d5a52;
+  --px-tsubaki-ground-dark: #48463f;
+  /* Its office scene: outfits, the wall plant's pot, one accessory, the weather. */
+  --px-shirt-1: #b01a30;
+  --px-shirt-2: #2f5a3a;
+  --px-shirt-3: #e9e2d0;
+  --px-shirt-4: #8a1426;
+  --px-shirt-5: #46704f;
+  --px-shirt-6: #d8cfba;
+  --px-shirt-7: #3b4a3b;
+  --px-shirt-8: #c4323f;
+  --px-pot: #3a2a22;
+  --px-pot-rim: #4a362c;
+  --px-acc-1: #c4323f;
+  --px-acc-2: #efe8d8;
+  --px-acc-3: #efe8d8;
+  --fx-1: rgba(255, 255, 255, 0.9);
+  --fx-2: rgba(240, 246, 255, 0.75);
+  --fx-3: rgba(255, 255, 255, 0.9);
+}
+
+:root[data-theme="dark"][data-palette="tsubaki"] {
+  --bg: #080a08;
+  --inset: #0d100d;
+  --surface: #151915;
+  --surface-2: #1b201b;
+  --surface-3: #222722;
+  --track: #191d19;
+  --raised: #2c332c;
+  --surface-hover: rgba(232, 245, 232, 0.06);
+  --surface-active: rgba(232, 245, 232, 0.1);
+  --border: rgba(232, 245, 232, 0.09);
+  --border-strong: rgba(232, 245, 232, 0.15);
+  --border-subtle: rgba(232, 245, 232, 0.055);
+  --text: #f0f5ef;
+  --text-2: rgba(232, 245, 232, 0.72);
+  --text-3: rgba(232, 245, 232, 0.58);
+  --text-4: rgba(232, 245, 232, 0.38);
+  --palette-accent: #ff7383;
+  --palette-accent-hover: #ff95a1;
+  --palette-accent-soft: rgba(255, 115, 131, 0.14);
+  --palette-accent-line: rgba(255, 115, 131, 0.42);
+  --palette-on-accent: #220508;
+  --palette-focus: rgba(255, 115, 131, 0.8);
+  --selection: rgba(255, 115, 131, 0.22);
+  --px-floor: #0a0c0a;
+  --px-floor-dot: rgba(232, 245, 232, 0.06);
+  --px-chair: #262c26;
+  --px-desk-top: #3b443b;
+  --px-desk-front: #2d342d;
+  --px-desk-leg: #212621;
+  --diff-hunk-bg: rgba(232, 245, 232, 0.045);
+  --syn-token-keyword: #ff7b86;
+  --syn-token-function: #8fd99a;
+  --term-bg: #0d100d;
+  --term-selection: #512c2e;
+  --segment-track: rgba(232, 245, 232, 0.06);
+  --segment-thumb: #323a32;
+  --px-sky: #0f1820;
+  --px-sky-2: #16222c;
+  --px-star: #f4f8ff;
+}
+
+:root[data-theme="light"][data-palette="tsubaki"] {
+  --bg: #f0f2ef;
+  --inset: #f4f6f3;
+  --surface: #fcfdfb;
+  --surface-2: #f6f8f5;
+  --surface-3: #e9ece7;
+  --track: #e3e7e1;
+  --raised: #fefffd;
+  --surface-hover: rgba(14, 30, 14, 0.05);
+  --surface-active: rgba(14, 30, 14, 0.085);
+  --border: rgba(14, 30, 14, 0.1);
+  --border-strong: rgba(14, 30, 14, 0.17);
+  --border-subtle: rgba(14, 30, 14, 0.06);
+  --text: #1b211b;
+  --text-2: rgba(14, 30, 14, 0.76);
+  --text-3: rgba(14, 30, 14, 0.66);
+  --text-4: rgba(14, 30, 14, 0.38);
+  --palette-accent: #b01a30;
+  --palette-accent-hover: #981628;
+  --palette-accent-soft: rgba(176, 26, 48, 0.1);
+  --palette-accent-line: rgba(176, 26, 48, 0.36);
+  --palette-on-accent: #ffffff;
+  --palette-focus: rgba(176, 26, 48, 0.9);
+  --selection: rgba(176, 26, 48, 0.14);
+  --px-floor: #f6f8f5;
+  --px-floor-dot: rgba(14, 30, 14, 0.07);
+  --px-chair: #d8ddd5;
+  --px-desk-top: #dde2da;
+  --px-desk-front: #c3cbbf;
+  --px-desk-leg: #a6b1a1;
+  --diff-hunk-bg: rgba(14, 30, 14, 0.04);
+  --syn-token-keyword: #b01a30;
+  --syn-token-function: #2f6b2a;
+  --term-bg: #fcfdfb;
+  --term-selection: #eed4d6;
+  --amber: #926200;
+  --amber-soft: rgba(146, 98, 0, 0.13);
+  --term-yellow: #8a5c00;
+  --term-cyan: #176f75;
+  --segment-track: rgba(14, 30, 14, 0.05);
+  --segment-thumb: #fefffd;
+  --px-sky: #e2eaf0;
+  --px-sky-2: #eff3f6;
+  --px-star: #ffffff;
+  --fx-1: rgba(140, 160, 184, 0.75);
+  --fx-2: rgba(160, 178, 200, 0.6);
+  --fx-3: rgba(140, 160, 184, 0.75);
+  --px-snow: #ffffff;
+}
+
+/* Matcha (light) and Matcha at night (dark). */
+:root[data-palette="matcha"] {
+  --preview-dark-bg: var(--pv-matcha-dark-bg);
+  --preview-light-bg: var(--pv-matcha-light-bg);
+  --preview-dark-side: var(--pv-matcha-dark-side);
+  --preview-light-side: var(--pv-matcha-light-side);
+  --preview-dark-line: var(--pv-matcha-dark-line);
+  --preview-light-line: var(--pv-matcha-light-line);
+  --preview-dark-bubble: var(--pv-matcha-dark-bubble);
+  --preview-light-bubble: var(--pv-matcha-light-bubble);
+  --px-matcha-bamboo: #6f9a4a;
+  --px-matcha-bamboo-node: #4c7032;
+  --px-matcha-leaf: #86b45a;
+  --px-matcha-bowl: #3d4a36;
+  --px-matcha-bowl-rim: #5d6e52;
+  --px-matcha-tea: #9cc35e;
+  --px-matcha-whisk: #d9c48c;
+  --px-matcha-ground: #4f5a3f;
+  /* Its office scene: outfits, the wall plant's pot, one accessory, the weather. */
+  --px-shirt-1: #4a6f20;
+  --px-shirt-2: #8fb35a;
+  --px-shirt-3: #d9e3c0;
+  --px-shirt-4: #2f4a16;
+  --px-shirt-5: #b2d67c;
+  --px-shirt-6: #6b5a3a;
+  --px-shirt-7: #e8ecd8;
+  --px-shirt-8: #7a9a45;
+  --px-pot: #5c4a32;
+  --px-pot-rim: #6e5a3e;
+  --px-acc-1: #f5f5ee;
+  --px-acc-2: #4a6f20;
+  --px-acc-3: #7aa64a;
+  --fx-1: #7fa84a;
+  --fx-2: #a7c96a;
+  --fx-3: #5f8a3a;
+  --px-mug: #3a4a2a;
+  --px-tea: #8fbf5a;
+}
+
+:root[data-theme="dark"][data-palette="matcha"] {
+  --bg: #090a07;
+  --inset: #0e100b;
+  --surface: #171a13;
+  --surface-2: #1d2118;
+  --surface-3: #24281e;
+  --track: #1b1e16;
+  --raised: #2f3527;
+  --surface-hover: rgba(240, 245, 226, 0.06);
+  --surface-active: rgba(240, 245, 226, 0.1);
+  --border: rgba(240, 245, 226, 0.09);
+  --border-strong: rgba(240, 245, 226, 0.15);
+  --border-subtle: rgba(240, 245, 226, 0.055);
+  --text: #f2f5ea;
+  --text-2: rgba(240, 245, 226, 0.72);
+  --text-3: rgba(240, 245, 226, 0.58);
+  --text-4: rgba(240, 245, 226, 0.38);
+  --palette-accent: #b2d67c;
+  --palette-accent-hover: #c6e39b;
+  --palette-accent-soft: rgba(178, 214, 124, 0.14);
+  --palette-accent-line: rgba(178, 214, 124, 0.42);
+  --palette-on-accent: #121a06;
+  --palette-focus: rgba(178, 214, 124, 0.8);
+  --selection: rgba(178, 214, 124, 0.2);
+  --px-floor: #0b0c09;
+  --px-floor-dot: rgba(240, 245, 226, 0.06);
+  --px-chair: #282c22;
+  --px-desk-top: #3f4535;
+  --px-desk-front: #30352a;
+  --px-desk-leg: #23261e;
+  --diff-hunk-bg: rgba(240, 245, 226, 0.045);
+  --syn-token-keyword: #c9de7a;
+  --syn-token-function: #9fd0a8;
+  --term-bg: #0e100b;
+  --term-selection: #3c472b;
+  --segment-track: rgba(240, 245, 226, 0.06);
+  --segment-thumb: #363c2d;
+  --px-sky: #101a12;
+  --px-sky-2: #16241a;
+  --px-star: #e9f2c8;
+}
+
+:root[data-theme="light"][data-palette="matcha"] {
+  --bg: #f1f2ea;
+  --inset: #f5f6ef;
+  --surface: #fcfdf8;
+  --surface-2: #f7f8f1;
+  --surface-3: #eaece1;
+  --track: #e4e7da;
+  --raised: #fefffb;
+  --surface-hover: rgba(26, 32, 8, 0.05);
+  --surface-active: rgba(26, 32, 8, 0.085);
+  --border: rgba(26, 32, 8, 0.1);
+  --border-strong: rgba(26, 32, 8, 0.17);
+  --border-subtle: rgba(26, 32, 8, 0.06);
+  --text: #1e2216;
+  --text-2: rgba(26, 32, 8, 0.76);
+  --text-3: rgba(26, 32, 8, 0.66);
+  --text-4: rgba(26, 32, 8, 0.38);
+  --palette-accent: #4a6f20;
+  --palette-accent-hover: #3e5e1a;
+  --palette-accent-soft: rgba(74, 111, 32, 0.1);
+  --palette-accent-line: rgba(74, 111, 32, 0.36);
+  --palette-on-accent: #ffffff;
+  --palette-focus: rgba(74, 111, 32, 0.9);
+  --selection: rgba(74, 111, 32, 0.14);
+  --px-floor: #f7f8f1;
+  --px-floor-dot: rgba(26, 32, 8, 0.07);
+  --px-chair: #dadecd;
+  --px-desk-top: #dfe3d2;
+  --px-desk-front: #c6ccb4;
+  --px-desk-leg: #aab296;
+  --diff-hunk-bg: rgba(26, 32, 8, 0.04);
+  --syn-token-keyword: #5a6e12;
+  --syn-token-function: #2e6b4a;
+  --term-bg: #fcfdf8;
+  --term-selection: #dce3d1;
+  --amber: #926200;
+  --amber-soft: rgba(146, 98, 0, 0.13);
+  --term-yellow: #8a5c00;
+  --term-cyan: #176f75;
+  --segment-track: rgba(26, 32, 8, 0.05);
+  --segment-thumb: #fefffb;
+  --px-sky: #dcefcf;
+  --px-sky-2: #eef6e4;
+  --px-star: #ffd66b;
+}
+
+:root[data-density="compact"] {
+  --fs-ui: 12.5px;
+  --fs-msg: 13.5px;
+  --row-h: 25px;
+  --control-h: 26px;
+  --control-h-sm: 22px;
+  --header-h: 40px;
+  --gap: 6px;
+  --lh-msg: 1.55;
+}
+
+/* Text size, one step either side of the default, after density so it wins over it. */
+:root[data-text-size="small"] {
+  --fs-xs: 10.5px;
+  --fs-sm: 11.5px;
+  --fs-ui: 12px;
+  --fs-msg: 13px;
+  --fs-mono: 12px;
+  --fs-term: 11.5px;
+}
+
+:root[data-text-size="large"] {
+  --fs-xs: 11.5px;
+  --fs-sm: 13px;
+  --fs-ui: 14px;
+  --fs-msg: 15px;
+  --fs-mono: 13.5px;
+  --fs-term: 13px;
+}
+
+/* Settings → General → Fonts. Only faces macOS ships, so nothing is downloaded. */
+:root[data-ui-font="rounded"] {
+  --font-ui: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+:root[data-code-font="menlo"] {
+  --font-mono: Menlo, "SF Mono", ui-monospace, monospace;
+}
+
+/*
+ * Every flower palette's office: books in its outfit colours, and by day a wall in its own
+ * surface rather than the default's oak, a pale window frame and a soft shadow.
+ */
+:root[data-palette]:not([data-palette="default"]) {
+  --px-book-1: var(--px-shirt-1);
+  --px-book-2: var(--px-shirt-4);
+  --px-book-3: var(--px-shirt-2);
+  --px-book-4: var(--px-shirt-5);
+  --px-book-5: var(--px-shirt-6);
+}
+
+:root[data-theme="light"][data-palette]:not([data-palette="default"]) {
+  --wall: var(--surface-3);
+  --wall-edge: color-mix(in srgb, var(--surface-3) 90%, var(--text));
+  --px-glass: color-mix(in srgb, var(--surface-3) 82%, var(--text));
+  --px-shadow: rgba(0, 0, 0, 0.12);
+}
+
+:root[data-code-font="monaco"] {
+  --font-mono: Monaco, "SF Mono", ui-monospace, monospace;
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --border: rgba(255, 255, 255, 0.16);
+    --border-strong: rgba(255, 255, 255, 0.26);
+    --text-2: rgba(255, 255, 255, 0.82);
+    --text-3: rgba(255, 255, 255, 0.68);
+  }
+  :root[data-theme="light"] {
+    --border: rgba(0, 0, 0, 0.2);
+    --border-strong: rgba(0, 0, 0, 0.32);
+    --text-2: rgba(0, 0, 0, 0.8);
+    --text-3: rgba(0, 0, 0, 0.68);
+  }
+  /* As specific as a palette's own blocks, and after them, so it reaches every palette. */
+  :root[data-theme="dark"][data-palette] {
+    --border: rgba(255, 255, 255, 0.16);
+    --border-strong: rgba(255, 255, 255, 0.26);
+    --text-2: rgba(255, 255, 255, 0.82);
+    --text-3: rgba(255, 255, 255, 0.68);
+  }
+  :root[data-theme="light"][data-palette] {
+    --border: rgba(0, 0, 0, 0.2);
+    --border-strong: rgba(0, 0, 0, 0.32);
+    --text-2: rgba(0, 0, 0, 0.8);
+    --text-3: rgba(0, 0, 0, 0.68);
+  }
+}

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-computer-request-access"
+description = "Enables the computer_request_access command without any pre-configured scope."
+commands.allow = ["computer_request_access"]
+
+[[permission]]
+identifier = "deny-computer-request-access"
+description = "Denies the computer_request_access command without any pre-configured scope."
+commands.deny = ["computer_request_access"]

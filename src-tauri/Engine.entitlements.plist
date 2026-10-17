@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- The bundled engine (Contents/MacOS/runrail) is a Bun executable. Under the hardened runtime
+       its JavaScript engine falls back to the interpreter without JIT pages, about 7x slower.
+       It loads no native add-ons, so it needs no unsigned executable memory or library exemption. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+</dict>
+</plist>

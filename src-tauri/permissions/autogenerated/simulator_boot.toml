@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-simulator-boot"
+description = "Enables the simulator_boot command without any pre-configured scope."
+commands.allow = ["simulator_boot"]
+
+[[permission]]
+identifier = "deny-simulator-boot"
+description = "Denies the simulator_boot command without any pre-configured scope."
+commands.deny = ["simulator_boot"]

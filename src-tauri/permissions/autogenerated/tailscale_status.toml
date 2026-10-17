@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-tailscale-status"
+description = "Enables the tailscale_status command without any pre-configured scope."
+commands.allow = ["tailscale_status"]
+
+[[permission]]
+identifier = "deny-tailscale-status"
+description = "Denies the tailscale_status command without any pre-configured scope."
+commands.deny = ["tailscale_status"]

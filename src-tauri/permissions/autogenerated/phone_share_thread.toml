@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-phone-share-thread"
+description = "Enables the phone_share_thread command without any pre-configured scope."
+commands.allow = ["phone_share_thread"]
+
+[[permission]]
+identifier = "deny-phone-share-thread"
+description = "Denies the phone_share_thread command without any pre-configured scope."
+commands.deny = ["phone_share_thread"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-app-starters"
+description = "Enables the app_starters command without any pre-configured scope."
+commands.allow = ["app_starters"]
+
+[[permission]]
+identifier = "deny-app-starters"
+description = "Denies the app_starters command without any pre-configured scope."
+commands.deny = ["app_starters"]

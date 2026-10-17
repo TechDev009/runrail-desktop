@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-engine-stop"
+description = "Enables the engine_stop command without any pre-configured scope."
+commands.allow = ["engine_stop"]
+
+[[permission]]
+identifier = "deny-engine-stop"
+description = "Denies the engine_stop command without any pre-configured scope."
+commands.deny = ["engine_stop"]

@@ -1,0 +1,99 @@
+/* Quick chat's window. Colors, sizes and radii come from tokens.css. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--fs-msg);
+}
+
+.qk {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+  height: 100%;
+  padding: var(--sp-12) var(--sp-16);
+  border: 1px solid var(--border);
+}
+
+.qk-input {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-lg);
+  line-height: 1.4;
+}
+
+.qk-input::placeholder {
+  color: var(--text-3);
+}
+
+.qk-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  min-width: 0;
+}
+
+.qk-check {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--sp-6);
+  min-width: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.qk-where {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qk-title {
+  color: var(--text-3);
+}
+
+.qk-hint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.qk-bar > .qk-hint:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.qk-keys {
+  flex: none;
+}
+
+.qk-keys kbd {
+  font: inherit;
+  color: var(--text-2);
+}
+
+.qk-error {
+  margin: 0;
+  color: var(--red);
+  font-size: var(--fs-sm);
+}

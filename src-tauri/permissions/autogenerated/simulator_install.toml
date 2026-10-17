@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-simulator-install"
+description = "Enables the simulator_install command without any pre-configured scope."
+commands.allow = ["simulator_install"]
+
+[[permission]]
+identifier = "deny-simulator-install"
+description = "Denies the simulator_install command without any pre-configured scope."
+commands.deny = ["simulator_install"]

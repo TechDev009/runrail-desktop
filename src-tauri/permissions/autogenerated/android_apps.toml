@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-android-apps"
+description = "Enables the android_apps command without any pre-configured scope."
+commands.allow = ["android_apps"]
+
+[[permission]]
+identifier = "deny-android-apps"
+description = "Denies the android_apps command without any pre-configured scope."
+commands.deny = ["android_apps"]

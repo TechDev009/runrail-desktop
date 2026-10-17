@@ -1,0 +1,121 @@
+[package]
+name = "runrail-desktop-web"
+version = "0.1.0"
+description = "Runrail desktop"
+authors = ["Runrail"]
+license = "AGPL-3.0-only"
+homepage = "https://github.com/TechDev009/runrail-desktop"
+repository = "https://github.com/TechDev009/runrail-desktop"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "runrail_desktop_web_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# `unstable` adds child webviews (browser previews). Pinned exactly: the unstable API may change
+# in any release.
+tauri = { version = "=2.12.0", features = ["macos-private-api", "unstable", "tray-icon", "image-png"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-updater = { version = "2", optional = true }
+serde = { version = "1", features = ["derive"] }
+# `raw_value` passes engine event frames to the page without re-encoding them.
+serde_json = { version = "1", features = ["raw_value"] }
+# Wipes secrets the host forwards to the engine. Already in the dependency tree.
+zeroize = "1"
+# Reads Codex's config.toml for the import from other tools. Already in the dependency tree.
+toml = "1"
+# Checks a downloaded Whisper model against its pinned SHA-256. Already in the dependency tree.
+sha2 = "0.10"
+# Encodes a browser preview's screenshot for the engine. Already in the dependency tree.
+base64 = "0.22"
+# Seals a project's saved browser sign-ins (AES-256-GCM). Already in the dependency tree.
+ring = "0.17"
+# Scales an Android emulator's screen capture (PNG) into a JPEG, and encodes a Linux browser
+# preview's snapshot. image is already in the dependency tree; its JPEG feature adds zune-jpeg.
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
+tauri-plugin-global-shortcut = "2"
+
+[features]
+# Signed in-app updates. Release builds enable this with the release config (docs/RELEASE.md);
+# development builds leave it off and report that they do not update themselves.
+updater = ["dep:tauri-plugin-updater"]
+
+# Linux desktop integration.
+[target.'cfg(target_os = "linux")'.dependencies]
+# Reads a pasted key in the host, on X11 and on Wayland compositors with data-control.
+arboard = { version = "3.6.1", default-features = false, features = ["wayland-data-control"] }
+# Voice: the microphone through ALSA, and Whisper on the CPU.
+cpal = "0.18"
+whisper-rs = "0.16.0"
+# The desktop's portals on Wayland: quick chat's shortcut (GlobalShortcuts), and computer use's
+# remote desktop and screen cast, whose window picture comes over PipeWire, loaded at run time. On
+# async-io like the zbus already in the tree; ashpd's default would switch zbus to tokio.
+ashpd = { version = "0.13.13", default-features = false, features = ["async-io", "global_shortcuts", "remote_desktop", "screencast"] }
+futures-util = "0.3"
+futures-lite = "2"
+# Browser previews: the GTK layer they sit in and WebKitGTK's snapshot of a page. Tauri's own.
+gtk = "0.18"
+webkit2gtk = { version = "2.0", features = ["v2_40"] }
+# Computer use on X11: windows, captures, and input (XTest), and each window's process (XRes).
+# The same x11rb the global shortcuts use.
+x11rb = { version = "0.13", features = ["xtest", "res"] }
+# Keep awake: logind's idle and sleep inhibitors.
+keepawake = "0.6.1"
+# The key for saved browser sign-ins, in the Secret Service.
+keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
+# System notifications with a click that opens the thread; tauri-plugin-notification reports no
+# click on desktop.
+notify-rust = "4.18.2"
+# A second launch reopens the window, for desktops without a tray.
+tauri-plugin-single-instance = "2.5.2"
+# Asks the session bus whether a Secret Service runs. Already in the dependency tree.
+zbus = "5"
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+# System notifications (UserNotifications) and voice: the microphone through cpal, Apple's
+# recognizer (Speech, fed AVAudioPCMBuffers), and local Whisper (whisper.cpp, built with cmake).
+[target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6"
+cpal = "0.18"
+objc2 = "0.6"
+objc2-avf-audio = "0.3"
+objc2-foundation = "0.3"
+# A browser preview's screenshot: WebKit's snapshot of the view, encoded as JPEG; and, for the
+# debug-only automation socket, a key pressed in a preview. Already in the dependency tree through wry.
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSBitmapImageRep", "NSEvent", "NSGraphics", "NSGraphicsContext", "NSImage", "NSImageRep", "NSMenu", "NSMenuItem", "NSResponder", "NSRunningApplication", "NSWindow", "NSWorkspace", "libc"] }
+# Computer use: the windows on screen and the input posted to them. Already in the
+# dependency tree.
+objc2-core-foundation = { version = "0.3", default-features = false, features = ["std", "CFArray", "CFCGTypes"] }
+objc2-core-graphics = { version = "0.3", default-features = false, features = ["std", "objc2", "CGEvent", "CGEventTypes", "CGRemoteOperation", "CGWindow"] }
+# The key for saved browser sign-ins, kept in the Keychain. Already in the dependency tree.
+security-framework = "3"
+objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "block2", "objc2-app-kit", "WKWebView", "WKSnapshotConfiguration"] }
+objc2-speech = "0.3"
+objc2-user-notifications = "0.3"
+whisper-rs = { version = "0.16", features = ["metal"] }
+
+
+# whisper.cpp built without optimization takes seconds per second of speech; development builds
+# compile it optimized too.
+[profile.dev.package.whisper-rs-sys]
+opt-level = 3
+
+# Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+strip = true

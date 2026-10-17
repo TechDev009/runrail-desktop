@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-pick"
+description = "Enables the workspace_pick command without any pre-configured scope."
+commands.allow = ["workspace_pick"]
+
+[[permission]]
+identifier = "deny-workspace-pick"
+description = "Denies the workspace_pick command without any pre-configured scope."
+commands.deny = ["workspace_pick"]

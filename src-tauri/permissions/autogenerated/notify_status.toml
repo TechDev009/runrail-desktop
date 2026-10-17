@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-notify-status"
+description = "Enables the notify_status command without any pre-configured scope."
+commands.allow = ["notify_status"]
+
+[[permission]]
+identifier = "deny-notify-status"
+description = "Denies the notify_status command without any pre-configured scope."
+commands.deny = ["notify_status"]

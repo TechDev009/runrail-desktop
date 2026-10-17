@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-quick-set"
+description = "Enables the quick_set command without any pre-configured scope."
+commands.allow = ["quick_set"]
+
+[[permission]]
+identifier = "deny-quick-set"
+description = "Denies the quick_set command without any pre-configured scope."
+commands.deny = ["quick_set"]

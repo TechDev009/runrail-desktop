@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-notify-take-opened"
+description = "Enables the notify_take_opened command without any pre-configured scope."
+commands.allow = ["notify_take_opened"]
+
+[[permission]]
+identifier = "deny-notify-take-opened"
+description = "Denies the notify_take_opened command without any pre-configured scope."
+commands.deny = ["notify_take_opened"]

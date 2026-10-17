@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-system-engine"
+description = "Enables the system_engine command without any pre-configured scope."
+commands.allow = ["system_engine"]
+
+[[permission]]
+identifier = "deny-system-engine"
+description = "Denies the system_engine command without any pre-configured scope."
+commands.deny = ["system_engine"]

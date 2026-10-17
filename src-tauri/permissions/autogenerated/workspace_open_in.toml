@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-open-in"
+description = "Enables the workspace_open_in command without any pre-configured scope."
+commands.allow = ["workspace_open_in"]
+
+[[permission]]
+identifier = "deny-workspace-open-in"
+description = "Denies the workspace_open_in command without any pre-configured scope."
+commands.deny = ["workspace_open_in"]

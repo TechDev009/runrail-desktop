@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-simulator-input"
+description = "Enables the simulator_input command without any pre-configured scope."
+commands.allow = ["simulator_input"]
+
+[[permission]]
+identifier = "deny-simulator-input"
+description = "Denies the simulator_input command without any pre-configured scope."
+commands.deny = ["simulator_input"]

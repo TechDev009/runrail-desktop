@@ -1,0 +1,31 @@
+Runrail Desktop
+Copyright (C) 2026 TechDev009
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, version 3 (AGPL-3.0-only; see LICENSE).
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+Additional permission under GNU AGPL version 3 section 7
+--------------------------------------------------------
+
+If you modify this Program, or any covered work, by linking or combining it
+with the Claude Agent SDK (@anthropic-ai/claude-agent-sdk), or a modified
+version of that library, containing parts covered by the terms of Anthropic's
+license for that library, the licensors of this Program grant you additional
+permission to convey the resulting work.
+
+Third-party acknowledgements
+----------------------------
+
+Claude Agent SDK (https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk)
+
+The desktop's sidecar runs the Runrail engine's Claude Code route, which drives
+Anthropic's Claude Agent SDK. Runrail Desktop does not ship, bundle, or vendor
+the SDK: on first need the sidecar fetches the npm tarball of the version pinned
+in bun.lock and checks its SHA-512 (sidecar/agentSdk.ts). The SDK is (c)
+Anthropic PBC, all rights reserved, and its use is subject to Anthropic's legal
+agreements (https://code.claude.com/docs/en/legal-and-compliance).

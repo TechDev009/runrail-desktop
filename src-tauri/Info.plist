@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Runrail listens only while you dictate or talk to the agent. Audio is not recorded or kept.</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Runrail turns what you dictate into text in the composer.</string>
+</dict>
+</plist>

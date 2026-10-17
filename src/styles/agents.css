@@ -1,0 +1,979 @@
+/* Agents: setups and their runs beside the rail. Workflows, Evals, Memory and
+   Integrations share the list and the detail frame. */
+
+.agents {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  --role-planner: var(--blue);
+  --role-executor: var(--purple);
+  --role-reviewer: var(--swatch-teal);
+}
+
+.agents-list {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  flex: none;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: var(--sp-12);
+  background: var(--bg);
+  border-right: 1px solid var(--border-subtle);
+}
+
+.agents-list-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  height: var(--header-h);
+  /* The traffic lights overhang the rail by this much. */
+  padding: 0 var(--sp-8) 0 max(var(--sp-12), calc(var(--traffic-lights) - var(--rail-w) + var(--sp-12)));
+  flex: none;
+}
+
+.agents-title {
+  flex: 1;
+  font-weight: 600;
+}
+
+.agents-project {
+  max-width: 150px;
+}
+
+/* Which project the setups run in, said once and in full, under the title. */
+.agents-project-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  flex: none;
+  height: var(--control-h);
+  margin: 0 var(--sp-8) var(--sp-4);
+  padding: 0 var(--sp-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-3);
+  transition: border-color var(--t-fast) var(--ease);
+}
+
+.agents-project-row:hover,
+.agents-project-row:focus-within {
+  border-color: var(--border-strong);
+}
+
+.agents-project-select,
+.agents-project-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-ui);
+  font-weight: 500;
+}
+
+.agents-project-select {
+  height: 100%;
+  padding: 0 var(--sp-16) 0 0;
+  border: 0;
+  background: none;
+  appearance: none;
+  cursor: pointer;
+  outline: none;
+  text-overflow: ellipsis;
+}
+
+.agents-project-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agents-project-chevron {
+  position: absolute;
+  right: var(--sp-10);
+  pointer-events: none;
+}
+
+.agents-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--sp-8);
+  padding: var(--sp-4) var(--sp-12);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.agents-note {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  padding: var(--sp-4) var(--sp-12);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.agents-note.is-error {
+  color: var(--red);
+}
+
+.agents-item {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: var(--sp-2);
+  min-width: 0;
+  overflow: hidden;
+  margin: 0 var(--sp-6);
+  padding: var(--sp-6) var(--sp-8);
+  border-radius: var(--radius-sm);
+  text-align: left;
+  color: var(--text);
+}
+
+.agents-item:hover {
+  background: var(--surface-hover);
+}
+
+.agents-item.is-active {
+  background: var(--surface-active);
+}
+
+.agents-item-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The row's words, cut with an ellipsis; a flex row cannot cut its own text. */
+.agents-item-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A run's state, at the right end of its row. */
+.agents-item-status {
+  display: inline-flex;
+  flex: none;
+  margin-left: auto;
+}
+
+.agents-item-meta {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agents-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  background: var(--surface);
+}
+
+.agents-detail-top {
+  height: var(--sp-8);
+  flex: none;
+}
+
+.agents-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.agents-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-16);
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--sp-16) var(--sp-24) var(--sp-32);
+  overflow-y: auto;
+}
+
+.agents-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+}
+
+.agents-spacer {
+  flex: 1;
+}
+
+.agents-page-head h1 {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.agents-page-head p {
+  margin-top: var(--sp-4);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+/* One card for every section of a setup and a run, and the views that share this frame. */
+.agents-card,
+.agents-run-box,
+.agents-approval,
+.agents-plan,
+.agents-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+  padding: var(--sp-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.agents-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-4) var(--sp-12);
+}
+
+.agents-card-head h2,
+.agents-approval h2,
+.agents-plan h2,
+.agents-steps h2 {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+
+.agents-card-head > span {
+  margin-left: auto;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.agents-approval {
+  border-color: color-mix(in srgb, var(--amber) 55%, var(--border));
+  background: color-mix(in srgb, var(--amber) 5%, var(--surface-2));
+}
+
+.agents-approval .agents-card-head h2 {
+  color: var(--amber);
+}
+
+/* Run it on a task: the first thing on a setup, and it says where the run will work. */
+.agents-launch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+  padding: var(--sp-16);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, var(--surface-2)), var(--surface-2) 70%);
+  box-shadow: var(--edge-light);
+}
+
+.agents-launch-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-12);
+}
+
+.agents-launch-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.agents-launch-head h2 {
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+
+.agents-launch-head p {
+  margin-top: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.agents-launch-input {
+  display: block;
+  width: 100%;
+  min-height: 96px;
+  padding: var(--sp-12) var(--sp-14);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-msg);
+  line-height: 1.5;
+  resize: vertical;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    box-shadow var(--t-fast) var(--ease);
+}
+
+.agents-launch-input::placeholder {
+  color: var(--text-4);
+}
+
+.agents-launch-input:focus {
+  outline: none;
+  border-color: var(--border-strong);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.agents-launch-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-12);
+}
+
+.agents-launch-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+
+.agents-launch-label {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+}
+
+.agents-launch-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  height: var(--control-h);
+  padding: 0 var(--sp-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-3);
+  transition: border-color var(--t-fast) var(--ease);
+}
+
+.agents-launch-picker:not(.is-fixed):hover,
+.agents-launch-picker:focus-within {
+  border-color: var(--border-strong);
+}
+
+.agents-launch-picker select {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 var(--sp-16) 0 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-ui);
+  font-weight: 500;
+  appearance: none;
+  outline: none;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.agents-launch-picker.is-fixed select {
+  cursor: default;
+  opacity: 1;
+}
+
+.agents-launch-chevron {
+  position: absolute;
+  right: var(--sp-10);
+  pointer-events: none;
+}
+
+/* Two choices side by side; the chosen one is lifted. */
+.agents-segment {
+  display: inline-flex;
+  gap: var(--sp-2);
+  height: var(--control-h);
+  padding: var(--sp-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.agents-segment-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  padding: 0 var(--sp-10);
+  border-radius: var(--radius-xs);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+  transition:
+    background var(--t-fast) var(--ease),
+    color var(--t-fast) var(--ease);
+}
+
+.agents-segment-item:hover {
+  color: var(--text);
+}
+
+.agents-segment-item.is-on {
+  background: var(--surface-3);
+  color: var(--text);
+  box-shadow: var(--edge-light);
+}
+
+.agents-launch-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-8) var(--sp-12);
+}
+
+.agents-launch-where {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  flex: 1;
+  min-width: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.agents-launch-where.is-warn {
+  color: var(--amber);
+}
+
+.agents-launch-where strong {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.agents-launch-foot .btn {
+  max-width: 100%;
+  margin-left: auto;
+}
+
+.agents-launch-foot .btn-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Roles: each has its own color, the same in the editor, a run's roles, and its steps. */
+.agents-role-mark.is-planner,
+.agents-run-role.is-planner,
+.agents-role-chip.is-planner {
+  --role: var(--role-planner);
+}
+
+.agents-role-mark.is-executor,
+.agents-run-role.is-executor,
+.agents-role-chip.is-executor {
+  --role: var(--role-executor);
+}
+
+.agents-role-mark.is-reviewer,
+.agents-run-role.is-reviewer,
+.agents-role-chip.is-reviewer {
+  --role: var(--role-reviewer);
+}
+
+.agents-role-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--role) 15%, transparent);
+  color: var(--role);
+}
+
+.agents-roles-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.agents-role {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-10);
+  min-width: 0;
+  margin: 0;
+  padding: var(--sp-12);
+  border: 0;
+}
+
+.agents-role + .agents-role {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.agents-role-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+}
+
+.agents-role.is-off .agents-role-mark {
+  opacity: 0.5;
+}
+
+.agents-role-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.agents-role-name {
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+
+.agents-role-work {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The pickers sit under the role's name, past its mark. */
+.agents-role .field-row {
+  padding-left: calc(var(--sp-28) + var(--sp-10));
+}
+
+.agents-role .field-row .select:not(.grow) {
+  width: 120px;
+  flex: none;
+}
+
+.agents-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  padding: var(--sp-10) var(--sp-12);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.agents-toggle-row > div {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.agents-toggle-title {
+  font-weight: 500;
+}
+
+.agents-toggle-hint {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.agents-editor-foot {
+  padding-top: var(--sp-4);
+}
+
+/* A run: its state, its task, its roles, its plan, and its steps. */
+.agents-run-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-4);
+}
+
+.agents-run-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+}
+
+.agents-run-title h1 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.agents-run-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-self: stretch;
+  gap: var(--sp-8) var(--sp-10);
+}
+
+.agents-run-head .agents-run-task {
+  margin-top: var(--sp-6);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: -0.005em;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.agents-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  height: 24px;
+  padding: 0 var(--sp-10);
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.agents-state svg {
+  color: currentColor;
+}
+
+.agents-state.is-working {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.agents-state.is-waiting {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+
+.agents-state.is-done {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.agents-state.is-failed {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.agents-run-stats {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.agents-run-roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: var(--sp-10);
+}
+
+.agents-run-role {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "mark text"
+    "state state";
+  align-items: center;
+  gap: var(--sp-10);
+  padding: var(--sp-12);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  transition:
+    border-color var(--t-fast) var(--ease),
+    background var(--t-fast) var(--ease);
+}
+
+.agents-run-role::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: var(--role);
+  opacity: 0.75;
+}
+
+.agents-run-role:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--role) 45%, var(--border));
+  background: color-mix(in srgb, var(--role) 5%, var(--surface-2));
+}
+
+.agents-run-role:disabled {
+  cursor: default;
+}
+
+.agents-run-role:disabled::before,
+.agents-run-role:disabled .agents-role-mark {
+  opacity: 0.45;
+}
+
+.agents-run-role .agents-role-mark {
+  grid-area: mark;
+}
+
+.agents-run-role .agents-role-text {
+  grid-area: text;
+}
+
+.agents-run-role-state {
+  grid-area: state;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  padding-top: var(--sp-8);
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
+.agents-plan-summary {
+  color: var(--text-2);
+  font-size: var(--fs-ui);
+  line-height: 1.55;
+}
+
+.agents-plan ol,
+.agents-steps ol,
+.agents-approval-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin: 0;
+  padding-left: var(--sp-20);
+}
+
+.agents-plan ol {
+  list-style: decimal;
+}
+
+.agents-steps ol,
+.agents-approval-steps {
+  padding-left: 0;
+  list-style: none;
+}
+
+.agents-numbered {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agents-numbered li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-10);
+  padding: var(--sp-4) 0;
+}
+
+.agents-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.agents-numbered-text {
+  padding-top: 1px;
+  font-size: var(--fs-ui);
+  line-height: 1.45;
+}
+
+.agents-step {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  font-size: var(--fs-sm);
+}
+
+.agents-step-title {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.agents-step.is-skipped .agents-step-title {
+  color: var(--text-3);
+}
+
+/* Steps as a timeline: one line joins the markers. */
+.agents-timeline {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agents-timeline .agents-step {
+  position: relative;
+  gap: var(--sp-10);
+  min-height: 36px;
+  font-size: var(--fs-ui);
+}
+
+.agents-timeline .agents-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 29px;
+  bottom: -7px;
+  left: 10px;
+  width: 1px;
+  background: var(--border-strong);
+}
+
+.agents-step-icon {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 21px;
+  flex: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text-3);
+}
+
+.agents-step.is-done .agents-step-icon {
+  border-color: transparent;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.agents-step.is-failed .agents-step-icon {
+  border-color: transparent;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.agents-step.is-running .agents-step-icon {
+  border-color: color-mix(in srgb, var(--blue) 45%, transparent);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.agents-step-note {
+  flex: none;
+  padding: 1px var(--sp-8);
+  border-radius: var(--radius-full);
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.agents-step-note.is-bad {
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+.agents-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  flex: none;
+  height: 24px;
+  padding: 0 var(--sp-10);
+  border: 1px solid color-mix(in srgb, var(--role) 30%, transparent);
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--role) 10%, transparent);
+  color: var(--role);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  transition: background var(--t-fast) var(--ease);
+}
+
+.agents-role-chip svg {
+  width: 12px;
+  height: 12px;
+}
+
+.agents-role-chip:hover {
+  background: color-mix(in srgb, var(--role) 18%, transparent);
+}
+
+.agents-approval-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-6);
+}
+
+.agents-approval-steps .agents-num {
+  margin: var(--sp-6) var(--sp-4) 0 0;
+}
+
+.agents-approval-index {
+  width: var(--sp-20);
+  padding-top: var(--sp-6);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  text-align: right;
+  flex: none;
+}
+
+.agents-approval-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.agents-approval-text p {
+  font-size: var(--fs-sm);
+}

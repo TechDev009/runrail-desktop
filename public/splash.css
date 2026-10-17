@@ -1,0 +1,92 @@
+/* The loading splash index.html draws before any bundle runs; a linked sheet, since an inline <style> makes Tauri add a style nonce that voids unsafe-inline. */
+
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #181818;
+  color: rgba(255, 255, 255, 0.52);
+  font: 12.5px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", Inter, system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  -webkit-font-smoothing: antialiased;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: opacity 200ms ease;
+}
+
+#splash.is-gone {
+  opacity: 0;
+  pointer-events: none;
+}
+
+:root[data-splash="light"] #splash {
+  background: #ffffff;
+  color: rgba(0, 0, 0, 0.58);
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-splash="dark"]) #splash {
+    background: #ffffff;
+    color: rgba(0, 0, 0, 0.58);
+  }
+}
+
+/* Clicks land on the drag region itself, so the window moves while it loads. */
+#splash > * {
+  pointer-events: none;
+}
+
+.splash-icon {
+  position: relative;
+  width: 96px;
+  height: 96px;
+}
+
+.splash-icon img {
+  display: block;
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
+}
+
+/* Sits on the icon's own point of light, a third of the way down. */
+.splash-pulse {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 34px;
+  height: 34px;
+  margin: -17px 0 0 -17px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 244, 214, 0.75), rgba(255, 244, 214, 0) 68%);
+  animation: splash-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes splash-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #splash {
+    transition: none;
+  }
+
+  .splash-pulse {
+    animation: none;
+    opacity: 0.6;
+  }
+}

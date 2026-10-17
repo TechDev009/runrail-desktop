@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-phone-answer"
+description = "Enables the phone_answer command without any pre-configured scope."
+commands.allow = ["phone_answer"]
+
+[[permission]]
+identifier = "deny-phone-answer"
+description = "Denies the phone_answer command without any pre-configured scope."
+commands.deny = ["phone_answer"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-archive-pick"
+description = "Enables the archive_pick command without any pre-configured scope."
+commands.allow = ["archive_pick"]
+
+[[permission]]
+identifier = "deny-archive-pick"
+description = "Denies the archive_pick command without any pre-configured scope."
+commands.deny = ["archive_pick"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-instructions-read"
+description = "Enables the instructions_read command without any pre-configured scope."
+commands.allow = ["instructions_read"]
+
+[[permission]]
+identifier = "deny-instructions-read"
+description = "Denies the instructions_read command without any pre-configured scope."
+commands.deny = ["instructions_read"]

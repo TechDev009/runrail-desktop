@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-workspace-inspect"
+description = "Enables the workspace_inspect command without any pre-configured scope."
+commands.allow = ["workspace_inspect"]
+
+[[permission]]
+identifier = "deny-workspace-inspect"
+description = "Denies the workspace_inspect command without any pre-configured scope."
+commands.deny = ["workspace_inspect"]

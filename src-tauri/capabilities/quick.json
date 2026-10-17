@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "quick",
+  "description": "Quick chat's small window: it reads what was in front, hands a message to the main window, and hides. Nothing else.",
+  "webviews": ["quick"],
+  "permissions": ["allow-quick-context", "allow-quick-submit", "allow-quick-hide"]
+}

@@ -1,0 +1,60 @@
+/* Memory: memories, sources, and where they are kept. Shares the Agents layout. */
+
+.memory-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memory-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-8) 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.memory-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.memory-text.is-clamped {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.memory-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-xs);
+}
+
+.memory-choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-10);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.memory-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-8);
+}
+
+.memory-choice > span {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}

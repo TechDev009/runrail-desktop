@@ -1,0 +1,751 @@
+/* ---------- Connections: the list in Settings, "Connect a model", and the sign-in sheet ---------- */
+
+/* Status: icon + color + text, so color is never the only signal. */
+.conn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  flex: none;
+  height: 20px;
+  padding: 0 var(--sp-8);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.conn-chip.is-ok {
+  color: var(--green);
+  background: var(--green-soft);
+  border-color: transparent;
+}
+
+.conn-chip.is-busy {
+  color: var(--blue);
+  background: var(--blue-soft);
+  border-color: transparent;
+}
+
+.conn-chip.is-warn {
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-color: transparent;
+}
+
+.conn-chip.is-fail {
+  color: var(--red);
+  background: var(--red-soft);
+  border-color: transparent;
+}
+
+.conn-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-8);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.conn-notice > svg,
+.conn-notice > .spin {
+  flex: none;
+  margin-top: var(--sp-2);
+}
+
+.conn-notice.is-ok > svg {
+  color: var(--green);
+}
+
+.conn-notice.is-warn > svg {
+  color: var(--amber);
+}
+
+.conn-notice.is-fail {
+  color: var(--red);
+}
+
+.conn-codeword {
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+}
+
+.conn-code {
+  padding: 1px var(--sp-6);
+  border-radius: var(--radius-xs);
+  background: var(--surface-3);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+
+.conn-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 var(--sp-6);
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ---------- Settings -> Connections ---------- */
+
+.conn-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-12);
+  margin-bottom: var(--sp-8);
+}
+
+.conn-page-head h2 {
+  margin-bottom: 0;
+}
+
+.conn-page-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+}
+
+.conn-list {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--sp-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.conn-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--sp-10);
+  padding: var(--sp-10) var(--sp-12);
+  border-bottom: 1px solid var(--border-subtle);
+  transition: opacity var(--t) var(--ease);
+}
+
+.conn-row:last-child {
+  border-bottom: 0;
+}
+
+.conn-row.is-leaving {
+  opacity: 0.55;
+}
+
+/* Above the tools found on this computer that are not turned on yet. */
+.conn-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-10);
+  min-height: 36px;
+  padding: var(--sp-6) var(--sp-12);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+}
+
+.conn-row > .conn-chip {
+  justify-self: start;
+  margin-top: 1px;
+}
+
+.conn-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+.conn-row-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  min-width: 0;
+}
+
+.conn-row-name {
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-row-meta {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-row-hint {
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.conn-row-hint.is-fail {
+  color: var(--red);
+}
+
+.conn-row-hint.is-warn {
+  color: var(--amber);
+}
+
+.conn-row-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+}
+
+.conn-rename {
+  height: var(--control-h-sm);
+  max-width: 320px;
+}
+
+.setting-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  flex: none;
+}
+
+/* ---------- "Connect a model" ---------- */
+
+.connect-modal .modal-body {
+  min-height: 220px;
+  padding-top: 0;
+}
+
+.connect-modal .modal-body > .conn-step,
+.connect-modal .modal-body > .pane-loading {
+  padding-top: var(--sp-16);
+}
+
+.conn-pick {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Stays in view while the providers scroll under it. */
+.conn-filter-bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  padding: var(--sp-14) 0 var(--sp-12);
+  background: var(--surface);
+}
+
+.conn-pick-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-16);
+}
+
+.conn-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+}
+
+.conn-group-title {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.conn-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-8);
+}
+
+.conn-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+  min-height: 54px;
+  padding: var(--sp-10) var(--sp-28) var(--sp-10) var(--sp-12);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  transition:
+    background var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+.conn-tile:hover,
+.conn-tile:focus-visible {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.conn-tile-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  max-width: 100%;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-tile-detail {
+  max-width: 100%;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  line-height: 1.35;
+  /* A long host name wraps onto the second line instead of being cut at the edge. */
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.conn-tile-count {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs);
+  color: var(--green);
+}
+
+.conn-tile-go {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  color: var(--text-3);
+  opacity: 0;
+  transition: opacity var(--t-fast) var(--ease);
+}
+
+.conn-tile:hover .conn-tile-go,
+.conn-tile:focus-visible .conn-tile-go {
+  opacity: 1;
+}
+
+.conn-shell {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.conn-shell-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-10);
+  min-height: 38px;
+  padding: var(--sp-6) var(--sp-8) var(--sp-6) var(--sp-12);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.conn-shell-row:last-child {
+  border-bottom: 0;
+}
+
+.conn-shell-name {
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-shell-var {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conn-shell-row > .conn-chip {
+  margin-left: auto;
+}
+
+/* ---------- One step: a key form, a sign-in, a route ---------- */
+
+.conn-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-12);
+}
+
+.conn-step.form {
+  gap: var(--sp-14);
+}
+
+.conn-step-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.conn-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
+  align-self: flex-start;
+  height: var(--control-h-sm);
+  margin: calc(var(--sp-4) * -1) 0 calc(var(--sp-4) * -1) calc(var(--sp-6) * -1);
+  padding: 0 var(--sp-6);
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.conn-back:hover:not(:disabled) {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.conn-back:disabled {
+  opacity: 0.5;
+}
+
+.conn-key-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+}
+
+.conn-key-row > .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.conn-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-8);
+  margin-top: var(--sp-2);
+}
+
+.conn-wait,
+.conn-wait-note {
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.conn-wait-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-8);
+  padding: var(--sp-10) var(--sp-12);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-2);
+  font-size: var(--fs-ui);
+}
+
+.conn-wait-note {
+  margin-left: auto;
+}
+
+.conn-foot {
+  padding-top: var(--sp-10);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+  line-height: 1.45;
+}
+
+.conn-callout {
+  display: block;
+  border-color: color-mix(in srgb, var(--amber) 35%, var(--border));
+}
+
+.conn-callout strong {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.conn-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  margin: 0;
+  padding-left: var(--sp-20);
+  list-style: decimal;
+  color: var(--text-2);
+  font-size: var(--fs-ui);
+  line-height: 1.5;
+}
+
+.conn-device {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-10);
+  padding: var(--sp-16);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.conn-device-code {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: var(--text);
+  user-select: all;
+}
+
+/* ---------- First run: nothing is connected yet ---------- */
+
+.conn-first {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  width: 100%;
+  padding: var(--sp-10) var(--sp-12);
+  border-radius: var(--radius);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.conn-first-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.conn-first-text {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.conn-first-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.conn-first-body {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+.picker-empty .btn {
+  margin-top: var(--sp-8);
+}
+
+@media (max-width: 720px) {
+  .conn-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .conn-row > .conn-chip {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---------- AI providers: turned-off rows, the tools banner ---------- */
+
+.conn-row.is-off .conn-row-name,
+.conn-row.is-off .conn-row-meta {
+  color: var(--text-3);
+}
+
+.conn-banner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-10);
+  margin-top: var(--sp-12);
+  padding: var(--sp-10) var(--sp-12);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--text-2);
+  font-size: var(--fs-ui);
+  line-height: 1.45;
+}
+
+.conn-banner > span {
+  flex: 1;
+  min-width: 220px;
+}
+
+.conn-banner-actions {
+  display: flex;
+  gap: var(--sp-6);
+}
+
+/* ---------- Adding a coding tool: how it signs in, its command ---------- */
+
+.conn-choices {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.conn-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-10);
+  padding: var(--sp-10) var(--sp-12);
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+
+.conn-choice:last-child {
+  border-bottom: 0;
+}
+
+.conn-choice > input {
+  margin-top: var(--sp-2);
+}
+
+.conn-choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.conn-choice-title {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  font-weight: 500;
+  color: var(--text);
+}
+
+.conn-choice-detail {
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--text-3);
+}
+
+.conn-command {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  padding: var(--sp-8) var(--sp-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.conn-command > code {
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* The tool's own sign-in, running inside the dialog. */
+.conn-login-term {
+  height: 220px;
+  padding: var(--sp-8) var(--sp-10);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--term-bg, var(--surface));
+  overflow: hidden;
+}
+
+.conn-login-term .xterm {
+  height: 100%;
+}
+
+.conn-own-terminal > summary {
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  color: var(--text-3);
+}
+
+.conn-own-terminal[open] > summary {
+  margin-bottom: var(--sp-8);
+}
+
+/* ---------- Choosing models ---------- */
+
+.conn-every {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  font-size: var(--fs-ui);
+  color: var(--text-2);
+}
+
+.conn-models {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--sp-14);
+  align-items: start;
+}
+
+.conn-models-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-8);
+  min-width: 0;
+}
+
+.conn-models .conn-shell-name {
+  flex: 1;
+}
+
+.conn-models-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.conn-model-check {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .conn-models {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

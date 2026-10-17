@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-mcp-remove"
+description = "Enables the mcp_remove command without any pre-configured scope."
+commands.allow = ["mcp_remove"]
+
+[[permission]]
+identifier = "deny-mcp-remove"
+description = "Denies the mcp_remove command without any pre-configured scope."
+commands.deny = ["mcp_remove"]

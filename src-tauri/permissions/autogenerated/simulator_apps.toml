@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-simulator-apps"
+description = "Enables the simulator_apps command without any pre-configured scope."
+commands.allow = ["simulator_apps"]
+
+[[permission]]
+identifier = "deny-simulator-apps"
+description = "Denies the simulator_apps command without any pre-configured scope."
+commands.deny = ["simulator_apps"]

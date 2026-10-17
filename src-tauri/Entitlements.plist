@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- The app binary. No JIT here: the web view compiles JavaScript in WebKit's own process, and
+       only the engine gets allow-jit (Engine.entitlements.plist, applied by scripts/release.ts mac). -->
+  <!-- Dictation and talk mode: the microphone, only while the person has turned listening on. -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+</dict>
+</plist>

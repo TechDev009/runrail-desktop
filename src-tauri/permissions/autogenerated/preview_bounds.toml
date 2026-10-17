@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-preview-bounds"
+description = "Enables the preview_bounds command without any pre-configured scope."
+commands.allow = ["preview_bounds"]
+
+[[permission]]
+identifier = "deny-preview-bounds"
+description = "Denies the preview_bounds command without any pre-configured scope."
+commands.deny = ["preview_bounds"]

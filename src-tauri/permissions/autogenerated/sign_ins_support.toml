@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-sign-ins-support"
+description = "Enables the sign_ins_support command without any pre-configured scope."
+commands.allow = ["sign_ins_support"]
+
+[[permission]]
+identifier = "deny-sign-ins-support"
+description = "Denies the sign_ins_support command without any pre-configured scope."
+commands.deny = ["sign_ins_support"]

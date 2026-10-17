@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-phone-set-push"
+description = "Enables the phone_set_push command without any pre-configured scope."
+commands.allow = ["phone_set_push"]
+
+[[permission]]
+identifier = "deny-phone-set-push"
+description = "Denies the phone_set_push command without any pre-configured scope."
+commands.deny = ["phone_set_push"]

@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-other-tools-scan"
+description = "Enables the other_tools_scan command without any pre-configured scope."
+commands.allow = ["other_tools_scan"]
+
+[[permission]]
+identifier = "deny-other-tools-scan"
+description = "Denies the other_tools_scan command without any pre-configured scope."
+commands.deny = ["other_tools_scan"]

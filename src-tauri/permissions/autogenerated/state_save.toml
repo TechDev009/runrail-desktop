@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-state-save"
+description = "Enables the state_save command without any pre-configured scope."
+commands.allow = ["state_save"]
+
+[[permission]]
+identifier = "deny-state-save"
+description = "Denies the state_save command without any pre-configured scope."
+commands.deny = ["state_save"]

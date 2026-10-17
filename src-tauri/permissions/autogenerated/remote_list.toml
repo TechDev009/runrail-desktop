@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-remote-list"
+description = "Enables the remote_list command without any pre-configured scope."
+commands.allow = ["remote_list"]
+
+[[permission]]
+identifier = "deny-remote-list"
+description = "Denies the remote_list command without any pre-configured scope."
+commands.deny = ["remote_list"]

@@ -1,0 +1,315 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      engine-ref:
+        description: Branch, tag, or commit of the Runrail engine the sidecar is built from
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Typecheck and test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - name: Check the tag matches the app version and the changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+          UPDATER_PUBKEY: ${{ vars.RUNRAIL_UPDATER_PUBKEY }}
+        run: |
+          if [ -z "$UPDATER_PUBKEY" ]; then
+            echo "::error::a release needs the RUNRAIL_UPDATER_PUBKEY variable and the updater secrets (docs/RELEASE.md), or its installs never update"
+            exit 1
+          fi
+          cargo="$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -n 1)"
+          for found in "$(bun -p "require('./package.json').version")" "$(bun -p "require('./src-tauri/tauri.conf.json').version")" "$cargo"; do
+            if [ "v$found" != "$TAG" ]; then
+              echo "::error::tag $TAG does not match version $found in package.json, tauri.conf.json, and Cargo.toml"
+              exit 1
+            fi
+          done
+          if ! grep -q "^## \[${TAG#v}\]" CHANGELOG.md; then
+            echo "::error::CHANGELOG.md has no section for ${TAG#v}"
+            exit 1
+          fi
+
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+
+  build:
+    name: Build (${{ matrix.name }})
+    needs: check
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64
+            os: macos-latest
+            artifact: macos-arm64
+            rust-tests: true
+          - name: macOS x64
+            os: macos-15-intel
+            artifact: macos-x64
+          - name: Linux x64
+            os: ubuntu-22.04
+            arch: x86_64
+            bundles: deb,rpm
+            artifact: linux-x64
+          - name: Linux arm64
+            os: ubuntu-22.04-arm
+            arch: aarch64
+            bundles: deb,rpm
+            artifact: linux-arm64
+          - name: Windows x64
+            os: windows-latest
+            bundles: nsis,msi
+            artifact: windows-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      # The updater is compiled in when the repository has its public key (docs/RELEASE.md), never on
+      # pull requests. Clients read the feed from the latest published release.
+      RUNRAIL_UPDATER_PUBKEY: ${{ github.event_name != 'pull_request' && vars.RUNRAIL_UPDATER_PUBKEY || '' }}
+      RUNRAIL_UPDATE_URL: ${{ vars.RUNRAIL_UPDATE_URL || format('https://github.com/{0}/releases/latest/download/latest.json', github.repository) }}
+    steps:
+      # Side by side, so the sidecar script finds the engine at ../runrail.
+      - uses: actions/checkout@v4
+        with:
+          path: runrail-desktop
+
+      - uses: actions/checkout@v4
+        with:
+          repository: TechDev009/runrail
+          # A tag builds against the engine's tag of the same name.
+          ref: ${{ inputs.engine-ref || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'main' }}
+          path: runrail
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: runrail-desktop/src-tauri -> target
+
+      # Glibc 2.35 (Ubuntu 22.04) is the oldest the Linux builds support (docs/LINUX.md).
+      - name: Install Linux build packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential clang libclang-dev cmake file pkg-config \
+            libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev libxdo-dev libasound2-dev patchelf
+
+      - name: Install dependencies
+        run: |
+          (cd runrail && bun install --frozen-lockfile)
+          (cd runrail-desktop && bun install --frozen-lockfile)
+
+      - name: Build the engine sidecar
+        working-directory: runrail-desktop
+        run: bun scripts/sidecar.ts
+
+      - name: Rust tests
+        if: matrix.rust-tests
+        working-directory: runrail-desktop/src-tauri
+        run: cargo test --lib
+
+      - name: Write the updater config
+        if: env.RUNRAIL_UPDATER_PUBKEY != ''
+        working-directory: runrail-desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::RUNRAIL_UPDATER_PUBKEY is set without the TAURI_SIGNING_PRIVATE_KEY secret that signs the updates."
+            exit 1
+          fi
+          bun scripts/release.ts config
+
+      - name: Build the app
+        if: runner.os != 'macOS'
+        working-directory: runrail-desktop
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          updater=()
+          [ -n "$RUNRAIL_UPDATER_PUBKEY" ] && updater=(--features updater --config src-tauri/tauri.release.conf.json)
+          bun run tauri build --bundles ${{ matrix.bundles }} "${updater[@]}"
+
+      # A Developer ID build needs the APPLE_* secrets (docs/RELEASE.md). Without them, and always on
+      # pull requests, this step does nothing and the app is signed ad hoc.
+      - name: Import the Developer ID certificate
+        id: certificate
+        if: runner.os == 'macOS' && github.event_name != 'pull_request'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+        run: |
+          if [ -z "$APPLE_CERTIFICATE" ]; then
+            echo "No Developer ID certificate is configured; the app is signed ad hoc."
+            exit 0
+          fi
+          if [ -z "$APPLE_API_PRIVATE_KEY" ]; then
+            echo "::error::APPLE_CERTIFICATE is set without APPLE_API_PRIVATE_KEY, and a Developer ID build is notarized."
+            exit 1
+          fi
+          umask 077
+          keychain="$RUNNER_TEMP/signing.keychain-db"
+          keychain_password="$(openssl rand -base64 24)"
+          security create-keychain -p "$keychain_password" "$keychain"
+          echo "keychain=$keychain" >> "$GITHUB_OUTPUT"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$keychain_password" "$keychain"
+          printf '%s' "$APPLE_CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -f pkcs12 -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$keychain_password" "$keychain" > /dev/null
+          read -r -a searched <<< "$(security list-keychains -d user | tr -d '"' | xargs)"
+          security list-keychains -d user -s "$keychain" "${searched[@]}"
+          identity="$(security find-identity -v -p codesigning "$keychain" | sed -n 's/.*"\(Developer ID Application: .*\)"$/\1/p' | head -n 1)"
+          if [ -z "$identity" ]; then
+            echo "::error::APPLE_CERTIFICATE holds no Developer ID Application identity."
+            exit 1
+          fi
+          printf '%s' "$APPLE_API_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
+          echo "identity=$identity" >> "$GITHUB_OUTPUT"
+
+      # Ad hoc still gives the engine alone JIT and runs the checks in release.ts, but a downloaded
+      # copy opens without Gatekeeper stopping it only when signed with a Developer ID and notarized.
+      - name: Build and sign the macOS app
+        if: runner.os == 'macOS'
+        working-directory: runrail-desktop
+        env:
+          IDENTITY: ${{ steps.certificate.outputs.identity || '-' }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ "$IDENTITY" != "-" ]; then export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"; fi
+          bun scripts/release.ts mac --identity "$IDENTITY"
+
+      - name: Remove the signing keychain
+        if: always() && steps.certificate.outputs.keychain != ''
+        env:
+          KEYCHAIN: ${{ steps.certificate.outputs.keychain }}
+        run: |
+          security delete-keychain "$KEYCHAIN"
+          rm -f "$RUNNER_TEMP/AuthKey.p8"
+
+      # linuxdeploy sets a RUNPATH on every program in usr/bin, which corrupts the Bun-compiled
+      # engine, so the AppImage carries it in usr/libexec instead (engine.rs looks there).
+      - name: Build the AppImage
+        if: runner.os == 'Linux'
+        working-directory: runrail-desktop
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          printf '{"bundle":{"externalBin":[],"linux":{"appimage":{"files":{"/usr/libexec/runrail/runrail":"binaries/runrail-%s-unknown-linux-gnu"}}}}}' "${{ matrix.arch }}" > "$RUNNER_TEMP/appimage.json"
+          updater=()
+          [ -n "$RUNRAIL_UPDATER_PUBKEY" ] && updater=(--features updater --config src-tauri/tauri.release.conf.json)
+          bun run tauri build --bundles appimage "${updater[@]}" --config "$RUNNER_TEMP/appimage.json"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: runrail-desktop-${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            runrail-desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            runrail-desktop/src-tauri/target/release/bundle/deb/*.deb
+            runrail-desktop/src-tauri/target/release/bundle/rpm/*.rpm
+            runrail-desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            runrail-desktop/src-tauri/target/release/bundle/nsis/*.exe
+            runrail-desktop/src-tauri/target/release/bundle/msi/*.msi
+            runrail-desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz
+            runrail-desktop/src-tauri/target/release/bundle/*/*.sig
+
+  # A version tag (v0.1.0) collects every build into a draft GitHub release: nobody sees it until a
+  # maintainer reviews the notes and files and clicks Publish. A failed build leaves no draft.
+  release:
+    name: Draft release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: runrail-desktop
+          sparse-checkout: |
+            scripts/release.ts
+            CHANGELOG.md
+          sparse-checkout-cone-mode: false
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.2"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: runrail-desktop-*
+          path: artifacts
+
+      # The update feed carries each bundle's signature, so the .sig files themselves are not
+      # attached. Installed apps read latest.json from the latest published release only.
+      - name: Create or update the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          UPDATER: ${{ vars.RUNRAIL_UPDATER_PUBKEY != '' }}
+        run: |
+          duplicates="$(find artifacts -type f -printf '%f\n' | sort | uniq -d)"
+          if [ -n "$duplicates" ]; then
+            echo "::error::two builds made files with the same name: $duplicates"
+            exit 1
+          fi
+          mkdir bundles
+          find artifacts -type f -exec mv -t bundles {} +
+          if [ "$UPDATER" = true ]; then
+            bun runrail-desktop/scripts/release.ts feed --dir bundles --repository "$GITHUB_REPOSITORY" --tag "$TAG"
+          fi
+          rm -f bundles/*.sig
+          (cd bundles && sha256sum -- * > SHA256SUMS.txt)
+          mapfile -t files < <(find bundles -type f | sort)
+          if draft="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            if [ "$draft" != "true" ]; then
+              echo "::error::$TAG is already published; its files are not replaced."
+              exit 1
+            fi
+            gh release upload "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            prerelease=()
+            [[ "$TAG" == *-* ]] && prerelease=(--prerelease)
+            awk -v v="${TAG#v}" '/^## \[/ { p = index($0, "[" v "]") == 4; next } p' runrail-desktop/CHANGELOG.md > notes.md
+            gh release create "$TAG" "${files[@]}" --repo "$GITHUB_REPOSITORY" --verify-tag --draft "${prerelease[@]}" \
+              --title "Runrail Desktop ${TAG#v}" --notes-file notes.md
+          fi
