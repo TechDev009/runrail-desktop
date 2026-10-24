@@ -23,9 +23,9 @@ jobs:
     name: Typecheck and test
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.2"
 
@@ -55,6 +55,8 @@ jobs:
       - run: bun run typecheck
       - run: bun test
 
+  # Builds never get the updater key or the Apple credentials: Vite plugins, Cargo build scripts, and
+  # the engine checkout all run here. On a version tag the sign job signs what they upload.
   build:
     name: Build (${{ matrix.name }})
     needs: check
@@ -94,24 +96,27 @@ jobs:
       RUNRAIL_UPDATE_URL: ${{ vars.RUNRAIL_UPDATE_URL || format('https://github.com/{0}/releases/latest/download/latest.json', github.repository) }}
     steps:
       # Side by side, so the sidecar script finds the engine at ../runrail.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           path: runrail-desktop
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: TechDev009/runrail
           # A tag builds against the engine's tag of the same name.
           ref: ${{ inputs.engine-ref || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || 'main' }}
           path: runrail
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.2"
 
-      - uses: dtolnay/rust-toolchain@stable
+      # Pinned by commit, so the toolchain is named here rather than by the ref.
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+        with:
+          toolchain: stable
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: runrail-desktop/src-tauri -> target
 
@@ -137,34 +142,118 @@ jobs:
         working-directory: runrail-desktop/src-tauri
         run: cargo test --lib
 
+      # The public key is compiled in here, but with createUpdaterArtifacts on, tauri build would sign
+      # the bundles and so need the private key. The sign job signs them instead.
       - name: Write the updater config
         if: env.RUNRAIL_UPDATER_PUBKEY != ''
         working-directory: runrail-desktop
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "::error::RUNRAIL_UPDATER_PUBKEY is set without the TAURI_SIGNING_PRIVATE_KEY secret that signs the updates."
-            exit 1
-          fi
           bun scripts/release.ts config
+          printf '{"bundle":{"createUpdaterArtifacts":false}}\n' > src-tauri/tauri.unsigned.conf.json
 
       - name: Build the app
         if: runner.os != 'macOS'
         working-directory: runrail-desktop
-        env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           updater=()
-          [ -n "$RUNRAIL_UPDATER_PUBKEY" ] && updater=(--features updater --config src-tauri/tauri.release.conf.json)
+          [ -n "$RUNRAIL_UPDATER_PUBKEY" ] && updater=(--features updater --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.unsigned.conf.json)
           bun run tauri build --bundles ${{ matrix.bundles }} "${updater[@]}"
 
-      # A Developer ID build needs the APPLE_* secrets (docs/RELEASE.md). Without them, and always on
-      # pull requests, this step does nothing and the app is signed ad hoc.
+      # Unsigned: the sign job signs and notarizes it and makes the DMG. A tarball keeps the bundle's
+      # symlinks and executable bits, which upload-artifact drops.
+      - name: Build the macOS app
+        if: runner.os == 'macOS'
+        working-directory: runrail-desktop
+        run: |
+          updater=()
+          [ -n "$RUNRAIL_UPDATER_PUBKEY" ] && updater=(--features updater --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.unsigned.conf.json)
+          bun run tauri build --bundles app "${updater[@]}"
+          product="$(bun -p "require('./src-tauri/tauri.conf.json').productName")"
+          version="$(bun -p "require('./src-tauri/tauri.conf.json').version")"
+          arch="$([ "$(uname -m)" = arm64 ] && echo aarch64 || echo x64)"
+          macos=src-tauri/target/release/bundle/macos
+          "$macos/$product.app/Contents/MacOS/runrail" --version
+          rm -f "$macos"/*.app.tar
+          COPYFILE_DISABLE=1 tar -cf "$macos/${product}_${version}_${arch}.app.tar" -C "$macos" "$product.app"
+
+      # linuxdeploy sets a RUNPATH on every program in usr/bin, which corrupts the Bun-compiled
+      # engine, so the AppImage carries it in usr/libexec instead (engine.rs looks there).
+      - name: Build the AppImage
+        if: runner.os == 'Linux'
+        working-directory: runrail-desktop
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          printf '{"bundle":{"externalBin":[],"linux":{"appimage":{"files":{"/usr/libexec/runrail/runrail":"binaries/runrail-%s-unknown-linux-gnu"}}}}}' "${{ matrix.arch }}" > "$RUNNER_TEMP/appimage.json"
+          updater=()
+          [ -n "$RUNRAIL_UPDATER_PUBKEY" ] && updater=(--features updater --config src-tauri/tauri.release.conf.json --config src-tauri/tauri.unsigned.conf.json)
+          bun run tauri build --bundles appimage "${updater[@]}" --config "$RUNNER_TEMP/appimage.json"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: runrail-desktop-${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            runrail-desktop/src-tauri/target/release/bundle/deb/*.deb
+            runrail-desktop/src-tauri/target/release/bundle/rpm/*.rpm
+            runrail-desktop/src-tauri/target/release/bundle/appimage/*.AppImage
+            runrail-desktop/src-tauri/target/release/bundle/nsis/*.exe
+            runrail-desktop/src-tauri/target/release/bundle/msi/*.msi
+            runrail-desktop/src-tauri/target/release/bundle/macos/*.app.tar
+
+  # The only job that sees the updater key and the Apple credentials. It runs no project code, only
+  # codesign, notarytool, hdiutil, and the Tauri CLI on the downloaded builds. Its secrets live in the
+  # release environment, which can require a reviewer's approval and allow only v* tags.
+  sign:
+    name: Sign
+    needs: build
+    if: github.event_name != 'pull_request' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: macos-latest
+    environment: release
+    defaults:
+      run:
+        shell: bash
+    env:
+      TAG: ${{ github.ref_name }}
+      UPDATER: ${{ vars.RUNRAIL_UPDATER_PUBKEY != '' }}
+    steps:
+      # Entitlements come from the tag, not the build, so a build cannot sign itself more of them.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          path: runrail-desktop
+          persist-credentials: false
+          sparse-checkout: |
+            bun.lock
+            src-tauri/tauri.conf.json
+            src-tauri/Entitlements.plist
+            src-tauri/Engine.entitlements.plist
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: runrail-desktop-*
+          path: artifacts
+
+      # Only the CLI is installed, without install scripts, and only if npm served the files bun.lock pins.
+      - name: Install the Tauri CLI
+        if: env.UPDATER == 'true'
+        run: |
+          cli="$(grep -o '"@tauri-apps/cli@[0-9][^"]*"' runrail-desktop/bun.lock | head -n 1 | tr -d '"')"
+          mkdir -p "$RUNNER_TEMP/tauri-cli"
+          npm install --ignore-scripts --no-audit --no-fund --prefix "$RUNNER_TEMP/tauri-cli" "$cli"
+          for integrity in $(jq -r '.packages | to_entries[] | select(.key != "") | .value.integrity' "$RUNNER_TEMP/tauri-cli/package-lock.json"); do
+            if ! grep -qF "\"$integrity\"" runrail-desktop/bun.lock; then
+              echo "::error::npm served a $cli that bun.lock does not pin ($integrity)."
+              exit 1
+            fi
+          done
+          echo "TAURI=$RUNNER_TEMP/tauri-cli/node_modules/.bin/tauri" >> "$GITHUB_ENV"
+
+      # A Developer ID signature needs the APPLE_* secrets (docs/RELEASE.md). Without them the apps
+      # are signed ad hoc and not notarized.
       - name: Import the Developer ID certificate
         id: certificate
-        if: runner.os == 'macOS' && github.event_name != 'pull_request'
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -199,20 +288,103 @@ jobs:
           printf '%s' "$APPLE_API_PRIVATE_KEY" > "$RUNNER_TEMP/AuthKey.p8"
           echo "identity=$identity" >> "$GITHUB_OUTPUT"
 
-      # Ad hoc still gives the engine alone JIT and runs the checks in release.ts, but a downloaded
-      # copy opens without Gatekeeper stopping it only when signed with a Developer ID and notarized.
-      - name: Build and sign the macOS app
-        if: runner.os == 'macOS'
-        working-directory: runrail-desktop
+      # The steps of scripts/release.ts mac after its build: the engine and the app each signed with
+      # their own entitlements, checked, notarized and stapled, then the DMG and the update archive.
+      # Ad hoc gives the engine alone JIT, but only a Developer ID and notarization get a downloaded
+      # copy past Gatekeeper.
+      - name: Sign the macOS apps
         env:
           IDENTITY: ${{ steps.certificate.outputs.identity || '-' }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          if [ "$IDENTITY" != "-" ]; then export APPLE_API_KEY_PATH="$RUNNER_TEMP/AuthKey.p8"; fi
-          bun scripts/release.ts mac --identity "$IDENTITY"
+          config=runrail-desktop/src-tauri
+          product="$(jq -r .productName "$config/tauri.conf.json")"
+          identifier="$(jq -r .identifier "$config/tauri.conf.json")"
+          sign=(codesign --force --options runtime --sign "$IDENTITY")
+          notary=()
+          if [ "$IDENTITY" != "-" ]; then
+            if [ -z "$APPLE_API_KEY" ] || [ -z "$APPLE_API_ISSUER" ]; then
+              echo "::error::a Developer ID build is notarized: set APPLE_API_KEY and APPLE_API_ISSUER."
+              exit 1
+            fi
+            sign+=(--timestamp)
+            notary=(--key "$RUNNER_TEMP/AuthKey.p8" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER")
+          fi
+          granted() { plutil -convert json -o - - | jq -r 'to_entries | map(select(.value == true) | .key) | sort | join(", ")'; }
+          check() {
+            local signed expected
+            signed="$(codesign -d --entitlements - --xml "$1" 2>/dev/null | granted)"
+            expected="$(granted < "$2")"
+            if [ "$signed" != "$expected" ]; then
+              echo "::error::$(basename "$1") is signed with [$signed], expected [$expected]"
+              exit 1
+            fi
+            if ! codesign -dv "$1" 2>&1 | grep -Eq 'flags=0x[0-9a-f]+\([^)]*runtime'; then
+              echo "::error::$(basename "$1") is not signed with the hardened runtime"
+              exit 1
+            fi
+          }
+          notarize() {
+            local answer status
+            answer="$(xcrun notarytool submit "$1" "${notary[@]}" --wait --output-format json)"
+            status="$(jq -r '.status // "without a status"' <<< "$answer")"
+            if [ "$status" != Accepted ]; then
+              echo "::error::notarizing $(basename "$1") ended $status; see xcrun notarytool log $(jq -r '.id // "<id>"' <<< "$answer")"
+              exit 1
+            fi
+          }
+          mkdir -p signed
+          for tarball in artifacts/runrail-desktop-macos-*/*.app.tar; do
+            name="$(basename "$tarball" .app.tar)"
+            work="$RUNNER_TEMP/$name"
+            app="$work/$product.app"
+            mkdir -p "$work/dmg"
+            tar -xf "$tarball" -C "$work"
+            xattr -cr "$app"
+            main="$app/Contents/MacOS/$(plutil -extract CFBundleExecutable raw -o - "$app/Contents/Info.plist")"
+            engine="$app/Contents/MacOS/runrail"
+            while IFS= read -r -d '' file; do
+              case "$file" in "$main" | "$engine") continue ;; esac
+              case "$(file -b "$file")" in
+                Mach-O*)
+                  echo "::error::the signing plan does not cover $file"
+                  exit 1
+                  ;;
+              esac
+            done < <(find "$app" -type f -print0)
+            "${sign[@]}" --identifier "$identifier.engine" --entitlements "$config/Engine.entitlements.plist" "$engine"
+            "${sign[@]}" --entitlements "$config/Entitlements.plist" "$app"
+            codesign --verify --strict --deep --verbose=2 "$app"
+            check "$engine" "$config/Engine.entitlements.plist"
+            check "$main" "$config/Entitlements.plist"
+            if [ "$IDENTITY" != "-" ]; then
+              ditto -c -k --keepParent "$app" "$work/$product.zip"
+              notarize "$work/$product.zip"
+              xcrun stapler staple "$app"
+              spctl --assess --type execute --verbose=2 "$app"
+            fi
+
+            dmg="signed/$name.dmg"
+            ditto "$app" "$work/dmg/$product.app"
+            ln -s /Applications "$work/dmg/Applications"
+            # hdiutil now and then fails with "Resource busy" on CI runners; a retry gets past it.
+            for attempt in 1 2 3; do
+              hdiutil create -volname "$product" -srcfolder "$work/dmg" -ov -format UDZO "$dmg" && break
+              [ "$attempt" = 3 ] && exit 1
+              sleep 5
+            done
+            if [ "$IDENTITY" != "-" ]; then
+              codesign --force --timestamp --sign "$IDENTITY" "$dmg"
+              notarize "$dmg"
+              xcrun stapler staple "$dmg"
+              spctl --assess --type open --context context:primary-signature --verbose=2 "$dmg"
+            fi
+            if [ "$UPDATER" = true ]; then
+              # COPYFILE_DISABLE keeps macOS tar from adding ._ files, which would break the sealed signature.
+              COPYFILE_DISABLE=1 tar -czf "signed/$name.app.tar.gz" -C "$work" "$product.app"
+            fi
+          done
 
       - name: Remove the signing keychain
         if: always() && steps.certificate.outputs.keychain != ''
@@ -222,47 +394,47 @@ jobs:
           security delete-keychain "$KEYCHAIN"
           rm -f "$RUNNER_TEMP/AuthKey.p8"
 
-      # linuxdeploy sets a RUNPATH on every program in usr/bin, which corrupts the Bun-compiled
-      # engine, so the AppImage carries it in usr/libexec instead (engine.rs looks there).
-      - name: Build the AppImage
-        if: runner.os == 'Linux'
-        working-directory: runrail-desktop
+      # Each signature is bound to the version, as tauri build binds it (requireSignedVersion).
+      - name: Sign the updates
+        if: env.UPDATER == 'true'
         env:
-          APPIMAGE_EXTRACT_AND_RUN: "1"
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          printf '{"bundle":{"externalBin":[],"linux":{"appimage":{"files":{"/usr/libexec/runrail/runrail":"binaries/runrail-%s-unknown-linux-gnu"}}}}}' "${{ matrix.arch }}" > "$RUNNER_TEMP/appimage.json"
-          updater=()
-          [ -n "$RUNRAIL_UPDATER_PUBKEY" ] && updater=(--features updater --config src-tauri/tauri.release.conf.json)
-          bun run tauri build --bundles appimage "${updater[@]}" --config "$RUNNER_TEMP/appimage.json"
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::RUNRAIL_UPDATER_PUBKEY is set without the TAURI_SIGNING_PRIVATE_KEY secret that signs the updates."
+            exit 1
+          fi
+          for file in signed/*.app.tar.gz; do
+            "$TAURI" signer sign --app-version "${TAG#v}" "$file"
+          done
+          for file in artifacts/runrail-desktop-*/*; do
+            case "$file" in
+              *.AppImage | *.deb | *.rpm | *.exe | *.msi)
+                "$TAURI" signer sign --app-version "${TAG#v}" "$file"
+                mv "$file.sig" signed/
+                ;;
+            esac
+          done
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: runrail-desktop-${{ matrix.artifact }}
+          name: runrail-desktop-signed
           if-no-files-found: error
           retention-days: 14
-          path: |
-            runrail-desktop/src-tauri/target/release/bundle/dmg/*.dmg
-            runrail-desktop/src-tauri/target/release/bundle/deb/*.deb
-            runrail-desktop/src-tauri/target/release/bundle/rpm/*.rpm
-            runrail-desktop/src-tauri/target/release/bundle/appimage/*.AppImage
-            runrail-desktop/src-tauri/target/release/bundle/nsis/*.exe
-            runrail-desktop/src-tauri/target/release/bundle/msi/*.msi
-            runrail-desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz
-            runrail-desktop/src-tauri/target/release/bundle/*/*.sig
+          path: signed/
 
   # A version tag (v0.1.0) collects every build into a draft GitHub release: nobody sees it until a
   # maintainer reviews the notes and files and clicks Publish. A failed build leaves no draft.
   release:
     name: Draft release
-    needs: build
+    needs: sign
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-22.04
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           path: runrail-desktop
           sparse-checkout: |
@@ -270,11 +442,11 @@ jobs:
             CHANGELOG.md
           sparse-checkout-cone-mode: false
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: "1.4.2"
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: runrail-desktop-*
           path: artifacts
@@ -294,6 +466,8 @@ jobs:
           fi
           mkdir bundles
           find artifacts -type f -exec mv -t bundles {} +
+          # The sign job's DMGs and update archives stand in for the unsigned macOS apps.
+          rm -f bundles/*.app.tar
           if [ "$UPDATER" = true ]; then
             bun runrail-desktop/scripts/release.ts feed --dir bundles --repository "$GITHUB_REPOSITORY" --tag "$TAG"
           fi

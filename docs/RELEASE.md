@@ -1,11 +1,18 @@
 # Releases and updates
 
 Releases are built by CI and published from GitHub. A version tag runs
-[build.yml](../.github/workflows/build.yml): every platform is built and
-signed, and the bundles, the update feed (`latest.json`), and checksums are
-collected into a **draft** GitHub release. A draft is visible only to the
-repository's collaborators, notifies nobody, and serves no updates; a
-maintainer checks it and publishes it by hand.
+[build.yml](../.github/workflows/build.yml): every platform is built unsigned,
+a separate sign job signs the macOS apps and every update bundle, and the
+bundles, the update feed (`latest.json`), and checksums are collected into a
+**draft** GitHub release. A draft is visible only to the repository's
+collaborators, notifies nobody, and serves no updates; a maintainer checks it
+and publishes it by hand.
+
+The build jobs run third-party code (Vite plugins, Cargo build scripts, the
+engine checkout), so they get no secrets. Only the sign job, which runs only
+for a version tag and only in the GitHub `release` environment, sees the
+updater key and the Apple credentials. Builds from main, pull requests, and
+manual runs are never signed with either.
 
 Installed apps read the feed from the latest *published* release
 (`https://github.com/<owner>/<repo>/releases/latest/download/latest.json`), at
@@ -29,31 +36,47 @@ Settings says so.
    updates against the public key built into it: if the private key is lost,
    those copies can never update again, and users must reinstall by hand.
 
-2. **Give CI the key.** The public key is a repository variable (it is
-   public), and the private key and its password are secrets:
+2. **Create the `release` environment** in the desktop repository's Settings,
+   Environments. The signing secrets live there, not in the repository's
+   secrets, so only the sign job can read them. Set:
+
+   - **Required reviewers**: the maintainers who approve a release. The sign
+     job waits for one of them.
+   - **Deployment branches and tags**: selected branches and tags, with one
+     tag rule, `v*`, and no branch rules.
+   - **Allow administrators to bypass configured protection rules**: off.
+
+3. **Give CI the key.** The public key is a repository variable (it is
+   public; the build jobs have no environment, so it stays a repository
+   variable), and the private key and its password are secrets of the
+   `release` environment:
 
    ```bash
    gh variable set RUNRAIL_UPDATER_PUBKEY --repo TechDev009/runrail-desktop < ~/.tauri/runrail-updater.key.pub
    ```
 
    ```bash
-   gh secret set TAURI_SIGNING_PRIVATE_KEY --repo TechDev009/runrail-desktop < ~/.tauri/runrail-updater.key
+   gh secret set TAURI_SIGNING_PRIVATE_KEY --env release --repo TechDev009/runrail-desktop < ~/.tauri/runrail-updater.key
    ```
 
    ```bash
-   gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --repo TechDev009/runrail-desktop
+   gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD --env release --repo TechDev009/runrail-desktop
    ```
 
    With the variable set, every build outside pull requests compiles in the
-   updater and signs its update bundles, and a release tag fails early
-   without it. `RUNRAIL_UPDATE_URL`, also a variable, overrides the feed
-   address if updates are ever hosted elsewhere.
+   updater, unsigned, and a release tag fails early without the variable. On
+   a release tag the sign job signs the update bundles with the key and fails
+   if the variable is set without the key secret. `RUNRAIL_UPDATE_URL`, also
+   a repository variable, overrides the feed address if updates are ever
+   hosted elsewhere.
 
-3. **Optional: a Developer ID for macOS.** Without one, CI signs the macOS
-   app ad hoc, and Gatekeeper asks users to approve it once (the README's
-   Install section says how). With a paid Apple Developer Program membership,
-   add these secrets and CI signs with the Developer ID and notarizes,
-   never on pull requests:
+4. **Optional: a Developer ID for macOS.** Without one, the sign job signs the
+   macOS app ad hoc, and Gatekeeper asks users to approve it once (the
+   README's Install section says how). With a paid Apple Developer Program
+   membership, add these secrets to the `release` environment
+   (`gh secret set <NAME> --env release --repo TechDev009/runrail-desktop`)
+   and the sign job signs with the Developer ID and notarizes, on version
+   tags only:
 
    | Secret | Value |
    |---|---|
@@ -67,7 +90,18 @@ Settings says so.
    the end, and fails if the certificate is set without the API key or holds
    no Developer ID Application identity.
 
-4. **Turn on private vulnerability reporting** in each repository's
+5. **Delete the repository-level copies** of the seven signing secrets
+   (`TAURI_SIGNING_PRIVATE_KEY`, `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, and the
+   five `APPLE_*` secrets) once the environment holds them. A repository
+   secret can be read by a workflow on any branch that someone with write
+   access pushes; an environment secret only by a job that passed the
+   environment's rules. Skip any that were never set:
+
+   ```bash
+   for name in TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_API_KEY APPLE_API_ISSUER APPLE_API_PRIVATE_KEY; do gh secret delete "$name" --repo TechDev009/runrail-desktop; done
+   ```
+
+6. **Turn on private vulnerability reporting** in each repository's
    Settings, Security, so the links in SECURITY.md work.
 
 ## Release on GitHub
@@ -101,8 +135,11 @@ Settings says so.
    git push origin v0.1.0
    ```
 
-4. When every build passes, the draft holds the `.dmg`, `.deb`, `.rpm`,
-   `.AppImage`, `.exe`, and `.msi` installers, the macOS update archives
+   After the builds, the sign job pauses until a required reviewer approves
+   the deployment to `release` on the run's page.
+
+4. When every build and the sign job pass, the draft holds the `.dmg`,
+   `.deb`, `.rpm`, `.AppImage`, `.exe`, and `.msi` installers, the macOS update archives
    (`.app.tar.gz`), `latest.json`, and `SHA256SUMS.txt`. A tag with a hyphen
    (`v0.2.0-beta.1`) is marked a prerelease. Running the workflow again for
    the tag replaces the draft's files; it never changes a published release.
@@ -158,8 +195,9 @@ bun run release:mac --target aarch64-apple-darwin
    `tauri signer sign --app-version`, which reads the private key from the
    environment.
 
-`--identity -` signs ad hoc and skips steps 5 and the DMG's signature: what CI
-does, and a way to try the signing on a Mac without an Apple account. The
+`--identity -` signs ad hoc and skips steps 5 and the DMG's signature: what the
+sign job does without the Apple secrets, and a way to try the signing on a Mac
+without an Apple account. The
 identity, the API key's id, issuer, and path, and the profile name are the only
 credentials the script handles; codesign, notarytool, and the Tauri CLI read
 the secrets themselves.
@@ -218,8 +256,9 @@ version whose bundles are not there yet.
 
 ## Not verified here
 
-- No release has run on GitHub yet: the workflows were linted, and the
-  release jobs ran in an Ubuntu container against a stand-in `gh`.
+- v0.1.0 was released on GitHub before signing moved into its own job, so
+  the sign job and the `release` environment are untried: the workflow was
+  linted and the sign scripts had a local dry run.
 - Notarization and Gatekeeper acceptance need a real Developer ID and a
   clean machine; steps 5 and 6 have never run.
 - An update was installed end to end on macOS (Apple silicon, ad hoc): a
