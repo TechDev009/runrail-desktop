@@ -72,7 +72,9 @@ writeFileSync(
 
 // Tauri looks for the sidecar under its target triple, with Windows' extension.
 const outfile = join(root, "src-tauri", "binaries", `runrail-${triple}${triple.includes("windows") ? ".exe" : ""}`)
-const build = Bun.spawn([process.execPath, "build", entry, "--compile", `--target=${bunTarget}`, "--outfile", outfile], { cwd: root, stdout: "inherit", stderr: "inherit" })
+// The sidecar starts in project folders (coding tools run its MCP servers there): a project's .env
+// or bunfig.toml, whose `preload` runs code, must never load into it.
+const build = Bun.spawn([process.execPath, "build", entry, "--compile", "--no-compile-autoload-dotenv", "--no-compile-autoload-bunfig", `--target=${bunTarget}`, "--outfile", outfile], { cwd: root, stdout: "inherit", stderr: "inherit" })
 const status = await build.exited
 if (status !== 0) process.exit(status)
 console.log(`sidecar built from ${runrail}: ${outfile} (downloads @anthropic-ai/claude-agent-sdk@${pin.version} when allowed)`)
