@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test"
 import { allowComputerApp, disallowComputerApp, initComputerActivity, loadComputerSetup, noteComputerFrames, takesComputer, useComputerActivity, useComputerSetup } from "../src/app/computerAgent"
 import { connectionsChanged } from "../src/app/connections"
-import { ensureEngine, initEngines, send, setComputerUse } from "../src/app/engines"
+import { engineIdFor, ensureEngine, initEngines, send, setComputerUse } from "../src/app/engines"
 import { defaultState, parseState, type ThreadMeta } from "../src/app/persist"
 import { addProject, createThread, get, set } from "../src/app/store"
 import { setHost, toHostError, type Host } from "../src/host"
@@ -189,17 +189,21 @@ describe("a thread with computer use", () => {
   })
 
   test("starts its engine with the tools only when the switch is on and the tool takes them", async () => {
+    // Looked up by engine: a project's service engine can start at any moment beside a thread's.
+    const startOf = (threadId: string): EngineStartInput | undefined => [...starts].reverse().find((input) => input.engineId === engineIdFor(threadId))
     const off = createThread({ projectId: PROJECT, backend: "codex", model: "gpt-5.5" })
     await ensureEngine(off.id)
-    expect(starts.at(-1)?.computerTools).toBeUndefined()
+    expect(startOf(off.id)).toBeDefined()
+    expect(startOf(off.id)?.computerTools).toBeUndefined()
     const native = createThread({ projectId: PROJECT, backend: "native", model: "gpt-5.5", connectionId: "openai" })
     setComputerUse(native.id, true)
     await ensureEngine(native.id)
-    expect(starts.at(-1)?.computerTools).toBeUndefined()
+    expect(startOf(native.id)).toBeDefined()
+    expect(startOf(native.id)?.computerTools).toBeUndefined()
     const on = createThread({ projectId: PROJECT, backend: "codex", model: "gpt-5.5" })
     setComputerUse(on.id, true)
     await ensureEngine(on.id)
-    expect(starts.at(-1)?.computerTools).toBe(true)
+    expect(startOf(on.id)?.computerTools).toBe(true)
   })
 
   test("uses an allowed app in a turn, and the strip clears when the turn ends", async () => {
