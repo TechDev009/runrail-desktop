@@ -259,13 +259,80 @@ export function beginEpoch(timeline: Timeline, afterSeq = -1, afterLiveSeq = 0):
   return { ...timeline, epoch: timeline.epoch + 1, lastSeq: afterSeq, lastLiveSeq: afterLiveSeq, openAssistant: undefined, reasoning: new Map() }
 }
 
+/**
+ * A map a batch shares with the timeline it started from, copied only when the batch first writes
+ * to it: most batches touch one or two of the timeline's maps, not all of them.
+ */
+class SharedMap<K, V> {
+  private map: Map<K, V>
+  private own = false
+
+  constructor(source: ReadonlyMap<K, V>) {
+    this.map = source as Map<K, V>
+  }
+
+  get size(): number {
+    return this.map.size
+  }
+
+  get(key: K): V | undefined {
+    return this.map.get(key)
+  }
+
+  has(key: K): boolean {
+    return this.map.has(key)
+  }
+
+  keys(): MapIterator<K> {
+    return this.map.keys()
+  }
+
+  values(): MapIterator<V> {
+    return this.map.values()
+  }
+
+  [Symbol.iterator](): MapIterator<[K, V]> {
+    return this.map[Symbol.iterator]()
+  }
+
+  set(key: K, value: V): this {
+    this.writable().set(key, value)
+    return this
+  }
+
+  delete(key: K): boolean {
+    return this.map.has(key) && this.writable().delete(key)
+  }
+
+  /** Removes every entry whose value `keep` refuses, returning their keys. */
+  prune(keep: (value: V) => boolean): K[] {
+    const removed: K[] = []
+    for (const [key, value] of this.map) if (!keep(value)) removed.push(key)
+    for (const key of removed) this.delete(key)
+    return removed
+  }
+
+  result(): ReadonlyMap<K, V> {
+    return this.map
+  }
+
+  private writable(): Map<K, V> {
+    if (!this.own) {
+      this.map = new Map(this.map)
+      this.own = true
+    }
+    return this.map
+  }
+}
+
 class Draft {
-  items: TimelineItem[]
-  index: Map<string, number>
-  calls: Map<string, string>
-  approvals: Map<string, string>
-  reasoning: Map<string, string>
-  lineage: Map<string, string>
+  /** Read freely; written only through the methods below, which copy it on the batch's first write. */
+  items: readonly TimelineItem[]
+  index: SharedMap<string, number>
+  calls: SharedMap<string, string>
+  approvals: SharedMap<string, string>
+  reasoning: SharedMap<string, string>
+  lineage: SharedMap<string, string>
   openAssistant?: string
   status: SessionStatus
   activeTurnId?: string
@@ -278,14 +345,15 @@ class Draft {
   lastLiveSeq: number
   counters: { events: number; live: number; rejected: number; duplicates: number }
   historyTruncated: boolean
+  private ownItems = false
 
   constructor(source: Timeline) {
-    this.items = source.items.slice()
-    this.index = new Map(source.index)
-    this.calls = new Map(source.calls)
-    this.approvals = new Map(source.approvals)
-    this.reasoning = new Map(source.reasoning)
-    this.lineage = new Map(source.lineage)
+    this.items = source.items
+    this.index = new SharedMap(source.index)
+    this.calls = new SharedMap(source.calls)
+    this.approvals = new SharedMap(source.approvals)
+    this.reasoning = new SharedMap(source.reasoning)
+    this.lineage = new SharedMap(source.lineage)
     this.openAssistant = source.openAssistant
     this.status = source.status
     this.activeTurnId = source.activeTurnId
@@ -316,12 +384,12 @@ class Draft {
       return
     }
     this.index.set(item.key, this.items.length)
-    this.items.push(item)
+    this.writableItems().push(item)
   }
 
   set(item: TimelineItem): void {
     const position = this.index.get(item.key)
-    if (position !== undefined) this.items[position] = item
+    if (position !== undefined) this.writableItems()[position] = item
   }
 
   /**
@@ -335,23 +403,30 @@ class Draft {
       this.push(item)
       return
     }
-    this.items.splice(position, 0, item)
+    this.writableItems().splice(position, 0, item)
     for (let at = position; at < this.items.length; at += 1) this.index.set(this.items[at]!.key, at)
   }
 
   finish(): Timeline {
     if (this.items.length > MAX_ITEMS) {
       this.items = this.items.slice(this.items.length - MAX_ITEMS)
-      this.index = new Map(this.items.map((item, position) => [item.key, position]))
+      this.ownItems = true
+      const kept = new Map(this.items.map((item, position) => [item.key, position]))
+      this.index = new SharedMap(kept)
+      // What pointed at the rows cut off goes with them, so the maps stay as bounded as the rows.
+      const cut = this.calls.prune((key) => kept.has(key))
+      this.approvals.prune((key) => kept.has(key))
+      this.reasoning.prune((key) => kept.has(key))
+      for (const callId of cut) this.lineage.delete(callId)
       this.historyTruncated = true
     }
     return {
       items: this.items,
-      index: this.index,
-      calls: this.calls,
-      approvals: this.approvals,
-      reasoning: this.reasoning,
-      lineage: this.lineage,
+      index: this.index.result(),
+      calls: this.calls.result(),
+      approvals: this.approvals.result(),
+      reasoning: this.reasoning.result(),
+      lineage: this.lineage.result(),
       openAssistant: this.openAssistant,
       status: this.status,
       activeTurnId: this.activeTurnId,
@@ -365,6 +440,14 @@ class Draft {
       counters: this.counters,
       historyTruncated: this.historyTruncated,
     }
+  }
+
+  private writableItems(): TimelineItem[] {
+    if (!this.ownItems) {
+      this.items = this.items.slice()
+      this.ownItems = true
+    }
+    return this.items as TimelineItem[]
   }
 }
 
@@ -431,6 +514,15 @@ function closeAssistant(draft: Draft, turnId?: string): void {
   }
   const open = draft.get(draft.openAssistant)
   if (turnId === undefined || (open?.kind === "assistant" && open.turnId === turnId)) draft.openAssistant = undefined
+}
+
+/** The newest assistant message still streaming in `turnId`, looked for from the end without copying the rows. */
+function streamingAssistant(draft: Draft, turnId: string): AssistantItem | undefined {
+  for (let position = draft.items.length - 1; position >= 0; position -= 1) {
+    const item = draft.items[position]
+    if (item?.kind === "assistant" && item.streaming && item.turnId === turnId) return item
+  }
+  return undefined
 }
 
 /** The native loop reports a turn the user stopped as a failure; on screen it is a stop. */
@@ -548,9 +640,9 @@ function applyEvent(draft: Draft, event: AgentEvent, fallbackRun?: TurnRun): voi
     case "assistant.delta": {
       if (event.text.length === 0) return
       closeReasoning(draft, event.turnId, event.at)
-      const open = [...draft.items].reverse().find((item) => item.kind === "assistant" && item.streaming && item.turnId === event.turnId)
+      const open = streamingAssistant(draft, event.turnId)
       const parentCallId = draft.lineage.get(`event:${String(event.seq)}`)
-      if (open?.kind === "assistant" && open.turnId === event.turnId) {
+      if (open !== undefined) {
         draft.set({ ...open, text: open.text + event.text, eventSeq: event.seq, ...(parentCallId === undefined ? {} : { parentCallId }) })
         return
       }
@@ -561,10 +653,10 @@ function applyEvent(draft: Draft, event: AgentEvent, fallbackRun?: TurnRun): voi
     }
     case "assistant.message": {
       closeReasoning(draft, event.turnId, event.at)
-      const open = [...draft.items].reverse().find((item) => item.kind === "assistant" && item.streaming && item.turnId === event.turnId)
+      const open = streamingAssistant(draft, event.turnId)
       const parentCallId = draft.lineage.get(`event:${String(event.seq)}`)
       draft.openAssistant = undefined
-      if (open?.kind === "assistant" && open.turnId === event.turnId) {
+      if (open !== undefined) {
         draft.set({ ...open, text: event.text.length > 0 ? event.text : open.text, streaming: false, eventSeq: event.seq, ...(parentCallId === undefined ? {} : { parentCallId }) })
         return
       }
@@ -875,37 +967,51 @@ function applyLive(draft: Draft, frame: LiveFrame): void {
   }
 }
 
+/** A stream frame after its one parse; one that did not parse is counted and dropped by the reducer. */
+export type ParsedFrame = { readonly kind: "event"; readonly event: AgentEvent } | { readonly kind: "live"; readonly live: LiveFrame } | { readonly kind: "rejected" }
+
+const REJECTED: ParsedFrame = { kind: "rejected" }
+
+/** Parses a batch once, for the reducer and for everything else that reads the same frames. */
+export function parseFrames(frames: readonly StreamFrame[]): readonly ParsedFrame[] {
+  return frames.map((frame): ParsedFrame => {
+    if (frame.kind === "event") {
+      const parsed = AgentEventSchema.safeParse(frame.data)
+      return parsed.success ? { kind: "event", event: parsed.data } : REJECTED
+    }
+    const parsed = LiveFrameSchema.safeParse(frame.data)
+    return parsed.success ? { kind: "live", live: parsed.data } : REJECTED
+  })
+}
+
 /** Applies one batch of stream frames. Duplicates (by sequence) and invalid frames are counted and dropped. */
 export function applyFrames(timeline: Timeline, frames: readonly StreamFrame[], fallbackRun?: TurnRun): Timeline {
+  return applyParsedFrames(timeline, parseFrames(frames), fallbackRun)
+}
+
+/** `applyFrames` for a batch `parseFrames` already read. */
+export function applyParsedFrames(timeline: Timeline, frames: readonly ParsedFrame[], fallbackRun?: TurnRun): Timeline {
   if (frames.length === 0) return timeline
   const draft = new Draft(timeline)
   for (const frame of frames) {
-    if (frame.kind === "event") {
-      const parsed = AgentEventSchema.safeParse(frame.data)
-      if (!parsed.success) {
-        draft.counters.rejected += 1
-        continue
-      }
-      if (parsed.data.seq <= draft.lastSeq) {
+    if (frame.kind === "rejected") {
+      draft.counters.rejected += 1
+    } else if (frame.kind === "event") {
+      if (frame.event.seq <= draft.lastSeq) {
         draft.counters.duplicates += 1
         continue
       }
-      draft.lastSeq = parsed.data.seq
+      draft.lastSeq = frame.event.seq
       draft.counters.events += 1
-      applyEvent(draft, parsed.data, fallbackRun)
+      applyEvent(draft, frame.event, fallbackRun)
     } else {
-      const parsed = LiveFrameSchema.safeParse(frame.data)
-      if (!parsed.success) {
-        draft.counters.rejected += 1
-        continue
-      }
-      if (parsed.data.liveSeq <= draft.lastLiveSeq) {
+      if (frame.live.liveSeq <= draft.lastLiveSeq) {
         draft.counters.duplicates += 1
         continue
       }
-      draft.lastLiveSeq = parsed.data.liveSeq
+      draft.lastLiveSeq = frame.live.liveSeq
       draft.counters.live += 1
-      applyLive(draft, parsed.data)
+      applyLive(draft, frame.live)
     }
   }
   return draft.finish()

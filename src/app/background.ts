@@ -1,7 +1,8 @@
 import { create } from "zustand"
 import { getHost } from "../host"
-import { HostError, type StreamFrame } from "../host/types"
-import { AgentEventSchema, BackgroundListSchema, BackgroundOutputSchema, hasCapability, LiveFrameSchema, parseOr, type BackgroundEntry, type ListeningServer } from "../protocol/schemas"
+import { HostError } from "../host/types"
+import { BackgroundListSchema, BackgroundOutputSchema, hasCapability, parseOr, type BackgroundEntry, type ListeningServer } from "../protocol/schemas"
+import type { ParsedFrame } from "../thread/reducer"
 import { runtimeOf, useApp } from "./store"
 
 /**
@@ -53,21 +54,21 @@ function withEntry(entries: readonly BackgroundEntry[], entry: BackgroundEntry):
   return at < 0 ? [...entries, entry] : entries.map((item, index) => (index === at ? entry : item))
 }
 
-export function noteBackgroundFrames(threadId: string, frames: readonly StreamFrame[]): void {
+/** Takes a batch `parseFrames` already read, as the reducer does. */
+export function noteBackgroundFrames(threadId: string, frames: readonly ParsedFrame[]): void {
   let entries: readonly BackgroundEntry[] | undefined
   for (const frame of frames) {
     if (frame.kind === "event") {
-      const event = AgentEventSchema.safeParse(frame.data)
-      const type = event.success ? event.data.type : undefined
+      const type = frame.event.type
       if (type === "session.completed" || type === "session.failed" || type === "session.stopped") entries = (entries ?? backgroundOf(threadId).entries).map((entry) => entry.status === "running" && entry.stopHint === "turn" ? { ...entry, status: "stopped", endedAt: Date.now() } : entry)
       continue
     }
-    const parsed = LiveFrameSchema.safeParse(frame.data)
-    if (!parsed.success) continue
+    if (frame.kind !== "live") continue
+    const live = frame.live
     const seqs = written.get(threadId) ?? new Map<string, number>()
     written.set(threadId, seqs)
-    if (parsed.data.type === "agent.completed") {
-      const completed = parsed.data
+    if (live.type === "agent.completed") {
+      const completed = live
       entries = (entries ?? backgroundOf(threadId).entries).map((entry) => {
         if (entry.kind !== "agent" || entry.callId !== completed.callId || (seqs.get(entry.id) ?? -1) >= completed.liveSeq) return entry
         seqs.set(entry.id, completed.liveSeq)
@@ -75,10 +76,10 @@ export function noteBackgroundFrames(threadId: string, frames: readonly StreamFr
       })
       continue
     }
-    if (parsed.data.type !== "background.state") continue
-    if ((seqs.get(parsed.data.entry.id) ?? -1) >= parsed.data.liveSeq) continue
-    seqs.set(parsed.data.entry.id, parsed.data.liveSeq)
-    entries = withEntry(entries ?? backgroundOf(threadId).entries, parsed.data.entry)
+    if (live.type !== "background.state") continue
+    if ((seqs.get(live.entry.id) ?? -1) >= live.liveSeq) continue
+    seqs.set(live.entry.id, live.liveSeq)
+    entries = withEntry(entries ?? backgroundOf(threadId).entries, live.entry)
   }
   if (entries !== undefined) patch(threadId, { entries })
 }

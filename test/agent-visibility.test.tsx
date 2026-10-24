@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { renderToStaticMarkup } from "react-dom/server"
 import { noteBackgroundFrames, backgroundOf, useBackground } from "../src/app/background"
 import type { StreamFrame } from "../src/host/types"
-import { applyFrames, emptyTimeline, type ToolItem } from "../src/thread/reducer"
+import { applyFrames, emptyTimeline, parseFrames, type ToolItem } from "../src/thread/reducer"
 import { AgentTranscript, ReasoningRow, ToolRow } from "../src/ui/thread/rows"
 import { AgentActivitySummary, buildRows } from "../src/ui/thread/Timeline"
 
@@ -72,9 +72,9 @@ describe("agent visibility", () => {
     const spawned = live(101, "agent.spawned", { turnId: "root", callId: "spawn-1", title: "Parser" })
     const timeline = applyFrames(emptyTimeline(), [start, spawned, event(0, "tool.completed", { turnId: "root", callId: "spawn-1", name: "collabAgentToolCall", ok: true })])
     expect(timeline.items.find((item) => item.kind === "tool")).toMatchObject({ status: "ok", agentStatus: "running" })
-    noteBackgroundFrames("agent-test", [start])
+    noteBackgroundFrames("agent-test", parseFrames([start]))
     const done = live(102, "agent.completed", { callId: "spawn-1", ok: true })
-    noteBackgroundFrames("agent-test", [done, start])
+    noteBackgroundFrames("agent-test", parseFrames([done, start]))
     expect(backgroundOf("agent-test").entries[0]?.status).toBe("completed")
     expect(applyFrames(timeline, [done]).items.find((item) => item.kind === "tool")).toMatchObject({ agentStatus: "ok" })
   })

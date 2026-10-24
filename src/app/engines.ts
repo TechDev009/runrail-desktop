@@ -4,20 +4,22 @@ import { backgroundOf, noteBackgroundFrames, runningCount, useBackground } from 
 import { noteBrowserFrames, takesBrowser } from "./browserAgent"
 import { noteSent, noteThreadFrames } from "./threadAgent"
 import { noteComputerFrames, takesComputer } from "./computerAgent"
-import { AgentEventSchema, ContractSchema, ControlStateSchema, ConversationSchema, LiveCursorSchema, LiveFrameSchema, GitDiffSchema, GitRemoteListSchema, GitStatusSchema, hasCapability, parseOr, type Contract, type Conversation } from "../protocol/schemas"
+import { ContractSchema, ControlStateSchema, ConversationSchema, LiveCursorSchema, GitDiffSchema, GitRemoteListSchema, GitStatusSchema, hasCapability, parseOr, type Contract, type Conversation } from "../protocol/schemas"
 import { connectedTo } from "./gitHosts"
 import { splitUpstream } from "./threadBar"
 import {
   addPendingUser,
   appendNotice,
-  applyFrames,
+  applyParsedFrames,
   beginEpoch,
   isBusy,
   loadHistory,
   markEngineExited,
   markUser,
+  parseFrames,
   pendingApprovals,
   removeItem,
+  type ParsedFrame,
   type Timeline,
   type TurnRun,
 } from "../thread/reducer"
@@ -44,7 +46,7 @@ import {
   type QueuedPrompt,
   type ThreadRuntime,
 } from "./store"
-import type { EngineInfo, EngineStartInput, StreamFrame, Thinking } from "../host/types"
+import type { EngineInfo, EngineStartInput, Thinking } from "../host/types"
 import { knownConnections, listConnections, systemCapability, systemRpc, type Connection } from "./connections"
 import { imageToolsOn, knownTools } from "./connectionSettings"
 import { bump, noteOpen, recordError, stepClock } from "./diagnostics"
@@ -102,16 +104,15 @@ function noteModelSwitch(threadId: string, from: TurnRun, to: TurnRun): void {
   }))
 }
 
-function rememberTurnStarts(threadId: string, thread: ThreadMeta, frames: readonly StreamFrame[], run: TurnRun): void {
+function rememberTurnStarts(threadId: string, thread: ThreadMeta, frames: readonly ParsedFrame[], run: TurnRun): void {
   for (const frame of frames) {
-    if (frame.kind !== "event") continue
-    const event = AgentEventSchema.safeParse(frame.data)
-    if (!event.success || event.data.type !== "turn.started") continue
+    if (frame.kind !== "event" || frame.event.type !== "turn.started") continue
+    const event = frame.event
     rememberThreadRun(threadId, {
-      turnId: event.data.turnId,
+      turnId: event.turnId,
       backend: thread.backend,
-      ...(event.data.model === undefined ? (run.model === undefined ? {} : { model: run.model }) : { model: event.data.model }),
-      ...(event.data.connectionId === undefined ? (run.connectionId === undefined ? {} : { connectionId: run.connectionId }) : { connectionId: event.data.connectionId }),
+      ...(event.model === undefined ? (run.model === undefined ? {} : { model: run.model }) : { model: event.model }),
+      ...(event.connectionId === undefined ? (run.connectionId === undefined ? {} : { connectionId: run.connectionId }) : { connectionId: event.connectionId }),
     })
   }
 }
@@ -147,13 +148,12 @@ function threadFor(engineId: string): string | undefined {
 }
 
 /** A reasoning level the thread's connected model refused is hidden in the picker for that model. */
-function noteRefusals(threadId: string, frames: readonly StreamFrame[]): void {
+function noteRefusals(threadId: string, frames: readonly ParsedFrame[]): void {
   for (const frame of frames) {
-    if (frame.kind === "event" || (frame.data as { readonly type?: unknown } | null)?.type !== "model.notice") continue
-    const parsed = LiveFrameSchema.safeParse(frame.data)
+    if (frame.kind !== "live" || frame.live.type !== "model.notice") continue
     const thread = threadById(threadId)
-    if (!parsed.success || parsed.data.type !== "model.notice" || thread?.backend !== "native" || thread.connectionId === undefined || thread.model === undefined) continue
-    rememberRefusal(thread.connectionId, thread.model, parsed.data.thinking)
+    if (thread?.backend !== "native" || thread.connectionId === undefined || thread.model === undefined) continue
+    rememberRefusal(thread.connectionId, thread.model, frame.live.thinking)
   }
 }
 
@@ -189,11 +189,12 @@ export function initEngines(): () => void {
       noteActivity(threadId)
       const before = runtimeOf(threadId).timeline
       const run = engineRuns.get(engineId) ?? runForThread(thread)
-      rememberTurnStarts(threadId, thread, frames, run)
-      const after = applyFrames(before, frames, run)
+      const parsed = parseFrames(frames)
+      rememberTurnStarts(threadId, thread, parsed, run)
+      const after = applyParsedFrames(before, parsed, run)
       bump("stream.frames", frames.length)
-      noteRefusals(threadId, frames)
-      noteBackgroundFrames(threadId, frames)
+      noteRefusals(threadId, parsed)
+      noteBackgroundFrames(threadId, parsed)
       noteBrowserFrames(threadId, engineId, frames)
       noteThreadFrames(threadId, engineId, frames)
       noteComputerFrames(threadId, engineId, frames)

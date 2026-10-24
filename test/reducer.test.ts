@@ -484,3 +484,41 @@ describe("a coding tool's own reviewer", () => {
     expect(timeline.counters.duplicates).toBe(2)
   })
 })
+
+describe("a long timeline", () => {
+  test("cutting the oldest rows also forgets the calls, approvals, reasoning and lineage that pointed at them", () => {
+    reset()
+    let timeline = applyFrames(emptyTimeline(), [
+      event("turn.started", { turnId: "t1", prompt: "go" }),
+      live("lineage", { parentCallId: "p0", callId: "c1" }),
+      event("tool.started", { turnId: "t1", callId: "c1", name: "run_command" }),
+      event("approval.required", { turnId: "t1", approvalId: "a1", action: "rm -rf build", capability: "shell" }),
+      live("reasoning.delta", { turnId: "t1", itemId: "r1", text: "thinking" }),
+    ])
+    expect([timeline.calls.has("c1"), timeline.approvals.has("a1"), timeline.reasoning.size, timeline.lineage.has("c1")]).toEqual([true, true, 1, true])
+    const filler = Array.from({ length: 20_000 }, () => live("api.retry", { turnId: "t1", source: "claude-code", attempt: 1, maxRetries: 10, delayMs: 0 }))
+    timeline = applyFrames(timeline, filler)
+    expect(timeline.items).toHaveLength(20_000)
+    expect(timeline.historyTruncated).toBe(true)
+    expect([timeline.calls.has("c1"), timeline.approvals.has("a1"), timeline.reasoning.size, timeline.lineage.has("c1")]).toEqual([false, false, 0, false])
+    expect(timeline.index.size).toBe(20_000)
+    // A call that starts after the cut is tracked as before.
+    timeline = applyFrames(timeline, [event("tool.started", { turnId: "t1", callId: "c2", name: "run_command" })])
+    expect(timeline.items[timeline.index.get(timeline.calls.get("c2") ?? "") ?? -1]).toMatchObject({ kind: "tool", callId: "c2" })
+  })
+
+  test("a batch shares the maps it does not change and never changes the timeline it started from", () => {
+    reset()
+    const before = applyFrames(emptyTimeline(), [event("turn.started", { turnId: "t1", prompt: "go" }), event("assistant.delta", { turnId: "t1", text: "Hel" })])
+    const streamed = applyFrames(before, [event("assistant.delta", { turnId: "t1", text: "lo" })])
+    expect(streamed.calls).toBe(before.calls)
+    expect(streamed.index).toBe(before.index)
+    expect(streamed.items).not.toBe(before.items)
+    expect(before.items.find((item) => item.kind === "assistant")).toMatchObject({ text: "Hel", streaming: true })
+    expect(streamed.items.find((item) => item.kind === "assistant")).toMatchObject({ text: "Hello", streaming: true })
+    const called = applyFrames(streamed, [event("tool.started", { turnId: "t1", callId: "c1", name: "run_command" })])
+    expect(called.calls.has("c1")).toBe(true)
+    expect([streamed.calls.has("c1"), streamed.items.length, streamed.index.size]).toEqual([false, 2, 2])
+    expect(streamed.items.find((item) => item.kind === "assistant")).toMatchObject({ streaming: true })
+  })
+})

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test"
 import { backgroundOf, isRunning, noteBackgroundFrames, runningCount, useBackground } from "../src/app/background"
 import { FINISHED_SHOWN, plainOutput, taskRows } from "../src/app/tasks"
 import type { BackgroundEntry } from "../src/protocol/schemas"
-import type { TimelineItem, ToolItem } from "../src/thread/reducer"
+import { parseFrames, type TimelineItem, type ToolItem } from "../src/thread/reducer"
 
 function entry(id: string, fields: Partial<BackgroundEntry> = {}): BackgroundEntry {
   return { id, kind: "command", status: "running", label: `sleep ${id}`, stoppable: true, hasOutput: true, ...fields }
@@ -45,15 +45,15 @@ describe("background frames", () => {
   beforeEach(() => useBackground.setState({}, true))
 
   test("frames add and update entries; an older frame does not undo a newer one", () => {
-    noteBackgroundFrames("t1", [frame(3, entry("a")), frame(4, entry("b"))])
+    noteBackgroundFrames("t1", parseFrames([frame(3, entry("a")), frame(4, entry("b"))]))
     expect(runningCount(backgroundOf("t1"))).toBe(2)
-    noteBackgroundFrames("t1", [frame(6, entry("a", { status: "stopped", stoppable: false })), frame(5, entry("a"))])
+    noteBackgroundFrames("t1", parseFrames([frame(6, entry("a", { status: "stopped", stoppable: false })), frame(5, entry("a"))]))
     expect(backgroundOf("t1").entries.find((item) => item.id === "a")?.status).toBe("stopped")
     expect(runningCount(backgroundOf("t1"))).toBe(1)
   })
 
   test("malformed frames and other threads are left alone", () => {
-    noteBackgroundFrames("t2", [{ kind: "live", data: { type: "background.state", liveSeq: 1, entry: { id: "x", kind: "process", status: "running" } } }, { kind: "event", data: { type: "background.state" } }])
+    noteBackgroundFrames("t2", parseFrames([{ kind: "live", data: { type: "background.state", liveSeq: 1, entry: { id: "x", kind: "process", status: "running" } } }, { kind: "event", data: { type: "background.state" } }]))
     expect(backgroundOf("t2").entries).toHaveLength(0)
     expect(backgroundOf("t1").entries).toHaveLength(0)
   })
