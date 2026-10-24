@@ -2,8 +2,9 @@ import { create } from "zustand"
 import { toHostError } from "../host"
 import { duration } from "../lib/format"
 import { CheckResultSchema, parseOr, WorkspaceReadSchema, type CheckResult } from "../protocol/schemas"
+import { accessOf, effectivePermission } from "./access"
 import { onTurnEnded, projectRpc, send } from "./engines"
-import { newId } from "./persist"
+import { newId, type ThreadMeta } from "./persist"
 import { runtimeOf, threadById } from "./store"
 
 /**
@@ -47,10 +48,20 @@ export async function stopCheck(threadId: string): Promise<void> {
   await projectRpc(thread.projectId, "check.stop", { id: current.runId }).catch(() => undefined)
 }
 
+/**
+ * Whether a finished run is checked without asking. The check runs the run's own scripts, which the
+ * agent may have just edited, so only a run already allowed to run commands on its own is checked;
+ * any other waits for the person to press Check.
+ */
+export function checksOnItsOwn(thread: Pick<ThreadMeta, "mode" | "permission" | "backend">): boolean {
+  const access = accessOf(thread.mode, effectivePermission(thread.permission, thread.backend))
+  return access === "auto" || access === "full"
+}
+
 // A run that finished its turn is checked, when its group asks for that; a failed or stopped turn is not.
 onTurnEnded((threadId) => {
   const thread = threadById(threadId)
-  if (thread?.group?.check === undefined || thread.group.autoCheck === false || thread.worktree === undefined) return
+  if (thread?.group?.check === undefined || thread.group.autoCheck === false || thread.worktree === undefined || !checksOnItsOwn(thread)) return
   if (runtimeOf(threadId).timeline.lastTurnEnd?.status !== "completed") return
   void runCheck(threadId)
 })

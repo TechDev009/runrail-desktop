@@ -236,7 +236,7 @@ function BestOfDialog({ projectId }: { readonly projectId: string }) {
           </label>
           <div className="toggle-row">
             <Toggle label="Run checks when each run finishes" checked={autoCheck && check.trim().length > 0} disabled={check.trim().length === 0} onChange={setAutoCheck} />
-            <span>Run it in each run's worktree when the run finishes</span>
+            <span>Run it in each run's worktree when the run finishes. Only runs on Auto or Full access are checked on their own; press Check on the others.</span>
           </div>
           {blockedBy !== undefined && (
             <p className="form-warning" role="status">

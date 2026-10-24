@@ -1,5 +1,12 @@
 import { describe, expect, test } from "bun:test"
-import { checkCommandFrom, checkLine, failurePrompt, suggestedRun } from "../src/app/checks"
+import { checkCommandFrom, checkLine, checksOnItsOwn, failurePrompt, suggestedRun } from "../src/app/checks"
+import { connectionsChanged } from "../src/app/connections"
+import { engineIdFor, initEngines } from "../src/app/engines"
+import { defaultState, type PermissionPreset, type ThreadMode } from "../src/app/persist"
+import { addProject, createThread, set } from "../src/app/store"
+import { setHost } from "../src/host"
+import { createFakeHost } from "../src/host/fakeHost"
+import type { BackendId, StreamFrame } from "../src/host/types"
 import type { CheckResult } from "../src/protocol/schemas"
 
 const result = (patch: Partial<CheckResult>): CheckResult => ({ id: "c", passed: false, timedOut: false, stopped: false, durationMs: 41_000, tail: "", truncated: false, ...patch })
@@ -54,5 +61,56 @@ describe("a check command from the project", () => {
     expect(checkCommandFrom({ packageJson: pkg({ test: 'echo "Error: no test specified" && exit 1' }), lockfiles: [], cargo: false })).toBeUndefined()
     expect(checkCommandFrom({ packageJson: "{nope", lockfiles: [], cargo: true })).toBe("cargo test")
     expect(checkCommandFrom({ lockfiles: [], cargo: false })).toBeUndefined()
+  })
+})
+
+describe("a finished Best of N run", () => {
+  test("is checked on its own only when it may already run commands on its own", () => {
+    const on = (mode: ThreadMode, permission: PermissionPreset, backend: BackendId): boolean => checksOnItsOwn({ mode, permission, backend })
+    expect(on("agent", "full", "native")).toBe(true)
+    expect(on("goal", "auto", "claude-code")).toBe(true)
+    // Auto-edit approves edits, not commands: the check would run whatever the agent wrote into the scripts.
+    expect(on("agent", "auto-edit", "claude-code")).toBe(false)
+    expect(on("agent", "ask", "codex")).toBe(false)
+    // Auto on a tool with no reviewer of its own runs as Ask.
+    expect(on("agent", "auto", "native")).toBe(false)
+    expect(on("plan", "full", "native")).toBe(false)
+  })
+
+  test("runs its check command only on Auto or Full access; any other waits for Check", async () => {
+    const host = createFakeHost()
+    let deliver: (engineId: string, frames: readonly StreamFrame[]) => void = () => undefined
+    const checked: string[] = []
+    setHost({
+      ...host,
+      onBatch: (listener) => {
+        deliver = listener
+        return () => undefined
+      },
+      rpc: async (engineId, method, params = {}) => {
+        if (method === "check.run") checked.push(String(params.worktree))
+        return host.rpc(engineId, method, params)
+      },
+    })
+    connectionsChanged()
+    set({ ...defaultState(), runtime: {}, git: {}, drafts: {}, toasts: [], view: { kind: "thread" } })
+    addProject({ id: "p1", path: "/code/app", name: "app", git: true, addedAt: 1 })
+    const stop = initEngines()
+    let seq = 0
+    const event = (type: string, fields: Record<string, unknown>): StreamFrame => {
+      seq += 1
+      return { kind: "event", data: { version: 1, sessionId: "s", seq, at: 1_000 + seq, type, ...fields } }
+    }
+    const finish = async (permission: PermissionPreset, worktree: string): Promise<void> => {
+      const thread = createThread({ projectId: "p1", backend: "claude-code", permission, title: worktree, select: false, worktree: { id: worktree, path: `/w/${worktree}`, cwd: `/w/${worktree}` }, group: { id: "g1", label: "Fix it", check: "npm test", autoCheck: true } })
+      deliver(engineIdFor(thread.id), [event("turn.started", { turnId: "t1", prompt: "fix it" }), event("session.completed", { snapshot: { id: "s", backend: "claude-code", status: "idle" } })])
+      for (let tries = 0; tries < 100 && !checked.includes(worktree); tries += 1) await new Promise((resolve) => setTimeout(resolve, 5))
+    }
+    await finish("auto-edit", "wt-edits")
+    await finish("ask", "wt-asks")
+    await finish("full", "wt-full")
+    await finish("auto", "wt-auto")
+    expect(checked.sort()).toEqual(["wt-auto", "wt-full"])
+    stop()
   })
 })
