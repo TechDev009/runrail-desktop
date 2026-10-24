@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, Globe, MessageSquarePlus, MonitorSmartphone, MousePointerClick, RotateCw, Smartphone, SquareArrowOutUpRight, X } from "lucide-react"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { openUrl } from "../../app/actions"
+import { openInBrowser } from "../../app/actions"
 import { artboardOf, setArtboards, useArtboards } from "../../app/artboards"
 import { useBackground } from "../../app/background"
 import { takesBrowser } from "../../app/browserAgent"
@@ -292,7 +292,7 @@ export function BrowserView({ threadId, tab }: { readonly threadId: string; read
           disabled={current === undefined}
           onClick={() => {
             if (native && live) host.previewExternal(tab.id).catch(() => undefined)
-            else if (current !== undefined) void openUrl(current)
+            else if (current !== undefined) void openInBrowser(current)
           }}
         >
           <SquareArrowOutUpRight size={13} />

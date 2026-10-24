@@ -1,9 +1,11 @@
 import { getHost, toHostError, type EditorId } from "../host"
+import { newPanelTab } from "./panels"
 import { newId } from "./persist"
+import { isLocalUrl } from "./previews"
 import type { ProjectSource } from "./projectForm"
 import { readProjectGit } from "./projectGit"
 import { offerImport } from "./workflows"
-import { activeProject, addProject, get, projectById, set, threadById, toast, useApp, type AppState, type Dialog } from "./store"
+import { activeProject, addProject, get, projectById, set, threadById, threadOnScreen, toast, useApp, type AppState, type Dialog } from "./store"
 
 /** UI-level actions shared by the sidebar, palette, menus, and empty states. */
 
@@ -75,10 +77,57 @@ export async function reveal(workspace: string | undefined, relative?: string): 
   }
 }
 
-export async function openUrl(url: string): Promise<void> {
-  if (!/^https?:\/\//i.test(url)) return
+/** An http or https address without a user name or password, read whatever case its scheme is in. */
+function webAddress(url: string): URL | undefined {
+  let parsed: URL
   try {
-    await getHost().openUrl(url)
+    parsed = new URL(url.trim())
+  } catch {
+    return undefined
+  }
+  if ((parsed.protocol !== "http:" && parsed.protocol !== "https:") || parsed.username !== "" || parsed.password !== "") return undefined
+  return parsed
+}
+
+/** Where a link opens: a page on this computer in a thread's browser tab, any other https page in the system browser. */
+export function linkTarget(url: string): { readonly where: "preview" | "browser"; readonly url: string } | undefined {
+  const parsed = webAddress(url)
+  if (parsed === undefined) return undefined
+  if (isLocalUrl(parsed)) return { where: "preview", url: parsed.href }
+  return parsed.protocol === "https:" ? { where: "browser", url: parsed.href } : undefined
+}
+
+/**
+ * Opens a link from anywhere in the app: a page on this computer (a dev server, say) in the browser
+ * tab of `threadId`, by default the thread on screen; any other https page in the system browser.
+ * Anything else is refused, and the person is told so.
+ */
+export async function openUrl(url: string, threadId: string | undefined = threadOnScreen()): Promise<void> {
+  const target = linkTarget(url)
+  if (target === undefined) {
+    toast("error", "Runrail opens https links, and pages on this computer in a thread's browser tab.")
+    return
+  }
+  if (target.where === "browser") {
+    await openInBrowser(target.url)
+    return
+  }
+  if (threadId === undefined || threadById(threadId) === undefined) {
+    toast("error", `Open a thread to see ${target.url} in its browser tab.`)
+    return
+  }
+  if (newPanelTab(threadId, "browser", target.url) === undefined) toast("error", `This thread's browser tabs are full. Close one to open ${target.url}.`)
+}
+
+/** Opens an https page in the system browser, the only kind the app hands to it. */
+export async function openInBrowser(url: string): Promise<void> {
+  const parsed = webAddress(url)
+  if (parsed?.protocol !== "https:") {
+    toast("error", "Runrail opens only https pages in your browser.")
+    return
+  }
+  try {
+    await getHost().openUrl(parsed.href)
   } catch (error) {
     toast("error", `Could not open link: ${toHostError(error).message}`)
   }

@@ -2758,7 +2758,8 @@ export function createFakeHost(scenario: PreviewScenario = {}): Host {
       throw new HostError("PREVIEW_UNSUPPORTED", "screenshots need the desktop app", 501)
     },
     openUrl: async (url) => {
-      if (/^https:\/\//.test(url)) window.open(url, "_blank", "noopener,noreferrer")
+      if (!/^https:\/\//i.test(url)) throw new HostError("LINK_REFUSED", "Only https links open in your browser.")
+      window.open(url, "_blank", "noopener,noreferrer")
     },
     onBatch: (listener) => {
       batch.add(listener)

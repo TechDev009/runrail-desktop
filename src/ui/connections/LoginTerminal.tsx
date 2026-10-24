@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react"
 import { openUrl } from "../../app/actions"
 import { closeToolLogin, readToolLogin, startToolLogin, writeToolLogin } from "../../app/connectionSettings"
 import { toHostError } from "../../host"
-import { terminalTheme } from "../inspector/TerminalPane"
+import { terminalLinks, terminalTheme } from "../inspector/TerminalPane"
 
 const POLL_MS = 150
 
@@ -37,6 +37,7 @@ export function LoginTerminal({ connectionId, run, onState }: { readonly connect
       scrollback: 1_000,
       macOptionIsMeta: true,
       theme: terminalTheme(),
+      linkHandler: terminalLinks(),
     })
     const fit = new FitAddon()
     term.loadAddon(fit)

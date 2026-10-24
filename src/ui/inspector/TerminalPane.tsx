@@ -1,6 +1,6 @@
 import { FitAddon } from "@xterm/addon-fit"
 import { WebLinksAddon } from "@xterm/addon-web-links"
-import { Terminal } from "@xterm/xterm"
+import { Terminal, type ILinkHandler } from "@xterm/xterm"
 import { RotateCcw, SquareTerminal } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { create } from "zustand"
@@ -62,6 +62,14 @@ const TERMINAL_COLORS: Readonly<Partial<Record<keyof TerminalTheme, string>>> = 
   brightMagenta: "--term-bright-magenta",
   brightCyan: "--term-bright-cyan",
   brightWhite: "--term-bright-white",
+}
+
+/**
+ * What a terminal does with a hyperlink a program printed (OSC 8): what any other link in the app
+ * does, instead of xterm's own confirm() and window.open() in the app's window.
+ */
+export function terminalLinks(threadId?: string): ILinkHandler {
+  return { activate: (_event, uri) => void openUrl(uri, threadId) }
 }
 
 /** The terminal palette from the current theme's tokens. A token that is not set keeps xterm's own color. */
@@ -159,11 +167,12 @@ function ensureTerminal(threadId: string, id: string): Live {
     allowProposedApi: false,
     macOptionIsMeta: true,
     theme: terminalTheme(),
+    linkHandler: terminalLinks(threadId),
   })
   watchTheme()
   const fit = new FitAddon()
   term.loadAddon(fit)
-  term.loadAddon(new WebLinksAddon((_event, uri) => void openUrl(uri)))
+  term.loadAddon(new WebLinksAddon((_event, uri) => void openUrl(uri, threadId)))
   if (document.documentElement.dataset.platform === "linux") term.attachCustomKeyEventHandler((event) => !appKeyInTerminal(event))
   const session: Live = { threadId, term, fit, element, lastSeq: -1, cols: 100, rows: 30, started: false, writes: Promise.resolve() }
   live.set(id, session)

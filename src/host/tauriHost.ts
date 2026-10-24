@@ -2,7 +2,7 @@ import { Channel, invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { openUrl } from "@tauri-apps/plugin-opener"
 import type { AgentDefinition, AndroidApp, AndroidDevice, AndroidStatus, ComputerAccess, ComputerApp, EditorId, EngineInfo, EngineStartInput, Host, HostInfo, ImportedSkill, ListenInput, LoginItemStatus, McpServer, ModelProgress, NotifyStatus, OtherTools, PreviewState, ProjectInstructions, RunningComputerApp, SimulatorApp, SimulatorDevice, SimulatorScreen, SimulatorStatus, StartupTiming, StreamFrame, StreamState, Unsubscribe, VoiceDevice, VoiceEvent, VoiceModel, PhoneCall, PhonePushTarget, NewPhoneHook, PhoneShare, PhoneStatus, QuickMessage, QuickStatus, RemoteCheck, TailscaleStatus, RemoteMachine, WakeServiceStatus, WorkspaceInfo, SignInsSupport } from "./types"
-import { toHostError } from "./types"
+import { HostError, toHostError } from "./types"
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   try {
@@ -184,7 +184,8 @@ export function createTauriHost(): Host {
     updateCheck: () => call<unknown>("update_check"),
     updateInstall: () => call<void>("update_install"),
     openUrl: async (url) => {
-      if (!/^https:\/\//.test(url)) return
+      // The opener is allowed https only; anything else is refused here, where the caller hears of it.
+      if (!/^https:\/\//i.test(url)) throw new HostError("LINK_REFUSED", "Only https links open in your browser.")
       try {
         await openUrl(url)
       } catch (error) {
