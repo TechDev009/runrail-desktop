@@ -1,20 +1,22 @@
 import { getHost } from "../host"
 import type { StreamFrame } from "../host/types"
 import { LiveFrameSchema, ThreadsTaskSchema, parseOr, type ThreadsTask } from "../protocol/schemas"
-import { isBusy } from "../thread/reducer"
+import { appendNotice, isBusy } from "../thread/reducer"
 import { cleanTitle, messageFrom, messageFromThread, threadDigest } from "../thread/threadContext"
+import { ACCESS_LABELS, accessOf, effectivePermission, type Access } from "./access"
 import type { ThreadMeta } from "./persist"
 import { onSendFailed, onTurnEnded, quiet, send } from "./engines"
-import { get, projectById, runtimeOf, threadById } from "./store"
+import { get, patchRuntime, projectById, runtimeOf, threadById } from "./store"
 import { threadItems } from "./threadMention"
 
 /**
  * The agent's way to the person's other threads (unattended). The engine
  * announces a request by id; this claims it once, applies the rules below (never the engine's
- * word), and answers. A message runs in the other thread with that thread's own access, so what it
- * needs approved still asks the person there.
+ * word), and answers.
  *
  * - Settings pick which threads an agent reaches: none, its own project's, or any.
+ * - A message runs only in a thread on the same access as the sender's, so no agent reaches past
+ *   its own approvals through another thread. A refused message shows in that thread with why.
  * - One turn sends at most `SENDS_PER_TURN` messages.
  * - A thread that was messaged carries the chain that led to it. A chain grows to `MAX_CHAIN`
  *   threads at most and never comes back to a thread already in it. The person's own message
@@ -28,6 +30,7 @@ export const MAX_CHAIN = 3
 const MAX_LISTED = 50
 const READ_BYTES = 12 * 1024
 const REPLY_CHARS = 16 * 1024
+const REFUSED_SHOWN = 500
 // Inside the engine's own 15 minutes, so the agent hears this answer rather than its timeout.
 const WAIT_MS = 14 * 60_000 + 30_000
 
@@ -148,6 +151,13 @@ async function sendTo(from: ThreadMeta, target: ThreadMeta, message: string, wai
   if (count >= SENDS_PER_TURN) return refuse("THREADS_LIMIT", `This turn has sent ${String(SENDS_PER_TURN)} messages to other threads already.`)
   sentInTurn.set(turn, count + 1)
   if (sentInTurn.size > 256) sentInTurn.delete(sentInTurn.keys().next().value as string)
+  // Counted above, so refused sends cannot flood the other thread with notices.
+  const ours = accessFor(from)
+  const theirs = accessFor(target)
+  if (ours !== theirs) {
+    noteRefused(target, from, message.trim(), theirs, ours)
+    return refuse("THREADS_DENIED", `"${cleanTitle(target.title)}" is on ${ACCESS_LABELS[theirs]} and this thread is on ${ACCESS_LABELS[ours]}. A thread runs another's message only when both are on the same access, so it was not sent; that thread shows the person why.`)
+  }
 
   const requestId = `tm-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 10)}`
   const busy = isBusy(runtimeOf(target.id).timeline) || runtimeOf(target.id).queue.length > 0
@@ -157,6 +167,23 @@ async function sendTo(from: ThreadMeta, target: ThreadMeta, message: string, wai
   const name = `"${cleanTitle(target.title)}"`
   if (reply === undefined) return { ok: true, result: { text: busy ? `Queued in ${name}; it runs when that thread's current turn ends.` : `Sent to ${name}; it runs there now.` } }
   return reply
+}
+
+/** The access a thread's turns run with: Plan, or its permission as its tool applies it. */
+function accessFor(thread: ThreadMeta): Access {
+  return accessOf(thread.mode, effectivePermission(thread.permission, thread.backend))
+}
+
+/** Tells the person, in the thread that was messaged, what another thread's agent asked and why it did not run. */
+function noteRefused(target: ThreadMeta, from: ThreadMeta, message: string, theirs: Access, ours: Access): void {
+  const asked = message.length > REFUSED_SHOWN ? `${message.slice(0, REFUSED_SHOWN).trimEnd()}...` : message
+  const sender = `"${cleanTitle(from.title)}"`
+  patchRuntime(target.id, (current) => ({
+    timeline: appendNotice(current.timeline, {
+      code: "thread.message.refused",
+      message: `The agent in ${sender} sent this thread a message, and it was not run: "${asked}". This thread is on ${ACCESS_LABELS[theirs]} and ${sender} is on ${ACCESS_LABELS[ours]}; a message from another thread runs only when both are on the same access.`,
+    }),
+  }))
 }
 
 /**

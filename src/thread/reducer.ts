@@ -1017,6 +1017,9 @@ export function applyParsedFrames(timeline: Timeline, frames: readonly ParsedFra
   return draft.finish()
 }
 
+/** Local notices about something the transcript never records, kept when it is read again. */
+const KEPT_NOTICES: ReadonlySet<string> = new Set(["model.changed", "thread.message.refused"])
+
 /**
  * Replaces the timeline with history rebuilt by the engine, keeping any not-yet-matched sends.
  * `live` means the engine that wrote the history is still in its last turn (the window reloaded and
@@ -1083,7 +1086,7 @@ export function loadHistory(
   }
   closeTurn()
   for (const item of timeline.items) if (item.kind === "user" && item.turnId === undefined && item.key.startsWith("p.")) draft.push(item)
-  for (const item of timeline.items) if (item.kind === "notice" && item.code === "model.changed") draft.push(item)
+  for (const item of timeline.items) if (item.kind === "notice" && KEPT_NOTICES.has(item.code)) draft.push(item)
   return draft.finish()
 }
 
