@@ -6,7 +6,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::net::{TcpStream, ToSocketAddrs};
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
@@ -226,11 +226,11 @@ fn title_of(title: &str) -> String {
 
 impl Previews {
     fn label_of(&self, tab: &str) -> Option<String> {
-        self.live.lock().unwrap().iter().find(|(id, _)| id == tab).map(|(_, label)| label.clone())
+        self.live.lock().unwrap_or_else(PoisonError::into_inner).iter().find(|(id, _)| id == tab).map(|(_, label)| label.clone())
     }
 
     fn touch(&self, tab: &str) {
-        let mut live = self.live.lock().unwrap();
+        let mut live = self.live.lock().unwrap_or_else(PoisonError::into_inner);
         if let Some(index) = live.iter().position(|(id, _)| id == tab) {
             let entry = live.remove(index);
             live.push(entry);
@@ -244,7 +244,7 @@ impl Previews {
     /// Unloads the least recently used previews past the limit, never `keep`.
     fn evict(&self, app: &AppHandle, keep: &str) {
         let extra: Vec<(String, String)> = {
-            let mut live = self.live.lock().unwrap();
+            let mut live = self.live.lock().unwrap_or_else(PoisonError::into_inner);
             let mut extra = Vec::new();
             while live.len() > MAX_LIVE {
                 let Some(index) = live.iter().position(|(id, _)| id != keep) else { break };
@@ -257,7 +257,7 @@ impl Previews {
                 self.save_from(app, &tab, &webview);
                 let _ = webview.close();
             }
-            self.sessions.lock().unwrap().remove(&tab);
+            self.sessions.lock().unwrap_or_else(PoisonError::into_inner).remove(&tab);
             emit(app, State { unloaded: true, ..State::new(&tab) });
         }
     }
@@ -311,7 +311,7 @@ impl Previews {
             .map_err(|_| failed())?;
         #[cfg(target_os = "linux")]
         let webview = crate::preview_gtk::add_child(&window, app, builder, bounds).ok_or_else(failed)?;
-        self.live.lock().unwrap().push((tab.to_string(), label));
+        self.live.lock().unwrap_or_else(PoisonError::into_inner).push((tab.to_string(), label));
         if let Some(project) = project {
             let saved = sign_ins::load(&app.config().identifier, project);
             let mut known = HashSet::new();
@@ -322,7 +322,7 @@ impl Previews {
                     }
                 }
             }
-            self.sessions.lock().unwrap().insert(tab.to_string(), Session { project: project.to_string(), known });
+            self.sessions.lock().unwrap_or_else(PoisonError::into_inner).insert(tab.to_string(), Session { project: project.to_string(), known });
             webview.navigate(url).map_err(|_| failed())?;
         }
         self.evict(app, tab);
@@ -341,7 +341,7 @@ impl Previews {
         let Ok(cookies) = webview.cookies() else { return };
         let current: Vec<Saved> = cookies.iter().filter_map(Saved::from_cookie).collect();
         if sign_ins::save(&app.config().identifier, &project, &known, &current).is_ok() {
-            if let Some(session) = self.sessions.lock().unwrap().get_mut(tab) {
+            if let Some(session) = self.sessions.lock().unwrap_or_else(PoisonError::into_inner).get_mut(tab) {
                 session.known = current.iter().map(Saved::key).collect();
             }
         }
@@ -349,14 +349,14 @@ impl Previews {
 
     /// Stops saving for a project and removes what was saved. Open pages keep theirs until closed.
     pub fn forget_sign_ins(&self, project: &str) -> BridgeResult<()> {
-        self.sessions.lock().unwrap().retain(|_, session| session.project != project);
+        self.sessions.lock().unwrap_or_else(PoisonError::into_inner).retain(|_, session| session.project != project);
         sign_ins::forget(project)
     }
 
     /// Saves before a preview goes, then lets the tab go.
     fn closing(&self, app: &AppHandle, tab: &str) {
         self.save_sign_ins(app, tab);
-        self.sessions.lock().unwrap().remove(tab);
+        self.sessions.lock().unwrap_or_else(PoisonError::into_inner).remove(tab);
     }
 
     /// `hidden` loads the page without showing it: the agent opened it in a tab not on screen.
@@ -364,7 +364,7 @@ impl Previews {
         require_tab(tab)?;
         check_bounds(&bounds)?;
         let url = address(url, dev_origin(app).as_ref())?;
-        let _opening = self.opening.lock().unwrap();
+        let _opening = self.opening.lock().unwrap_or_else(PoisonError::into_inner);
         if !answers(&url) {
             self.hide(app, tab);
             return Ok(Opened { reachable: false });
@@ -473,7 +473,7 @@ impl Previews {
         require_tab(tab)?;
         self.closing(app, tab);
         let label = {
-            let mut live = self.live.lock().unwrap();
+            let mut live = self.live.lock().unwrap_or_else(PoisonError::into_inner);
             let index = live.iter().position(|(id, _)| id == tab);
             index.map(|index| live.remove(index).1)
         };
@@ -487,7 +487,7 @@ impl Previews {
     /// null where the platform does not say.
     #[cfg(debug_assertions)]
     pub fn frames(&self, app: &AppHandle) -> Vec<serde_json::Value> {
-        let live = self.live.lock().unwrap().clone();
+        let live = self.live.lock().unwrap_or_else(PoisonError::into_inner).clone();
         live.into_iter()
             .filter_map(|(tab, label)| {
                 let webview = app.get_webview(&label)?;
@@ -506,7 +506,7 @@ impl Previews {
 
     /// Closes every preview whose tab the renderer no longer has.
     pub fn retain(&self, app: &AppHandle, tabs: &[String]) {
-        let gone: Vec<String> = self.live.lock().unwrap().iter().filter(|(id, _)| !tabs.contains(id)).map(|(id, _)| id.clone()).collect();
+        let gone: Vec<String> = self.live.lock().unwrap_or_else(PoisonError::into_inner).iter().filter(|(id, _)| !tabs.contains(id)).map(|(id, _)| id.clone()).collect();
         for tab in gone {
             let _ = self.close(app, &tab);
         }

@@ -14,7 +14,8 @@ const MAX_KEPT = 200
 const kept = new Map<string, Promise<unknown>>()
 /** Finished results by the same key, so a block scrolling back into view paints highlighted. */
 const settled = new Map<string, unknown>()
-const waiting = new Map<number, (result: unknown) => void>()
+/** Each ask the worker has not answered, with the key its result is kept under. */
+const waiting = new Map<number, { readonly key: string; readonly settle: (result: unknown) => void }>()
 let worker: Worker | false | undefined
 let nextId = 0
 const ANSWER_MS = 5_000
@@ -23,13 +24,13 @@ function startWorker(): Worker | false {
   try {
     const started = new Worker(new URL("./highlight.worker.ts", import.meta.url), { type: "module" })
     started.onmessage = (event: MessageEvent<{ readonly id: number; readonly result?: unknown }>) => {
-      waiting.get(event.data.id)?.(event.data.result)
+      waiting.get(event.data.id)?.settle(event.data.result)
       waiting.delete(event.data.id)
     }
     started.onerror = () => {
       // A worker that fails to load answers nothing; what it was asked is done here instead.
       worker = false
-      for (const resolve of waiting.values()) resolve(undefined)
+      for (const ask of waiting.values()) ask.settle(undefined)
       waiting.clear()
       kept.clear()
       settled.clear()
@@ -75,12 +76,20 @@ function render<K extends Kind>(kind: K, code: string, language: string | undefi
               active.terminate()
               worker = undefined
             }
-            for (const settle of waiting.values()) settle(undefined)
+            // Their plain result is not kept, so the next time those blocks show they are asked again.
+            for (const ask of waiting.values()) {
+              kept.delete(ask.key)
+              settled.delete(ask.key)
+              ask.settle(undefined)
+            }
             waiting.clear()
           }, ANSWER_MS)
-          waiting.set(id, (value) => {
-            clearTimeout(timer)
-            resolve(value as Result<K> | undefined)
+          waiting.set(id, {
+            key,
+            settle: (value) => {
+              clearTimeout(timer)
+              resolve(value as Result<K> | undefined)
+            },
           })
           active.postMessage({ id, kind, code, lang })
         })
