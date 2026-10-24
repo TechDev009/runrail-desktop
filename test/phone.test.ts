@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, setDefaultTimeout, test } from "bun:test"
+import { afterAll, beforeEach, describe, expect, setDefaultTimeout, spyOn, test } from "bun:test"
 import { connectionsChanged } from "../src/app/connections"
 import { initEngines } from "../src/app/engines"
 import { announce } from "../src/app/notifications"
@@ -35,6 +35,18 @@ let failing: string | undefined
 let answers: { id: number; ok: boolean; body: unknown }[] = []
 let deliver: (call: PhoneCall) => void = () => undefined
 let stop: () => void = () => undefined
+const started = spyOn(globalThis, "setInterval")
+const cleared = spyOn(globalThis, "clearInterval")
+
+// A run a hook starts leaves a run poller and a setup-run poller going until a poll finds nothing
+// running, which only this file's host can answer; left going, they would poll every later file's.
+afterAll(async () => {
+  const running = (): boolean => started.mock.results.some(({ value }) => !cleared.mock.calls.some(([interval]) => interval === value))
+  while (running()) await Bun.sleep(50)
+  started.mockRestore()
+  cleared.mockRestore()
+  stop()
+})
 
 beforeEach(() => {
   stop()
