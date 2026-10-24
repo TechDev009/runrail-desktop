@@ -2524,6 +2524,27 @@ export function createFakeHost(scenario: PreviewScenario = {}): Host {
       if (starter === "nifra") previewNifraApps.add(path)
       return { ok: true, workspace: { path, name, git: true }, warnings: [] }
     },
+    // As the desktop host answers: `runrail doctor` takes a moment, and no check carries its detail.
+    problemReport: async () => {
+      await new Promise((done) => setTimeout(done, 600))
+      const checks: readonly (readonly [string, string])[] = [
+        ["Runrail", "ok"],
+        ["Bun", "ok"],
+        ["git", "ok"],
+        ["Sign-ins folder", "ok"],
+        ["Sessions folder", "ok"],
+        ["Key store", "warn"],
+        ["Claude Code", "ok"],
+        ["Codex", "ok"],
+        ["GitHub Copilot CLI", "off"],
+        ["OpenCode", "off"],
+        ["Gemini CLI", "off"],
+        ["Goose", "off"],
+        ["Pi", "off"],
+        ["Claude Agent SDK", "warn"],
+      ]
+      return { os: "browser", arch: "preview", osVersion: null, engine: { version: "preview", checks: checks.map(([name, level]) => ({ name, level })) } }
+    },
     archivePick: async () => null,
     workspaceInspect: async (path) => ({ path, name: path.split("/").filter(Boolean).pop() ?? path, git: true }),
     workspaceReveal: async () => undefined,

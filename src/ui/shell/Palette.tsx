@@ -20,6 +20,7 @@ import {
   PanelRight,
   Plug,
   Blocks,
+  Bug,
   Search,
   Settings,
   Share2,
@@ -42,6 +43,7 @@ import { compactThread, threadCapability } from "../../app/engines"
 import { newPanelTab, openPanel } from "../../app/panels"
 import { activeProject, activeThread, get, openThread, set, setLayout, setPrefs, toast, useApp } from "../../app/store"
 import { proposeWorkflowFrom } from "../../app/workflowRuns"
+import { reportProblem } from "../../app/report"
 import { shareOffered } from "../../app/workflows"
 import { toHostError } from "../../host"
 import { relativeTime, tildify } from "../../lib/format"
@@ -101,6 +103,7 @@ export function paletteCommands(connections: readonly Connection[]): Entry[] {
     { id: "connections", group: "Commands", label: "Manage connections", keywords: "providers keys accounts models sign out remove rename test", icon: <KeyRound size={14} />, run: () => set({ settings: "connections" }) },
     { id: "settings", group: "Commands", label: "Settings", icon: <Settings size={14} />, kbd: "mod+,", run: () => set({ settings: "general" }) },
     { id: "shortcuts", group: "Commands", label: "Keyboard shortcuts", icon: <Keyboard size={14} />, kbd: "mod+/", run: () => set({ settings: "shortcuts" }) },
+    { id: "report-problem", group: "Commands", label: "Report a problem…", detail: "See the report first, then copy it or open a GitHub issue", keywords: "bug issue github feedback crash broken help support diagnostics", icon: <Bug size={14} />, run: () => reportProblem() },
     { id: "sidebar", group: "Commands", label: "Show or hide the threads list", keywords: "sidebar toggle", icon: <PanelLeft size={14} />, kbd: "mod+b", run: () => setLayout({ sidebarOpen: !get().layout.sidebarOpen }) },
     { id: "workflows", group: "Commands", label: "Workflows", icon: <Workflow size={14} />, keywords: "automations schedule cron trigger", run: () => set({ view: { kind: "workflows" } }) },
     { id: "integrations", group: "Commands", label: "Integrations", icon: <Blocks size={14} />, keywords: "connectors github linear slack jira mcp servers plugins packages skills extensions", run: () => set({ view: { kind: "integrations" } }) },

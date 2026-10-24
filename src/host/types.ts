@@ -481,6 +481,8 @@ export interface Host {
   appStarters(): Promise<unknown>
   /** Makes a new app from a starter where the person picks in the system's dialog; null when they cancel. */
   appCreate(name: string, starter: string): Promise<unknown>
+  /** The system, architecture, and the engine's `runrail doctor` checks by name and level only, for a problem report. */
+  problemReport(): Promise<unknown>
   computerAccess(): Promise<ComputerAccess>
   /** Shows the system's own request; the person answers it in System Settings. */
   computerRequestAccess(kind: "screen" | "accessibility"): Promise<ComputerAccess>

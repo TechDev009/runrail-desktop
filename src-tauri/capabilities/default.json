@@ -27,6 +27,7 @@
     "allow-workspace-pick",
     "allow-app-starters",
     "allow-app-create",
+    "allow-problem-report",
     "allow-computer-access",
     "allow-computer-request-access",
     "allow-computer-open-settings",

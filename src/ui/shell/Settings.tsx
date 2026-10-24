@@ -9,6 +9,7 @@ import { readClaudeSdk, useClaudeSdk } from "../../app/claudeSdk"
 import { NIFRA_SETTING_HINT, nifraOn } from "../../app/nifra"
 import { readAllProjectGit } from "../../app/projectGit"
 import { setPlanLimits } from "../../app/planUsage"
+import { reportProblem } from "../../app/report"
 import { MAX_CHAIN, SENDS_PER_TURN } from "../../app/threadAgent"
 import { BACKEND_LABELS, glassAvailable, paletteChange, MAX_INSTRUCTIONS, MAX_VOICE_WORD, MAX_VOICE_WORDS, PASTE_THRESHOLDS, QUIET_MINUTES, VOICE_RATES, type NotifyOn, type VoicePrefs, type PasteThreshold, type Prefs, type QuietMinutes } from "../../app/persist"
 import { ACCESS_LABELS, ACCESS_ORDER, accessOf, type Access } from "../../app/access"
@@ -1837,6 +1838,11 @@ function Developer() {
       )}
 
       <h3 data-setting="diagnostics">Troubleshooting</h3>
+      <Row id="report-problem" label="Report a problem" hint="Shows you a report of versions, your system, the engine's checks, and counts of error codes. Nothing leaves until you copy it or open it as a GitHub issue.">
+        <Button size="sm" onClick={reportProblem}>
+          Report…
+        </Button>
+      </Row>
       <Row label="Details for a bug report" hint="Versions, engine states, and counts of error codes. No prompts, file paths, keys, or model output are ever recorded here.">
         <CopyButton text={report} label="Copy details" />
       </Row>

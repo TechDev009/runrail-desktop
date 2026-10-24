@@ -53,6 +53,7 @@ const COMMANDS: &[&str] = &[
     "workspace_pick",
     "app_starters",
     "app_create",
+    "problem_report",
     "archive_pick",
     "workspace_reveal",
     "workspace_open_in",

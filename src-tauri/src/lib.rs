@@ -39,6 +39,7 @@ mod quick;
 mod preview_agent;
 mod process;
 mod remote;
+mod report;
 #[cfg(target_os = "macos")]
 mod responsibility;
 mod shells;
@@ -389,6 +390,13 @@ async fn workspace_pick(app: tauri::AppHandle, near: Option<String>, related: Op
         Ok(Some(inspect(&resolved)))
     })
     .await
+}
+
+/// This machine's system and the engine's checks, for a problem report the person sees first.
+#[tauri::command]
+async fn problem_report(state: State<'_, HostState>) -> BridgeResult<Value> {
+    let supervisor = state.supervisor.clone();
+    blocking(move || Ok(report::facts(&supervisor))).await
 }
 
 /// The starters `runrail new` offers, read from the engine so their labels and makers have one source.
@@ -1809,6 +1817,7 @@ pub fn run() {
             workspace_pick,
             app_starters,
             app_create,
+            problem_report,
             archive_pick,
             workspace_reveal,
             workspace_open_in,

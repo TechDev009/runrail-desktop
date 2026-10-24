@@ -44,6 +44,7 @@ const SHOWN_ON_MAC_ONLY: readonly { readonly file: string; readonly text: string
   { file: "ui/shell/settingsIndex.ts", text: "Keep speech on this Mac", why: "Apple's recognizer, which Linux does not offer" },
   { file: "ui/shell/settingsIndex.ts", text: "open at login background menu bar tray", why: "search words, never shown" },
   { file: "app/voice.ts", text: "System Settings", why: "the web view's own recognizer, which WebKitGTK does not have" },
+  { file: "app/report.ts", text: "macOS", why: "the system's name in a problem report, used only when the host says it is macOS" },
 ]
 
 function sources(dir: string): string[] {

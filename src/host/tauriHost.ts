@@ -91,6 +91,7 @@ export function createTauriHost(): Host {
     workspacePick: (options) => call<WorkspaceInfo | null>("workspace_pick", { near: options?.near ?? null, related: options?.related === true }),
     appStarters: () => call<unknown>("app_starters"),
     appCreate: (name, starter) => call<unknown>("app_create", { name, starter }),
+    problemReport: () => call<unknown>("problem_report"),
     archivePick: () => call<string | null>("archive_pick"),
     workspaceInspect: (path) => call<WorkspaceInfo>("workspace_inspect", { path }),
     workspaceReveal: (workspace, relative) => call<void>("workspace_reveal", { workspace, relative: relative ?? null }),

@@ -31,7 +31,7 @@ test("every app menu item with an action is made on its own, which is the only k
   await installAppMenu(() => undefined, () => undefined)
   const items = submenus.flat()
   expect(items.filter((item) => !(item instanceof MenuItem) && typeof item === "object" && item !== null && ("action" in item || "text" in item))).toEqual([])
-  // The shortcuts, the two Help links and Close Window.
-  expect(items.filter((item) => item instanceof MenuItem)).toHaveLength(MENU_SHORTCUTS.length + 3)
+  // The shortcuts, Report a Problem, the two Help links and Close Window.
+  expect(items.filter((item) => item instanceof MenuItem)).toHaveLength(MENU_SHORTCUTS.length + 4)
   expect(items.some((item) => item instanceof MenuItem && "id" in item.options)).toBe(false)
 })

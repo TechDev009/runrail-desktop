@@ -140,6 +140,8 @@ export type Dialog =
   | { readonly kind: "quests"; readonly projectId: string }
   /** Going back to before a message, its files ticked. */
   | { readonly kind: "rewind"; readonly plan: RewindPlan }
+  /** The problem report, shown whole before it is copied or opened as an issue. */
+  | { readonly kind: "report-problem" }
 
 export interface Toast {
   readonly id: string

@@ -119,6 +119,7 @@ function index(words: PlatformWords): readonly SettingEntry[] {
     { id: "import-from-tools", section: "import", label: "Skills, MCP servers, and subagents from other tools", keywords: "import claude code codex cursor gemini opencode pi skills mcp agents" },
     { id: "shortcuts", section: "shortcuts", label: "Keyboard shortcuts", keywords: "keys keymap hotkeys" },
     { id: "developer-mode", section: "developer", label: "Developer mode", keywords: "debug test model recorded session replay share record advanced" },
+    { id: "report-problem", section: "developer", label: "Report a problem", keywords: "bug issue github feedback crash broken help support report" },
     { id: "diagnostics", section: "developer", label: "Troubleshooting details", keywords: "diagnostics bug report counters errors engines contract capabilities version" },
   ]
 }

@@ -1,4 +1,5 @@
 import { SHORTCUTS, type ShortcutId } from "../ui/shell/shortcuts"
+import { reportProblem } from "./report"
 
 /**
  * The macOS menu bar. Its items carry the app's shortcuts, so they also work while a browser
@@ -99,7 +100,7 @@ export async function installAppMenu(run: (id: ShortcutId) => void, openLink: (u
   const view = await items(VIEW)
   const help = await Submenu.new({
     text: "Help",
-    items: [...(await items(HELP)), { item: "Separator" }, await action("Runrail Desktop on GitHub", () => openLink(REPOSITORY)), await action("Report an Issue…", () => openLink(`${REPOSITORY}/issues`))],
+    items: [...(await items(HELP)), { item: "Separator" }, await action("Report a Problem…", reportProblem), await action("Runrail Desktop on GitHub", () => openLink(REPOSITORY)), await action("Report an Issue…", () => openLink(`${REPOSITORY}/issues`))],
   })
   const menu = await Menu.new({
     items: [

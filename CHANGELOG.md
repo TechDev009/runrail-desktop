@@ -4,6 +4,15 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+- Report a problem, in the command palette, Settings, Advanced, and the Help
+  menu. It shows you a report first: the app's version, your system and
+  architecture, the engine's version and `runrail doctor` checks by name and
+  level, and the recent error codes and counters. Copy takes all of it; Open
+  issue fills in a new GitHub issue in your browser, leaving out the least
+  frequent counters if the link would be too long. It holds no prompts,
+  transcripts, tool output, files, project names or paths, connections,
+  accounts, or keys, and nothing leaves unless you send it.
+
 ## [0.1.1] - 2026-10-24
 
 Security fixes from a review of 0.1.0, and steadier saving and streaming.

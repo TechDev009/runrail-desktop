@@ -15,6 +15,7 @@ import { ConnectDialog } from "../connections/ConnectDialog"
 import { ContinueOnDialog } from "./ContinueOnDialog"
 import { CreateProjectDialog } from "./CreateProjectDialog"
 import { OtherToolsDialog } from "./OtherToolsDialog"
+import { ReportDialog } from "./ReportDialog"
 import { RewindDialog } from "./RewindDialog"
 import { QuestPrompt } from "../office/QuestPrompt"
 import { ShiftReport } from "../office/ShiftReport"
@@ -50,6 +51,8 @@ export function DialogHost() {
       return <QuestPrompt projectId={dialog.projectId} />
     case "rewind":
       return <RewindDialog plan={dialog.plan} />
+    case "report-problem":
+      return <ReportDialog />
   }
 }
 

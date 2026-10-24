@@ -8,6 +8,10 @@ import { create } from "zustand"
 const CODE = /^[A-Za-z0-9_.:-]{1,64}$/
 const MAX_CODES = 128
 
+export function isCode(text: string): boolean {
+  return CODE.test(text)
+}
+
 /** How long a thread's engine took to open, step by step: step names and numbers only. */
 export interface OpenTiming {
   readonly backend: string
