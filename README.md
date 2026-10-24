@@ -66,6 +66,8 @@ Download the file for your system from the
 | Linux x64 or arm64 | `.deb`, `.rpm`, or `.AppImage`; see [docs/LINUX.md](docs/LINUX.md) |
 | Windows 10 or later, x64 (experimental) | `Runrail_<version>_x64-setup.exe` or `.msi` |
 
+On macOS, Homebrew installs the same DMG: `brew install --cask TechDev009/runrail/runrail`.
+
 These builds are not yet signed by a registered developer, so macOS and Windows warn before the
 first launch:
 

@@ -1,0 +1,71 @@
+name: Publish
+
+# Publishing a GitHub release (the draft build.yml makes for a version tag) writes its DMGs'
+# checksums into the Homebrew cask, in the tap that also holds the engine's formula. The tap's
+# token lives in the `publish` environment. A prerelease gets no cask.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  homebrew:
+    name: Homebrew cask
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    environment: publish
+    steps:
+      - name: Check out the release
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.release.tag_name }}
+          persist-credentials: false
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.2"
+
+      - name: Write the cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP" --pattern SHA256SUMS.txt
+          bun scripts/homebrew-cask.ts "${TAG#v}" "$RUNNER_TEMP/SHA256SUMS.txt" > "$RUNNER_TEMP/runrail.rb"
+
+      - name: Check out the tap
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          repository: TechDev009/homebrew-runrail
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Commit the cask
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        working-directory: tap
+        run: |
+          mkdir -p Casks
+          cp "$RUNNER_TEMP/runrail.rb" Casks/runrail.rb
+          git add Casks/runrail.rb
+          if git diff --cached --quiet; then
+            echo "Casks/runrail.rb is current already"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "runrail (desktop) ${TAG#v}"
+          # The engine's workflow writes the formula to the same tap.
+          for attempt in 1 2 3; do
+            if git push; then exit 0; fi
+            echo "push $attempt failed; rebasing on the tap"
+            git pull --rebase
+          done
+          exit 1

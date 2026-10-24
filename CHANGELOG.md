@@ -4,6 +4,10 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+- A Homebrew cask: `brew install --cask TechDev009/runrail/runrail`. Publishing
+  a release writes its DMGs' checksums into the cask, in the tap that also
+  holds the command line's formula.
+
 - Report a problem, in the command palette, Settings, Advanced, and the Help
   menu. It shows you a report first: the app's version, your system and
   architecture, the engine's version and `runrail doctor` checks by name and

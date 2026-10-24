@@ -103,6 +103,21 @@ Settings says so.
 
 6. **Turn on private vulnerability reporting** in each repository's
    Settings, Security, so the links in SECURITY.md work.
+7. **Set up npm and Homebrew** for the publish workflows, which run when a
+   release is published:
+   - Create the tap repository `TechDev009/homebrew-runrail` (public, with a
+     README), and a fine-grained personal access token for it alone with
+     Contents read and write.
+   - In each repository, create a `publish` environment (required reviewers
+     if you want a second yes, the `v*` tag rule) and add the token to it as
+     `HOMEBREW_TAP_TOKEN`.
+   - Publish the engine to npm once by hand, from a clean checkout of its tag
+     (`npm publish runrail-<version>.tgz --access public`, from the release's
+     tarball), since npm configures publishers only for a package that exists.
+     Then, in the package's npm settings, add a Trusted Publisher: GitHub
+     Actions, `TechDev009/runrail`, workflow `publish.yml`, environment
+     `publish`, and set publishing access to require two-factor
+     authentication and disallow tokens.
 
 ## Release on GitHub
 
@@ -113,7 +128,8 @@ Settings says so.
    section becomes the release notes.
 2. Tag the engine first, since the desktop build checks out the engine's tag
    of the same name. Its CI drafts a release with the packed CLI
-   (`runrail-<version>.tgz`, installable with `bun add -g <its URL>`):
+   (`runrail-<version>.tgz`), the `runrail` executables for each platform,
+   `install.sh`, and `SHA256SUMS.txt`:
 
    ```bash
    git -C ../runrail tag -a v0.1.0 -m "Runrail 0.1.0"
@@ -146,7 +162,10 @@ Settings says so.
 5. Install the draft's downloads on a clean machine (a Mac that never built
    the app, a Linux VM), then publish the engine's draft and the desktop's
    draft. Publishing the desktop release is what offers the update to
-   installed copies.
+   installed copies. Publishing each also runs its `publish.yml`: the
+   engine's puts the package on npm and the formula in the tap, the
+   desktop's writes the cask there. A prerelease goes to npm under `next`
+   and gets no formula or cask.
 
 The `.sig` files are not attached: `latest.json` carries each bundle's
 signature, which names the version it was signed for, and the app is built
