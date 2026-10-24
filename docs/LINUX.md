@@ -15,15 +15,15 @@ Each release has three packages per architecture:
 | `Runrail_<version>_amd64.AppImage`, `_aarch64.AppImage` | any distribution with glibc 2.35 or later | in the app, replacing the file |
 
 ```bash
-sudo apt install ./Runrail_0.1.0_amd64.deb
+sudo apt install ./Runrail_0.1.1_amd64.deb
 ```
 
 ```bash
-sudo dnf install ./Runrail-0.1.0-1.x86_64.rpm
+sudo dnf install ./Runrail-0.1.1-1.x86_64.rpm
 ```
 
 ```bash
-chmod +x Runrail_0.1.0_amd64.AppImage && ./Runrail_0.1.0_amd64.AppImage
+chmod +x Runrail_0.1.1_amd64.AppImage && ./Runrail_0.1.1_amd64.AppImage
 ```
 
 The deb and rpm declare their dependencies (WebKitGTK 4.1, GTK 3, the Ayatana app indicator
