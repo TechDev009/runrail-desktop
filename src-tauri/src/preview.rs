@@ -628,9 +628,12 @@ mod tests {
     fn only_loopback_addresses_are_checked() {
         assert!(answers(&Url::parse("https://example.invalid/").unwrap()));
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        let port = listener.local_addr().unwrap().port();
-        assert!(answers(&Url::parse(&format!("http://127.0.0.1:{port}/")).unwrap()));
-        drop(listener);
-        assert!(!answers(&Url::parse(&format!("http://127.0.0.1:{port}/")).unwrap()));
+        // The client's port stays bound with nothing listening on it until the test ends, so unlike a
+        // dropped listener's port, no other test can bind it in between.
+        let client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+        let open = listener.local_addr().unwrap().port();
+        let closed = client.local_addr().unwrap().port();
+        assert!(answers(&Url::parse(&format!("http://127.0.0.1:{open}/")).unwrap()));
+        assert!(!answers(&Url::parse(&format!("http://127.0.0.1:{closed}/")).unwrap()));
     }
 }
