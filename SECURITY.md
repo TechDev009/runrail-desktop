@@ -23,8 +23,10 @@ The rest of this file is the desktop security model.
 
 Runrail Desktop is a local control client, not a sandbox. A workspace, a
 Runrail engine, provider credentials, and any tools enabled by the user are
-trusted according to explicit policy, but the renderer and all process/network
-responses are treated as untrusted input.
+trusted according to explicit policy, and all process/network responses are
+treated as untrusted input. The host checks what the renderer sends for
+secrets and paths, but the renderer is trusted to run commands (see "The
+renderer is trusted to run commands" below).
 
 ## Trust boundaries
 
@@ -157,6 +159,26 @@ is `HOST_RPC_REFUSED` (403):
   `provider.select`, `provider.discover`, and `model.discover` methods: a
   connection fixes all of them;
 - an account that reads a shell variable and also names its own address.
+
+### The renderer is trusted to run commands
+
+The guard above keeps secrets and sign-ins away from the page; it does not
+stop the page from running commands. Every other control method reaches a
+project engine as the page sends it, including the terminal
+(`terminal.create`, `terminal.write`), `workspace.write`, setup runs, and
+plugin and package installs. A page that ran someone else's script could do
+anything the person's account can, in any approved project folder and,
+through a terminal, outside it.
+
+The native dialogs the page cannot draw (adding an MCP server or a memory
+provider, merging or reviewing a pull request, letting an agent use an app,
+running an agent's script in a browser preview) and the approved-folder list
+are consent prompts for the person's own actions and for agents. They are not
+a boundary against a compromised page. The defense against that is keeping
+foreign script out of the page: the content security policy (`script-src
+'self'`, no inline script or eval), Markdown rendered without raw HTML, no
+`innerHTML` or `eval` in the app, and links opened only through the host's
+policy.
 
 A thread starts with a connection id and a model. The host passes both to the
 engine; it no longer accepts a provider name, an address, or a key variable.

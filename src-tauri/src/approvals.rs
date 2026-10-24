@@ -1,6 +1,7 @@
 //! The folders the person chose as projects. Every folder the renderer names is checked against
-//! them (`workspace::resolve_workspace`), so a page that runs someone else's script still cannot
-//! point an engine, an editor, or a file write at a folder the person never picked.
+//! them (`workspace::resolve_workspace`), so the page's own requests point an engine, an editor,
+//! or a file write only at a folder the person picked. This bounds mistakes and stale state, not a
+//! compromised page, which reaches any folder through an engine's terminal (SECURITY.md).
 //!
 //! A folder is approved when the person picks it in the system's folder dialog. The folders the
 //! host makes itself (thread worktrees, the system engine's folder) and the engines' eval
