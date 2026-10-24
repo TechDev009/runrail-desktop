@@ -85,8 +85,12 @@ function threadParam(params: Readonly<Record<string, unknown>>): ThreadMeta {
   return thread
 }
 
+/** What only a paired phone may call; the host relays them from paired phones alone, and this checks again. */
+const PAIRED_METHODS: ReadonlySet<string> = new Set(["push.key", "push.subscribe", "push.unsubscribe", "threads", "thread", "send", "stop", "approve"])
+
 /** Runs one call from paired phone `device`; a refusal is a `PhoneError` the phone shows as it is. */
-export async function runPhoneCall(method: string, params: Readonly<Record<string, unknown>>, device = ""): Promise<unknown> {
+export async function runPhoneCall(method: string, params: Readonly<Record<string, unknown>>, device: string): Promise<unknown> {
+  if (PAIRED_METHODS.has(method) && !device.startsWith("ph-")) throw new PhoneError("PHONE_UNKNOWN_METHOD", "Runrail does not do that from a phone.")
   switch (method) {
     case "push.key": {
       const answer = (await systemRpc("push.vapid").catch(() => undefined)) as { publicKey?: unknown } | undefined
@@ -148,12 +152,18 @@ export async function runPhoneCall(method: string, params: Readonly<Record<strin
       // A call to a workflow's link; the host names the workflow, not the caller.
       if (!device.startsWith("hk-")) throw new PhoneError("PHONE_UNKNOWN_METHOD", "Runrail does not do that from a phone.")
       const project = typeof params.projectId === "string" ? projectById(params.projectId) : undefined
-      if (project !== undefined) await loadWorkflows(project.id)
-      const workflow = project === undefined ? undefined : useWorkflows.getState().byProject[project.id]?.workflows.find((item) => item.id === params.workflowId)
-      if (project === undefined || workflow === undefined) {
-        void getHost().phoneHookRemove(device).catch(() => undefined)
-        throw new PhoneError("PHONE_HOOK_GONE", `This workflow is not on the ${words().computer} any more.`)
+      // Only a list that was read, or projects that were, can show the workflow is gone; anything
+      // less is answered with a retry, so a passing failure never removes the link.
+      const unsure = new PhoneError("PHONE_HOOK_UNAVAILABLE", `Runrail on the ${words().computer} could not read its workflows just now. Try again in a minute.`)
+      if (project === undefined) {
+        if (!get().loaded || get().stateHeld !== undefined) throw unsure
+        throw await hookGone(device)
       }
+      await loadWorkflows(project.id)
+      const listed = useWorkflows.getState().byProject[project.id]
+      if (listed?.state !== "ready") throw unsure
+      const workflow = listed.workflows.find((item) => item.id === params.workflowId)
+      if (workflow === undefined) throw await hookGone(device)
       if (workflow.trigger.kind !== "webhook" || workflow.state !== "on") throw new PhoneError("PHONE_HOOK_OFF", `This workflow is off or no longer starts from its link. Turn it on in Runrail on the ${words().computer}.`)
       const input = typeof params.input === "string" && params.input.length > 0 ? params.input : undefined
       const run = await runWorkflow(project.id, workflow.id, "webhook", undefined, input)
@@ -162,6 +172,15 @@ export async function runPhoneCall(method: string, params: Readonly<Record<strin
     default:
       throw new PhoneError("PHONE_UNKNOWN_METHOD", `This phone page is newer or older than Runrail on your ${words().computer}. Reload it.`)
   }
+}
+
+/** Removes a link whose workflow is gone for certain; the refusal its caller is answered with. */
+async function hookGone(device: string): Promise<PhoneError> {
+  // A link that could not be removed now is tried again on its next call.
+  await getHost()
+    .phoneHookRemove(device)
+    .catch(() => undefined)
+  return new PhoneError("PHONE_HOOK_GONE", `This workflow is not on the ${words().computer} any more.`)
 }
 
 /** Answers paired phones' calls while the app runs, and keeps phone access's state current. */

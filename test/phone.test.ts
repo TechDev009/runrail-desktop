@@ -30,6 +30,8 @@ function asking(approvalId: string, questions?: readonly unknown[]): Timeline {
 }
 
 let rpcs: { method: string; params: Record<string, unknown> }[] = []
+/** An engine method that fails for the test, as a timed-out engine would. */
+let failing: string | undefined
 let answers: { id: number; ok: boolean; body: unknown }[] = []
 let deliver: (call: PhoneCall) => void = () => undefined
 let stop: () => void = () => undefined
@@ -37,11 +39,13 @@ let stop: () => void = () => undefined
 beforeEach(() => {
   stop()
   rpcs = []
+  failing = undefined
   answers = []
   const host = createFakeHost()
   const rpc = host.rpc.bind(host)
   host.rpc = async (engineId, method, params = {}) => {
     rpcs.push({ method, params })
+    if (method === failing) throw new HostError("CONTROL_TIMEOUT", "The engine did not answer in time.")
     return method === "approval.resolve" ? true : rpc(engineId, method, params)
   }
   host.onPhoneCall = (listener) => {
@@ -67,7 +71,7 @@ describe("a paired phone", () => {
     patchThread(older.id, { updatedAt: 1 })
     patchThread(newer.id, { updatedAt: 3 })
     patchThread(gone.id, { updatedAt: 5, archived: true })
-    const { threads } = (await runPhoneCall("threads", {})) as { threads: { id: string; machine?: string; project: string; status: string }[] }
+    const { threads } = (await runPhoneCall("threads", {}, "ph-1")) as { threads: { id: string; machine?: string; project: string; status: string }[] }
     expect(threads.map((thread) => thread.id)).toEqual([newer.id, older.id])
     expect(threads[0]).toMatchObject({ project: "app", machine: "dev-box", status: "idle" })
     expect(threads[1]?.machine).toBeUndefined()
@@ -84,29 +88,46 @@ describe("a paired phone", () => {
 
   test("sends a message, stops a turn, and answers an approval, but not a question", async () => {
     const thread = createThread({ projectId: "p1", backend: "claude-code", model: "claude-opus-5-5" })
-    await expect(runPhoneCall("send", { threadId: thread.id, text: "   " })).rejects.toMatchObject({ code: "PHONE_BAD_MESSAGE" })
-    expect(await runPhoneCall("send", { threadId: thread.id, text: "run the tests" })).toEqual({ sent: true })
+    await expect(runPhoneCall("send", { threadId: thread.id, text: "   " }, "ph-1")).rejects.toMatchObject({ code: "PHONE_BAD_MESSAGE" })
+    expect(await runPhoneCall("send", { threadId: thread.id, text: "run the tests" }, "ph-1")).toEqual({ sent: true })
     expect(get().threads.find((item) => item.id === thread.id)?.title).toBe("run the tests")
 
     patchRuntime(thread.id, { timeline: asking("a1") })
-    await expect(runPhoneCall("approve", { threadId: thread.id, approvalId: "nope", approved: true })).rejects.toMatchObject({ code: "PHONE_NOT_WAITING" })
-    await expect(runPhoneCall("approve", { threadId: thread.id, approvalId: "a1", approved: "yes" })).rejects.toMatchObject({ code: "PHONE_BAD_ANSWER" })
-    expect(await runPhoneCall("approve", { threadId: thread.id, approvalId: "a1", approved: false })).toEqual({ answered: true })
+    await expect(runPhoneCall("approve", { threadId: thread.id, approvalId: "nope", approved: true }, "ph-1")).rejects.toMatchObject({ code: "PHONE_NOT_WAITING" })
+    await expect(runPhoneCall("approve", { threadId: thread.id, approvalId: "a1", approved: "yes" }, "ph-1")).rejects.toMatchObject({ code: "PHONE_BAD_ANSWER" })
+    expect(await runPhoneCall("approve", { threadId: thread.id, approvalId: "a1", approved: false }, "ph-1")).toEqual({ answered: true })
     expect(rpcs.find((call) => call.method === "approval.resolve")?.params).toMatchObject({ approvalId: "a1", approved: false })
 
     patchRuntime(thread.id, { timeline: asking("a2", [{ id: "q1", header: "Library", question: "Which one?", options: [{ label: "A" }, { label: "B" }] }]) })
-    await expect(runPhoneCall("approve", { threadId: thread.id, approvalId: "a2", approved: true })).rejects.toMatchObject({ code: "PHONE_QUESTION" })
+    await expect(runPhoneCall("approve", { threadId: thread.id, approvalId: "a2", approved: true }, "ph-1")).rejects.toMatchObject({ code: "PHONE_QUESTION" })
 
-    expect(await runPhoneCall("stop", { threadId: thread.id })).toEqual({ stopped: true })
+    expect(await runPhoneCall("stop", { threadId: thread.id }, "ph-1")).toEqual({ stopped: true })
     expect(rpcs.some((call) => call.method === "turn.cancel")).toBe(true)
   })
 
   test("is refused for a thread that is gone and for anything else", async () => {
     const thread = createThread({ projectId: "p1", backend: "claude-code" })
     patchThread(thread.id, { archived: true })
-    await expect(runPhoneCall("thread", { threadId: thread.id })).rejects.toMatchObject({ code: "PHONE_NO_THREAD" })
-    await expect(runPhoneCall("send", { threadId: 42, text: "hi" })).rejects.toMatchObject({ code: "PHONE_NO_THREAD" })
-    await expect(runPhoneCall("settings", {})).rejects.toMatchObject({ code: "PHONE_UNKNOWN_METHOD" })
+    await expect(runPhoneCall("thread", { threadId: thread.id }, "ph-1")).rejects.toMatchObject({ code: "PHONE_NO_THREAD" })
+    await expect(runPhoneCall("send", { threadId: 42, text: "hi" }, "ph-1")).rejects.toMatchObject({ code: "PHONE_NO_THREAD" })
+    await expect(runPhoneCall("settings", {}, "ph-1")).rejects.toMatchObject({ code: "PHONE_UNKNOWN_METHOD" })
+  })
+
+  test("is the only caller of a paired phone's methods, whatever the host relays", async () => {
+    const thread = createThread({ projectId: "p1", backend: "claude-code" })
+    const calls: [string, Record<string, unknown>][] = [
+      ["threads", {}],
+      ["thread", { threadId: thread.id }],
+      ["send", { threadId: thread.id, text: "hi" }],
+      ["stop", { threadId: thread.id }],
+      ["approve", { threadId: thread.id, approvalId: "a1", approved: true }],
+      ["push.key", {}],
+      ["push.subscribe", { subscription: {}, origin: "https://mac.tail1.ts.net:8443" }],
+      ["push.unsubscribe", {}],
+    ]
+    for (const [method, params] of calls)
+      for (const device of ["sh-1", "hk-1", "", "phone"]) await expect(runPhoneCall(method, params, device)).rejects.toMatchObject({ code: "PHONE_UNKNOWN_METHOD" })
+    expect(rpcs.filter((call) => call.method !== "workflow.list")).toEqual([])
   })
 
   test("gets each call answered once, a refusal as its code and words", async () => {
@@ -227,5 +248,36 @@ describe("workflow links", () => {
     await expect(runPhoneCall("hook.fire", fire, made?.id ?? "")).rejects.toMatchObject({ code: "PHONE_HOOK_GONE" })
     await loadPhone()
     expect(usePhone.getState().status?.hooks).toEqual([])
+  })
+
+  test("keep their link when the workflows or projects could not be read, and answer with a retry", async () => {
+    await saveWorkflow("p1", { id: "alert", name: "On an alert", state: "on", trigger: { kind: "webhook" }, where: "checkout", steps: [{ id: "say", kind: "action", title: "Tell me", action: "notify", text: "Got it" }], budget: { maxMinutes: 30 } })
+    await setPhone(true)
+    const made = await makeHook("p1", "alert")
+    const hook = made?.id ?? ""
+    const hooks = async (): Promise<number> => {
+      await loadPhone()
+      return usePhone.getState().status?.hooks.length ?? 0
+    }
+
+    // A list that failed to load says nothing about the workflow, even with an empty list kept.
+    failing = "workflow.list"
+    await expect(runPhoneCall("hook.fire", { projectId: "p1", workflowId: "alert" }, hook)).rejects.toMatchObject({ code: "PHONE_HOOK_UNAVAILABLE" })
+    await expect(runPhoneCall("hook.fire", { projectId: "p1", workflowId: "missing" }, hook)).rejects.toMatchObject({ code: "PHONE_HOOK_UNAVAILABLE" })
+    expect(await hooks()).toBe(1)
+    expect(rpcs.some((call) => call.method === "workflow.run.start")).toBe(false)
+
+    // Nor does a project missing from state that was never read.
+    failing = undefined
+    set({ loaded: true, stateHeld: "unreadable" })
+    await expect(runPhoneCall("hook.fire", { projectId: "p-gone", workflowId: "alert" }, hook)).rejects.toMatchObject({ code: "PHONE_HOOK_UNAVAILABLE" })
+    set({ loaded: false, stateHeld: undefined })
+    await expect(runPhoneCall("hook.fire", { projectId: "p-gone", workflowId: "alert" }, hook)).rejects.toMatchObject({ code: "PHONE_HOOK_UNAVAILABLE" })
+    expect(await hooks()).toBe(1)
+
+    // Once the projects were read, a project that is gone takes its link with it.
+    set({ loaded: true })
+    await expect(runPhoneCall("hook.fire", { projectId: "p-gone", workflowId: "alert" }, hook)).rejects.toMatchObject({ code: "PHONE_HOOK_GONE" })
+    expect(await hooks()).toBe(0)
   })
 })

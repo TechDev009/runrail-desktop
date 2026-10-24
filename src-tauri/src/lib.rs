@@ -1072,7 +1072,13 @@ fn phone_push_targets(phone: State<'_, Arc<phone::Phone>>) -> Vec<phone::PushTar
 #[tauri::command]
 async fn tailscale_status(phone: State<'_, Arc<phone::Phone>>) -> BridgeResult<tailscale::Tailscale> {
     let port = phone.status().port;
-    blocking(move || Ok(tailscale::status(port))).await
+    let phone = Arc::clone(&phone);
+    blocking(move || {
+        let status = tailscale::status(port);
+        phone.note_tailnet(status.name.as_deref());
+        Ok(status)
+    })
+    .await
 }
 
 /// Shares phone access on the tailnet with `tailscale serve`, after the person says yes here, or
@@ -1084,6 +1090,7 @@ async fn tailscale_serve(app: tauri::AppHandle, phone: State<'_, Arc<phone::Phon
         return Err(BridgeError::new("PHONE_OFF", "Turn on phone access first."));
     }
     let port = status.port;
+    let phone = Arc::clone(&phone);
     blocking(move || {
         if on {
             use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
@@ -1104,7 +1111,9 @@ async fn tailscale_serve(app: tauri::AppHandle, phone: State<'_, Arc<phone::Phon
                 return Err(BridgeError::new("TAILSCALE_DECLINED", "Not shared."));
             }
         }
-        tailscale::serve(port, on)
+        let served = tailscale::serve(port, on)?;
+        phone.note_tailnet(served.name.as_deref());
+        Ok(served)
     })
     .await
 }

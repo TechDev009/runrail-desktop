@@ -10,7 +10,7 @@ use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc, Mutex, PoisonError};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use base64::Engine as _;
 use ring::rand::{SecureRandom, SystemRandom};
@@ -43,6 +43,8 @@ const PAIRING_MS: u64 = 5 * 60_000;
 const PAIRING_TRIES: u32 = 5;
 /// How stale a phone's "last seen" may get before it is written again.
 const SEEN_WRITE_MS: u64 = 10 * 60_000;
+/// A phone unused this long is unpaired: its token can send prompts and answer approvals.
+const IDLE_UNPAIR_MS: u64 = 30 * 24 * 60 * 60_000;
 /// No 0, O, 1 or I, so a code read off the screen is typed right; 32 letters keep the draw unbiased.
 const CODE_ALPHABET: &[u8; 32] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_LENGTH: usize = 8;
@@ -231,6 +233,8 @@ pub struct Phone {
     open: AtomicUsize,
     emit: Emitter,
     assets: Assets,
+    /// This Mac's tailnet name, once Tailscale has said it.
+    tailnet: Mutex<Option<String>>,
 }
 
 struct Response {
@@ -286,10 +290,11 @@ fn clean_name(name: &str) -> String {
 
 /// Requests reach the server only through loopback: from `tailscale serve`, which names this Mac's
 /// tailnet address or the loopback target, or from this Mac itself. Any other name is a page
-/// rebinding its own domain to 127.0.0.1.
-pub fn host_allowed(host: &str) -> bool {
+/// rebinding its own domain to 127.0.0.1. Once Tailscale has said this Mac's name, only that name counts.
+pub fn host_allowed(host: &str, tailnet: Option<&str>) -> bool {
     let name = host.rsplit_once(':').filter(|(_, port)| port.chars().all(|c| c.is_ascii_digit())).map_or(host, |(name, _)| name).to_ascii_lowercase();
-    name == "127.0.0.1" || name == "localhost" || (name.ends_with(".ts.net") && name.len() > ".ts.net".len() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.'))
+    let tailnet_shaped = name.ends_with(".ts.net") && name.len() > ".ts.net".len() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.');
+    name == "127.0.0.1" || name == "localhost" || (tailnet_shaped && tailnet.is_none_or(|own| own.eq_ignore_ascii_case(&name)))
 }
 
 /// The built files a phone may load: its page, its service worker and manifest, and the bundle.
@@ -305,7 +310,18 @@ struct Request {
     body: Vec<u8>,
 }
 
-fn read_request(stream: &mut TcpStream) -> Result<Request, Response> {
+/// One read that ends by `deadline`, so a client sending a byte at a time cannot hold a connection.
+fn read_by(stream: &mut TcpStream, buffer: &mut [u8], deadline: Instant) -> Result<usize, Response> {
+    let timed_out = || Response::error(408, "PHONE_TIMEOUT", "request timed out");
+    let left = deadline.saturating_duration_since(Instant::now());
+    if left.is_zero() {
+        return Err(timed_out());
+    }
+    stream.set_read_timeout(Some(left)).map_err(|_| timed_out())?;
+    stream.read(buffer).map_err(|_| timed_out())
+}
+
+fn read_request(stream: &mut TcpStream, deadline: Instant) -> Result<Request, Response> {
     let mut pending = Vec::new();
     let mut buffer = [0_u8; 8 * 1024];
     let end = loop {
@@ -315,7 +331,7 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, Response> {
         if pending.len() > MAX_HEAD {
             return Err(Response::error(431, "PHONE_HEAD_LIMIT", "request headers are too large"));
         }
-        let count = stream.read(&mut buffer).map_err(|_| Response::error(408, "PHONE_TIMEOUT", "request timed out"))?;
+        let count = read_by(stream, &mut buffer, deadline)?;
         if count == 0 {
             return Err(Response::error(400, "PHONE_BAD_REQUEST", "request ended early"));
         }
@@ -349,7 +365,7 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, Response> {
     }
     let mut body = pending[end + 4..].to_vec();
     while body.len() < length {
-        let count = stream.read(&mut buffer).map_err(|_| Response::error(408, "PHONE_TIMEOUT", "request timed out"))?;
+        let count = read_by(stream, &mut buffer, deadline)?;
         if count == 0 {
             return Err(Response::error(400, "PHONE_BAD_REQUEST", "request body ended early"));
         }
@@ -415,21 +431,46 @@ impl Phone {
             open: AtomicUsize::new(0),
             emit,
             assets,
+            tailnet: Mutex::new(None),
         })
     }
 
     /// Starts the server at launch when the person left phone access on.
     pub fn start_if_enabled(self: &Arc<Self>) {
         let mut state = lock(&self.state);
+        if Self::unpair_idle(&mut state, now_ms()) {
+            let _ = self.save(&state);
+        }
         if state.saved.enabled {
             if let Err(error) = self.start(&mut state) {
                 state.problem = Some(error.message);
             }
         }
+        if state.server.is_some() {
+            let (phone, port) = (Arc::clone(self), state.server.as_ref().map_or(0, |server| server.port));
+            let _ = std::thread::Builder::new().name("runrail-phone-tailnet".into()).spawn(move || phone.note_tailnet(crate::tailscale::status(port).name.as_deref()));
+        }
+    }
+
+    /// Remembers this Mac's tailnet name, so only it is served; a status without one keeps the last.
+    pub fn note_tailnet(&self, name: Option<&str>) {
+        if let Some(name) = name {
+            *lock(&self.tailnet) = Some(name.to_ascii_lowercase());
+        }
+    }
+
+    /// Drops phones unused for `IDLE_UNPAIR_MS`; true when any went.
+    fn unpair_idle(state: &mut State, now: u64) -> bool {
+        let before = state.saved.devices.len();
+        state.saved.devices.retain(|device| now.saturating_sub(device.seen_at.max(device.added_at)) <= IDLE_UNPAIR_MS);
+        state.saved.devices.len() != before
     }
 
     pub fn status(&self) -> PhoneStatus {
-        let state = lock(&self.state);
+        let mut state = lock(&self.state);
+        if Self::unpair_idle(&mut state, now_ms()) {
+            let _ = self.save(&state);
+        }
         Self::status_of(&state)
     }
 
@@ -675,7 +716,11 @@ impl Phone {
     }
 
     pub fn push_targets(&self) -> Vec<PushTarget> {
-        lock(&self.state)
+        let mut state = lock(&self.state);
+        if Self::unpair_idle(&mut state, now_ms()) {
+            let _ = self.save(&state);
+        }
+        let targets = state
             .saved
             .devices
             .iter()
@@ -683,7 +728,8 @@ impl Phone {
                 let push = device.push.as_ref()?;
                 Some(PushTarget { device: device.id.clone(), subscription: push.get("subscription")?.clone(), origin: push.get("origin")?.as_str()?.to_string() })
             })
-            .collect()
+            .collect();
+        targets
     }
 
     /// The page's answer to call `id`; one that came too late is dropped.
@@ -715,13 +761,13 @@ impl Phone {
     }
 
     fn serve(&self, mut stream: TcpStream) {
-        let _ = stream.set_read_timeout(Some(READ_TIMEOUT));
         let _ = stream.set_write_timeout(Some(READ_TIMEOUT));
-        let request = match read_request(&mut stream) {
+        let request = match read_request(&mut stream, Instant::now() + READ_TIMEOUT) {
             Ok(request) => request,
             Err(response) => return write_response(&mut stream, &response, false),
         };
-        let response = if request.headers.get("host").is_none_or(|host| !host_allowed(host)) {
+        let tailnet = lock(&self.tailnet).clone();
+        let response = if request.headers.get("host").is_none_or(|host| !host_allowed(host, tailnet.as_deref())) {
             Response::error(421, "PHONE_HOST_REFUSED", "this address does not serve Runrail")
         } else {
             self.route(&request)
@@ -840,6 +886,10 @@ impl Phone {
         let hash = token_hash(token);
         let mut state = lock(&self.state);
         let now = now_ms();
+        if Self::unpair_idle(&mut state, now) {
+            let _ = self.save(&state);
+            self.changed(&state);
+        }
         let device = state.saved.devices.iter_mut().find(|device| same(device.token_hash.as_bytes(), hash.as_bytes()))?;
         let id = device.id.clone();
         if now.saturating_sub(device.seen_at) > SEEN_WRITE_MS {
@@ -895,6 +945,12 @@ impl Phone {
             Ok(Answer { ok: false, body }) => {
                 let code = body.get("code").and_then(Value::as_str).unwrap_or("PHONE_CALL_FAILED");
                 let message = body.get("message").and_then(Value::as_str).unwrap_or("Runrail could not do that.");
+                // Webhook senders retry a 503, not a 400, so a passing failure to read workflows loses no call.
+                if code == "PHONE_HOOK_UNAVAILABLE" {
+                    let mut response = Response::error(503, code, message);
+                    response.headers.push(("Retry-After", "60".into()));
+                    return response;
+                }
                 Response::error(400, code, message)
             }
             Err(_) => Response::error(504, "PHONE_NO_ANSWER", &format!("Runrail on your {COMPUTER} did not answer in time.")),
@@ -910,11 +966,53 @@ mod tests {
     #[test]
     fn hosts_are_this_mac_or_its_tailnet_name() {
         for host in ["127.0.0.1:4000", "localhost:4000", "mac.tail1234.ts.net", "mac.tail1234.ts.net:8443", "MAC.Tail1234.TS.NET"] {
-            assert!(host_allowed(host), "{host}");
+            assert!(host_allowed(host, None), "{host}");
+            assert!(host_allowed(host, Some("mac.tail1234.ts.net")), "{host}");
         }
         for host in ["", "evil.example", "ts.net", ".ts.net", "ts.net.evil.example", "a.ts.net:x", "a b.ts.net", "10.0.0.2:4000"] {
-            assert!(!host_allowed(host), "{host}");
+            assert!(!host_allowed(host, None), "{host}");
         }
+        // Once this Mac's name is known, another tailnet name is refused.
+        assert!(!host_allowed("other.tail9999.ts.net:8443", Some("mac.tail1234.ts.net")));
+    }
+
+    #[test]
+    fn a_request_sent_a_byte_at_a_time_is_cut_off_at_its_deadline() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        let writer = std::thread::spawn(move || {
+            let mut stream = TcpStream::connect((Ipv4Addr::LOCALHOST, port)).expect("connect");
+            for byte in b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nX: aaaaaaaaaaaaaaaa" {
+                if stream.write_all(&[*byte]).is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(40));
+            }
+        });
+        let (mut stream, _) = listener.accept().expect("accept");
+        let started = Instant::now();
+        let refused = read_request(&mut stream, started + Duration::from_millis(300)).err().expect("timed out");
+        assert_eq!(refused.status, 408);
+        assert!(started.elapsed() < Duration::from_secs(2));
+        drop(stream);
+        let _ = writer.join();
+    }
+
+    #[test]
+    fn a_phone_unused_for_thirty_days_is_unpaired() {
+        let dir = std::env::temp_dir().join(format!("rr-phone-idle-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("dir");
+        let now = now_ms();
+        let device = |id: &str, token: &str, seen_at: u64| json!({ "id": id, "name": id, "tokenHash": token_hash(token), "addedAt": seen_at, "seenAt": seen_at });
+        let saved = json!({ "devices": [device("ph-old", "old-token", now - IDLE_UNPAIR_MS - 60_000), device("ph-new", "new-token", now - 60_000)] });
+        std::fs::write(dir.join("phone.json"), saved.to_string()).expect("write");
+        let phone = Phone::new(&dir, Arc::new(|_, _| {}), Arc::new(|_| None));
+        assert_eq!(phone.device_for(Some("Bearer old-token")), None);
+        assert_eq!(phone.device_for(Some("Bearer new-token")).as_deref(), Some("ph-new"));
+        assert_eq!(phone.status().devices.iter().map(|device| device.id.as_str()).collect::<Vec<_>>(), ["ph-new"]);
+        assert!(!std::fs::read_to_string(dir.join("phone.json")).expect("saved").contains("ph-old"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
@@ -977,6 +1075,8 @@ mod tests {
                     phone.answer(id, true, json!({ "threads": [], "device": payload["device"] }));
                 } else if payload["method"] == "share.thread" {
                     phone.answer(id, true, json!({ "threadId": payload["params"]["threadId"] }));
+                } else if payload["method"] == "hook.fire" && payload["params"]["input"] == "unsure" {
+                    phone.answer(id, false, json!({ "code": "PHONE_HOOK_UNAVAILABLE", "message": "try again" }));
                 } else if payload["method"] == "hook.fire" {
                     phone.answer(id, true, json!({ "workflowId": payload["params"]["workflowId"], "input": payload["params"]["input"], "device": payload["device"] }));
                 } else {
@@ -1085,6 +1185,8 @@ mod tests {
         let renewed = phone.hook_create("p-1", "nightly").expect("renew");
         assert_eq!(phone.status().hooks.len(), 1);
         assert_eq!(fire("old").0, 404);
+        let (status, unsure) = exchange(port, &format!("POST /hook/{} HTTP/1.1\r\nHost: mac.tail1.ts.net\r\nContent-Length: 6\r\n\r\nunsure", renewed.token));
+        assert!(status == 503 && unsure.contains("Retry-After: 60"), "a page that could not read its workflows asks the sender to retry");
         assert!(phone.hook_remove(&renewed.hook.id).expect("remove").hooks.is_empty());
 
         // Off closes the port; on again takes the same one.

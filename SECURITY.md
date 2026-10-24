@@ -610,11 +610,14 @@ this Mac's tailnet name, and whether HTTPS certificates are on.
 - A paired phone gets a random 256-bit bearer token. App data keeps only its
   SHA-256 with the phone's name and dates; the token itself stays in that
   phone's browser storage and travels only in a header. Removing a phone in
-  Settings revokes it at once.
+  Settings revokes it at once, and a phone unused for 30 days is unpaired on
+  its own and must pair again.
 - Requests whose `Host` is not loopback or a `ts.net` name are refused, so a
-  page that rebinds its own domain to `127.0.0.1` reaches nothing. Bodies are
-  capped at 1 MB, answers at 4 MB, and connections at 32 at a time. The page
-  is served with a strict Content-Security-Policy and no framing.
+  page that rebinds its own domain to `127.0.0.1` reaches nothing; once
+  Tailscale has reported this Mac's tailnet name, only that name is accepted.
+  Bodies are capped at 1 MB, answers at 4 MB, connections at 32 at a time,
+  and each request must arrive whole within 15 seconds. The page is served
+  with a strict Content-Security-Policy and no framing.
 - A phone may list threads, read one (messages, tool titles, approvals and
   errors, not reasoning), send a message, stop a turn, and allow or deny an
   approval. Questions are answered on the Mac, and nothing else is reachable.
