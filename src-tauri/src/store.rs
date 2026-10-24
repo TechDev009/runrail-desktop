@@ -5,6 +5,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 
@@ -22,7 +23,8 @@ pub fn state_path(app_data: &Path) -> PathBuf {
 }
 
 /// Loads the state file. A missing or corrupt file yields `None` so the UI starts fresh; a
-/// corrupt file is moved aside instead of being silently overwritten.
+/// corrupt file is moved aside, under a name of its own, instead of being silently overwritten.
+/// One that cannot be moved is an error, so the UI does not save over it.
 pub fn load(app_data: &Path) -> BridgeResult<Option<Value>> {
     let path = state_path(app_data);
     let bytes = match fs::read(&path) {
@@ -35,7 +37,9 @@ pub fn load(app_data: &Path) -> BridgeResult<Option<Value>> {
         .flatten()
         .filter(Value::is_object);
     if parsed.is_none() {
-        let _ = fs::rename(&path, app_data.join(format!("{STATE_FILE}.corrupt")));
+        let at = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |since| since.as_millis());
+        fs::rename(&path, app_data.join(format!("{STATE_FILE}.corrupt-{at}")))
+            .map_err(|_| BridgeError::new("STATE_UNAVAILABLE", "desktop state is damaged and could not be moved aside"))?;
     }
     Ok(parsed)
 }
@@ -153,12 +157,36 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
     }
 
+    fn moved_aside(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir).unwrap().filter_map(|entry| entry.ok()?.file_name().into_string().ok()).filter(|name| name.starts_with("desktop-state.json.corrupt-")).collect();
+        names.sort();
+        names
+    }
+
     #[test]
     fn corrupt_file_is_moved_aside() {
         let dir = temp_dir("corrupt");
         fs::write(state_path(&dir), b"{not json").unwrap();
         assert_eq!(load(&dir).unwrap(), None);
-        assert!(dir.join("desktop-state.json.corrupt").exists());
+        assert_eq!(moved_aside(&dir).len(), 1);
+        std::thread::sleep(std::time::Duration::from_millis(2));
+        fs::write(state_path(&dir), b"[]").unwrap();
+        assert_eq!(load(&dir).unwrap(), None);
+        assert_eq!(moved_aside(&dir).len(), 2, "a second damaged file does not replace the first");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_corrupt_file_that_cannot_be_moved_is_an_error_not_a_fresh_start() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp_dir("corrupt-stuck");
+        fs::write(state_path(&dir), b"{not json").unwrap();
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o500)).unwrap();
+        let loaded = load(&dir);
+        fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
+        assert_eq!(loaded.unwrap_err().code, "STATE_UNAVAILABLE");
+        assert_eq!(fs::read(state_path(&dir)).unwrap(), b"{not json");
         let _ = fs::remove_dir_all(&dir);
     }
 }

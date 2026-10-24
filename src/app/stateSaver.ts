@@ -17,6 +17,14 @@ export interface StateSaverOptions {
   readonly maxDelayMs?: number
 }
 
+/** Failures in a row between warnings; with the save backoff capped at a minute, about every ten minutes. */
+const WARN_EVERY = 10
+
+/** Whether a failed save is told to the person: the first in a row, then again while saves keep failing. */
+export function warnOnFailure(attempt: number): boolean {
+  return attempt === 1 || attempt % WARN_EVERY === 0
+}
+
 export function createStateSaver(options: StateSaverOptions): StateSaver {
   let saved = options.read()
   let timer: ReturnType<typeof setTimeout> | undefined

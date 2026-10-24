@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test"
-import { ACCENTS, behaviorFor, DEFAULT_LAYOUT, MAX_INSTRUCTIONS, paletteChange, parseState, withInstructions } from "../src/app/persist"
+import { ACCENTS, behaviorFor, DEFAULT_LAYOUT, defaultState, MAX_INSTRUCTIONS, MAX_THREAD_RUNS, paletteChange, parseState, withInstructions, type ThreadRun } from "../src/app/persist"
+import { addProject, createThread, get, patchThread, persistedSlice, rememberThreadRun, set } from "../src/app/store"
 import { accentChoices } from "../src/ui/shell/appearance"
 
 const project = { id: "p1", path: "/code/app", name: "app", git: true, addedAt: 1 }
@@ -161,5 +162,43 @@ describe("palette and accent", () => {
     expect(accentChoices("default", "theme")).toContain("theme")
     expect(accentChoices("ume", "mono")).toContain("theme")
     expect(accentChoices("ume", "mono")).toHaveLength(ACCENTS.length)
+  })
+})
+
+describe("each turn's model, kept for its rows", () => {
+  const run = (index: number): ThreadRun => ({ turnId: `turn-${String(index)}`, backend: "claude-code", model: "claude-opus-5-5" })
+
+  test("is kept for the newest turns only, so busy threads cannot outgrow what the host saves", () => {
+    expect(MAX_THREAD_RUNS).toBe(64)
+    set({ ...defaultState() })
+    addProject(project)
+    const thread = createThread({ projectId: "p1", backend: "claude-code", select: false })
+    for (let index = 0; index < 100; index += 1) rememberThreadRun(thread.id, run(index))
+    const kept = get().threads.find((item) => item.id === thread.id)?.runHistory ?? []
+    expect(kept).toHaveLength(64)
+    expect(kept[0]?.turnId).toBe("turn-36")
+    expect(kept[63]?.turnId).toBe("turn-99")
+  })
+
+  test("saved by an earlier build with up to 2,048 turns keeps its newest turns instead of losing them all", () => {
+    const saved = load([thread("t1", { backend: "claude-code", runHistory: Array.from({ length: 2_048 }, (_, index) => run(index)) })])
+    const kept = saved.threads[0]?.runHistory ?? []
+    expect(kept).toHaveLength(64)
+    expect(kept[63]?.turnId).toBe("turn-2047")
+    expect(load([thread("t1", { backend: "claude-code", runHistory: Array.from({ length: 2_049 }, (_, index) => run(index)) })]).threads[0]?.runHistory).toBeUndefined()
+  })
+
+  test("is not saved for an archived thread", () => {
+    set({ ...defaultState() })
+    addProject(project)
+    const kept = createThread({ projectId: "p1", backend: "claude-code", select: false })
+    const archived = createThread({ projectId: "p1", backend: "claude-code", select: false })
+    rememberThreadRun(kept.id, run(1))
+    rememberThreadRun(archived.id, run(2))
+    patchThread(archived.id, { archived: true })
+    const threads = persistedSlice(get()).threads
+    expect(threads.find((item) => item.id === kept.id)?.runHistory).toEqual([run(1)])
+    expect(threads.find((item) => item.id === archived.id)).not.toHaveProperty("runHistory")
+    expect(get().threads.find((item) => item.id === archived.id)?.runHistory).toEqual([run(2)])
   })
 })

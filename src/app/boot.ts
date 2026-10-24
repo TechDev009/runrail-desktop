@@ -2,8 +2,8 @@ import { getHost, toHostError } from "../host"
 import { initWorkflows } from "./workflowRuns"
 import { initBackground } from "./background"
 import { initEngines } from "./engines"
-import { glassAvailable, parseState } from "./persist"
-import { get, persistedSlice, set, toast, useApp } from "./store"
+import { glassAvailable, loadState, type StateProblem } from "./persist"
+import { get, persistedSlice, set, toast, useApp, type AppState } from "./store"
 import { initKeepAwake } from "./power"
 import { initCiWatch } from "./ciFix"
 import { initLimitResume } from "./limitResume"
@@ -21,7 +21,7 @@ import { initPlanUsage } from "./planUsage"
 import { startPreviewOffice } from "./previewOffice"
 import { unlockTones } from "../lib/tones"
 import { initUpdates } from "./updates"
-import { createStateSaver } from "./stateSaver"
+import { createStateSaver, warnOnFailure } from "./stateSaver"
 
 const SAVE_DELAY_MS = 400
 
@@ -36,8 +36,8 @@ export async function boot(): Promise<void> {
   initBackground()
   initPreviews()
   try {
-    const [info, raw] = await Promise.all([host.info(), host.stateLoad().catch(() => null)])
-    const state = parseState(raw)
+    const [info, saved] = await Promise.all([host.info(), loadState(() => host.stateLoad())])
+    const state = saved.state
     // macOS draws traffic lights over the content; CSS leaves room for them.
     document.documentElement.dataset.platform = info.platform
     set({
@@ -48,8 +48,10 @@ export async function boot(): Promise<void> {
       hostVersion: info.version,
       ...(info.credentialStore === undefined ? {} : { credentialStore: info.credentialStore }),
       clipboardSecrets: info.clipboardSecrets === true,
+      ...(saved.problem === undefined ? {} : { stateHeld: saved.problem }),
       loaded: true,
     })
+    if (saved.problem !== undefined) toast("error", heldWords(saved.problem, saved.message))
     startPreviewOffice()
     initUpdates(info.updates === true)
     host
@@ -67,10 +69,15 @@ export async function boot(): Promise<void> {
       .then((timing) => timing !== null && set({ startupMs: timing.readyMs }))
       .catch(() => undefined)
   } catch (error) {
-    set({ loaded: true })
-    toast("error", `Could not load saved state: ${toHostError(error).message}`)
+    const message = toHostError(error).message
+    if (get().loaded) toast("error", `Could not load saved state: ${message}`)
+    else {
+      set({ loaded: true, stateHeld: "unreadable" })
+      toast("error", heldWords("unreadable", message))
+    }
   }
-  watchPersistence()
+  const saving = persistChanges(get().stateHeld)
+  window.addEventListener("beforeunload", () => void saving.flush())
   initQuests()
   initWorkflows()
   initKeepAwake()
@@ -93,29 +100,65 @@ export async function boot(): Promise<void> {
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme)
 }
 
-function watchPersistence(): void {
+/** What the person is told when this session will not save: at startup, and again at their first change. */
+export function heldWords(problem: StateProblem, message?: string): string {
+  if (problem === "unknown-version") return "Your saved projects and threads are from a different version of Runrail, so changes in this window will not be saved over them. Update Runrail to keep working with them."
+  return `Could not read your saved projects and threads${message === undefined ? "" : ` (${message})`}, so changes in this window will not be saved over them. Quit and reopen Runrail to try again.`
+}
+
+/**
+ * Saves the desktop state as it changes. When the saved state was not read at startup nothing is
+ * written for the rest of the session, so the file on disk stays as it was.
+ */
+export function persistChanges(held: StateProblem | undefined): { readonly flush: () => Promise<void>; readonly stop: () => void } {
+  const host = getHost()
+  if (held !== undefined) {
+    const stopQuit = host.onQuit(() => Promise.resolve())
+    const stopWatch = useApp.subscribe((state, previous) => {
+      if (!persistedChange(state, previous)) return
+      stopWatch()
+      toast("error", heldWords(held))
+    })
+    return {
+      flush: () => Promise.resolve(),
+      stop: () => {
+        stopWatch()
+        stopQuit()
+      },
+    }
+  }
   const saver = createStateSaver({
     read: () => JSON.stringify(persistedSlice(get())),
-    write: (text) => getHost().stateSave(JSON.parse(text)),
+    write: (text) => host.stateSave(JSON.parse(text)),
     failed: (error, attempt) => {
-      if (attempt === 1) toast("error", `Could not save state: ${toHostError(error).message}`)
+      if (!warnOnFailure(attempt)) return
+      const failure = toHostError(error)
+      toast("error", failure.code === "STATE_LIMIT" ? "Could not save state: there is too much to save. Delete archived threads you no longer need." : `Could not save state: ${failure.message}`)
     },
     delayMs: SAVE_DELAY_MS,
   })
-  useApp.subscribe((state, previous) => {
-    if (
-      state.projects === previous.projects &&
-      state.threads === previous.threads &&
-      state.prefs === previous.prefs &&
-      state.layout === previous.layout &&
-      state.learning === previous.learning &&
-      state.game === previous.game
-    )
-      return
-    saver.changed()
+  const stopWatch = useApp.subscribe((state, previous) => {
+    if (persistedChange(state, previous)) saver.changed()
   })
-  getHost().onQuit(() => saver.flush())
-  window.addEventListener("beforeunload", () => void saver.flush())
+  const stopQuit = host.onQuit(() => saver.flush())
+  return {
+    flush: () => saver.flush(),
+    stop: () => {
+      stopWatch()
+      stopQuit()
+    },
+  }
+}
+
+function persistedChange(state: AppState, previous: AppState): boolean {
+  return (
+    state.projects !== previous.projects ||
+    state.threads !== previous.threads ||
+    state.prefs !== previous.prefs ||
+    state.layout !== previous.layout ||
+    state.learning !== previous.learning ||
+    state.game !== previous.game
+  )
 }
 
 function applyTheme(): void {

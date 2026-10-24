@@ -18,6 +18,7 @@ import {
   type Prefs,
   type Project,
   type RecentModel,
+  type StateProblem,
   type ThreadMeta,
   type ThreadRun,
   type ThreadMode,
@@ -183,6 +184,8 @@ export interface AppState extends DesktopState {
   readonly openIn?: readonly EditorId[]
   /** Process start to ready for this launch, once the host has answered. */
   readonly startupMs?: number
+  /** Set when the saved state was not read at startup; this session then never saves over it. */
+  readonly stateHeld?: StateProblem
 }
 
 export function emptyRuntime(): ThreadRuntime {
@@ -508,5 +511,12 @@ export function rememberThreadRun(threadId: string, run: ThreadRun): void {
 }
 
 export function persistedSlice(state: AppState): DesktopState {
-  return { version: 1, projects: state.projects, threads: state.threads, prefs: state.prefs, layout: state.layout, learning: state.learning, game: state.game }
+  return { version: 1, projects: state.projects, threads: state.threads.map(savedThread), prefs: state.prefs, layout: state.layout, learning: state.learning, game: state.game }
+}
+
+/** An archived thread's per-turn models are not saved; its rows show the thread's own model if it comes back. */
+function savedThread(thread: ThreadMeta): ThreadMeta {
+  if (thread.archived !== true || thread.runHistory === undefined) return thread
+  const { runHistory: _dropped, ...rest } = thread
+  return rest
 }

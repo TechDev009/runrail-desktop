@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { CONNECTION_ID, EDITOR_IDS, type BackendId, type EditorId, type Thinking } from "../host/types"
+import { CONNECTION_ID, EDITOR_IDS, toHostError, type BackendId, type EditorId, type Thinking } from "../host/types"
 import { DEFAULT_TONE_VOLUME } from "../lib/tones"
 import type { ConnectedTo } from "./gitHosts"
 import { MAX_PANES } from "./split"
@@ -49,7 +49,10 @@ export interface PanelState {
 export const PANEL_LIMITS = { tabs: 12, terminal: 6, browser: 4, threads: 200 } as const
 export const SINGLE_PANELS: ReadonlySet<PanelKind> = new Set(["review", "files", "tasks", "simulator", "android"])
 export type ThreadStatus = "idle" | "running" | "waiting" | "completed" | "failed" | "stopped"
-export const MAX_THREAD_RUNS = 2_048
+/** Turns whose model a thread remembers for its rows; older turns show the thread's own. */
+export const MAX_THREAD_RUNS = 64
+/** What earlier builds kept per thread, read so their newest runs survive the lower bound. */
+const MAX_SAVED_RUNS = 2_048
 
 export interface Project {
   readonly id: string
@@ -601,7 +604,8 @@ const ThreadSchema = z.object({
         connectionId: ConnectionId.optional().catch(undefined),
       }),
     )
-    .max(MAX_THREAD_RUNS)
+    .max(MAX_SAVED_RUNS)
+    .transform((runs) => runs.slice(-MAX_THREAD_RUNS))
     .optional()
     .catch(undefined),
   thinking: ThinkingSchema.optional(),
@@ -927,6 +931,32 @@ export function parseState(value: unknown): DesktopState {
     learning: parseLearning(record.learning),
     game: parseGame(record.game),
   }
+}
+
+/** Why the saved state was not used: the host could not read it, or another version of Runrail wrote it. */
+export type StateProblem = "unreadable" | "unknown-version"
+
+export interface LoadedState {
+  readonly state: DesktopState
+  readonly problem?: StateProblem
+  readonly message?: string
+}
+
+/**
+ * Reads the saved state at startup. Only no saved file at all (the host moves a corrupt one aside)
+ * starts fresh; a problem means the file is still there and this session must not save over it.
+ */
+export async function loadState(read: () => Promise<unknown>): Promise<LoadedState> {
+  let raw: unknown
+  try {
+    raw = await read()
+  } catch (error) {
+    return { state: defaultState(), problem: "unreadable", message: toHostError(error).message }
+  }
+  if (raw === null || raw === undefined) return { state: defaultState() }
+  if (typeof raw !== "object" || Array.isArray(raw)) return { state: defaultState(), problem: "unreadable" }
+  if ((raw as Record<string, unknown>).version !== 1) return { state: defaultState(), problem: "unknown-version" }
+  return { state: parseState(raw) }
 }
 
 export function newId(prefix: string): string {
