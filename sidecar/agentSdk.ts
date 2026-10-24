@@ -1,14 +1,16 @@
 import { randomUUID } from "node:crypto"
-import { existsSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises"
-import { dirname, join, relative, resolve } from "node:path"
+import { dirname, join, relative, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
 
 /**
  * The Claude Agent SDK, downloaded from npm when the person allows it instead of shipped inside
  * the app: its licence reserves all rights, so each person gets it from npm under Anthropic's own
  * terms. The version and its SHA-512 are pinned when the sidecar is built (scripts/sidecar.ts),
- * and a download that does not match them is refused before it is unpacked.
+ * and a download that does not match them is refused before it is unpacked. The download is kept
+ * beside its files, and every load checks it against the pin and the files against it, so files
+ * changed on disk after the download are never loaded.
  */
 
 export interface AgentSdkPin {
@@ -28,6 +30,8 @@ const REGISTRY = "https://registry.npmjs.org/@anthropic-ai/claude-agent-sdk/-/cl
 const MAX_TARBALL_BYTES = 32 * 1024 * 1024
 const MAX_UNPACKED_BYTES = 128 * 1024 * 1024
 const DOWNLOAD_TIMEOUT_MS = 60_000
+/** Where the verified download is kept in the SDK's folder. */
+const KEPT_DOWNLOAD = ".runrail-download.tgz"
 
 /** The SDK version a bun.lock pins, with npm's integrity for it. */
 export function agentSdkPin(lock: string): AgentSdkPin {
@@ -42,6 +46,7 @@ export function agentSdkLoader(pin: AgentSdkPin, directory: string): () => Promi
     const home = join(directory, pin.version)
     const manifest = join(home, "package.json")
     if (!existsSync(manifest)) return undefined
+    verifyAgentSdk(pin, home)
     const entry = resolve(home, entryOf(JSON.parse(await readFile(manifest, "utf8")) as unknown))
     if (relative(home, entry).startsWith("..")) throw new Error("agent SDK entry is outside its folder")
     return import(pathToFileURL(entry).href)
@@ -53,22 +58,22 @@ export function agentSdkInstaller(pin: AgentSdkPin, directory: string, fetchImpl
   const home = join(directory, pin.version)
   return {
     version: pin.version,
-    installed: () => existsSync(join(home, "package.json")),
+    // A copy whose files changed counts as not installed, so the person is offered the download again.
+    installed: () => existsSync(join(home, "package.json")) && intact(pin, home),
     install: () => installAgentSdk(pin, home, fetchImpl),
   }
 }
 
 export async function installAgentSdk(pin: AgentSdkPin, home: string, fetchImpl: Fetch): Promise<void> {
   if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.]+)?$/.test(pin.version)) throw new Error("agent SDK version is invalid")
-  const expected = /^sha512-([A-Za-z0-9+/]{86}==)$/.exec(pin.integrity)?.[1]
-  if (expected === undefined) throw new Error("agent SDK integrity is invalid")
+  pinnedSha512(pin)
   const response = await fetchImpl(`${REGISTRY}${pin.version}.tgz`, { signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) })
   if (!response.ok) throw new Error(`agent SDK download failed: HTTP ${String(response.status)}`)
   if (Number(response.headers.get("content-length") ?? 0) > MAX_TARBALL_BYTES) throw new Error("agent SDK download is too large")
   const bytes = new Uint8Array(await response.arrayBuffer())
   if (bytes.byteLength > MAX_TARBALL_BYTES) throw new Error("agent SDK download is too large")
-  if (new Bun.CryptoHasher("sha512").update(bytes).digest("base64") !== expected) throw new Error("agent SDK download does not match its pinned SHA-512")
-  const files = untar(Bun.gunzipSync(bytes))
+  const files = unpack(pin, bytes)
+  if (files.some((file) => file.path === KEPT_DOWNLOAD)) throw new Error(`agent SDK has a file named ${KEPT_DOWNLOAD}, where Runrail keeps the download`)
   const staging = `${home}.${String(process.pid)}-${randomUUID()}.partial`
   try {
     for (const file of files) {
@@ -76,14 +81,66 @@ export async function installAgentSdk(pin: AgentSdkPin, home: string, fetchImpl:
       await mkdir(dirname(path), { recursive: true })
       await writeFile(path, file.data, { mode: 0o644 })
     }
+    await writeFile(join(staging, KEPT_DOWNLOAD), bytes, { mode: 0o644 })
     await mkdir(dirname(home), { recursive: true })
+    if (existsSync(home) && !intact(pin, home)) await setAside(pin, home)
     // Engines starting together may each download it; the first rename wins and the rest use it.
     await rename(staging, home).catch((error: unknown) => {
-      if (!existsSync(join(home, "package.json"))) throw error
+      if (!intact(pin, home)) throw error
     })
   } finally {
     await rm(staging, { recursive: true, force: true })
   }
+}
+
+/**
+ * Throws unless `home` holds exactly what the pinned download unpacks to: the kept download still
+ * matches the pin built into the sidecar, and every other file is one of its files, byte for byte,
+ * with none missing and none added (an added folder of modules could be resolved by the SDK).
+ */
+export function verifyAgentSdk(pin: AgentSdkPin, home: string): void {
+  const expected = new Map(unpack(pin, new Uint8Array(readFileSync(join(home, KEPT_DOWNLOAD)))).map((file) => [file.path, file.data]))
+  let matched = 0
+  for (const entry of readdirSync(home, { recursive: true, withFileTypes: true })) {
+    if (entry.isDirectory()) continue
+    const path = relative(home, join(entry.parentPath, entry.name)).split(sep).join("/")
+    if (path === KEPT_DOWNLOAD) continue
+    const data = expected.get(path)
+    if (!entry.isFile() || data === undefined || !readFileSync(join(home, path)).equals(data)) throw new Error(`agent SDK file ${path} changed after it was downloaded; install it again`)
+    matched += 1
+  }
+  if (matched !== expected.size) throw new Error("agent SDK files went missing after it was downloaded; install it again")
+}
+
+function intact(pin: AgentSdkPin, home: string): boolean {
+  try {
+    verifyAgentSdk(pin, home)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Moves a copy that no longer matches its download out of the way, then removes it. */
+async function setAside(pin: AgentSdkPin, home: string): Promise<void> {
+  const aside = `${home}.${String(process.pid)}-${randomUUID()}.replaced`
+  // Another engine may have replaced it first; only a copy still damaged is an error.
+  await rename(home, aside).catch((error: unknown) => {
+    if (existsSync(home) && !intact(pin, home)) throw error
+  })
+  await rm(aside, { recursive: true, force: true })
+}
+
+function pinnedSha512(pin: AgentSdkPin): string {
+  const expected = /^sha512-([A-Za-z0-9+/]{86}==)$/.exec(pin.integrity)?.[1]
+  if (expected === undefined) throw new Error("agent SDK integrity is invalid")
+  return expected
+}
+
+/** The download's files, once its SHA-512 matches the pin. */
+function unpack(pin: AgentSdkPin, bytes: Uint8Array<ArrayBuffer>): readonly TarFile[] {
+  if (new Bun.CryptoHasher("sha512").update(bytes).digest("base64") !== pinnedSha512(pin)) throw new Error("agent SDK download does not match its pinned SHA-512")
+  return untar(Bun.gunzipSync(bytes))
 }
 
 /** The file the package's `.` export names, as `exports` or `main` gives it. */

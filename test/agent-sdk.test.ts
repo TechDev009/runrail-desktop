@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test"
 import { existsSync, readFileSync } from "node:fs"
-import { mkdtemp, readdir, rm } from "node:fs/promises"
+import { mkdir, mkdtemp, readdir, rm, symlink, unlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { agentSdkInstaller, agentSdkLoader, agentSdkPin, installAgentSdk, untar, type AgentSdkPin } from "../sidecar/agentSdk"
@@ -77,6 +77,63 @@ test("loading never downloads; the SDK comes from npm once, when the installer i
   expect(sdk.query()).toBe("from npm")
   expect(npm.urls).toHaveLength(1)
   expect(await readdir(folder)).toEqual(["0.3.288"])
+})
+
+test("files changed on disk after the download are never loaded; installing again puts the download back", async () => {
+  const folder = await scratch()
+  const { pin, tgz } = served(PACKAGE)
+  const npm = registry(tgz)
+  const load = agentSdkLoader(pin, folder)
+  const installer = agentSdkInstaller(pin, folder, npm.fetch)
+  const home = join(folder, pin.version)
+  const works = async (): Promise<void> => {
+    expect(installer.installed()).toBe(true)
+    expect(((await load()) as { query: () => string }).query()).toBe("from npm")
+  }
+  const refused = async (reason: string): Promise<void> => {
+    expect(installer.installed()).toBe(false)
+    await expect(load()).rejects.toThrow(reason)
+  }
+  await installer.install()
+  await works()
+
+  await writeFile(join(home, "sdk.mjs"), 'export function query() { return "edited" }\n')
+  await refused("sdk.mjs changed after it was downloaded")
+  await installer.install()
+  await works()
+  expect(npm.urls).toHaveLength(2)
+
+  // A module folder added beside the SDK could be what its imports resolve to.
+  await mkdir(join(home, "node_modules", "zod"), { recursive: true })
+  await writeFile(join(home, "node_modules", "zod", "index.js"), "export const z = 'planted'\n")
+  await refused("node_modules/zod/index.js changed after it was downloaded")
+  await installer.install()
+  await works()
+
+  await unlink(join(home, "sdk.mjs"))
+  await symlink(join(folder, "elsewhere.mjs"), join(home, "sdk.mjs"))
+  await refused("sdk.mjs changed after it was downloaded")
+  await installer.install()
+
+  await unlink(join(home, "sdk.mjs"))
+  await refused("went missing")
+  await installer.install()
+
+  // A copy from before the download was kept, or with the kept download altered, is downloaded again too.
+  await writeFile(join(home, ".runrail-download.tgz"), Bun.gzipSync(PACKAGE).subarray(0, 20))
+  await refused("does not match its pinned SHA-512")
+  await unlink(join(home, ".runrail-download.tgz"))
+  expect(installer.installed()).toBe(false)
+  await installer.install()
+  await works()
+  expect(await readdir(folder)).toEqual(["0.3.288"])
+})
+
+test("a package with a file where the download is kept is refused", async () => {
+  const folder = await scratch()
+  const { pin, tgz } = served(tar(entry("package/package.json", "{}"), entry("package/.runrail-download.tgz", "x")))
+  await expect(agentSdkInstaller(pin, folder, registry(tgz).fetch).install()).rejects.toThrow("where Runrail keeps the download")
+  expect(await readdir(folder)).toEqual([])
 })
 
 test("a download that does not match the pinned SHA-512 is refused before anything is written", async () => {
