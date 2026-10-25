@@ -4,6 +4,12 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-25
+
+Report a problem, a Homebrew cask, and the bundled engine kept clear of a
+project's own Bun settings. Runrail Desktop 0.1.1 was never released, so this
+release also brings its changes, listed under 0.1.1 below.
+
 - A Homebrew cask: `brew install --cask TechDev009/runrail/runrail`. Publishing
   a release writes its DMGs' checksums into the cask, in the tap that also
   holds the command line's formula.
