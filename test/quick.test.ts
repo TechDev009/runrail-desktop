@@ -8,10 +8,17 @@ import { createFakeHost } from "../src/host/fakeHost"
 /** Quick chat: the shortcut, and what a message from its window starts. */
 
 let saved: { workspace: string; mediaType: string; size: number }[] = []
+let enqueued = 0
 
 beforeEach(() => {
   saved = []
+  enqueued = 0
   const host = createFakeHost()
+  const rpc = host.rpc
+  host.rpc = async (engineId, method, params) => {
+    if (method === "turn.enqueue") enqueued += 1
+    return rpc(engineId, method, params)
+  }
   host.attachmentSave = async (workspace, mediaType, data) => {
     saved.push({ workspace, mediaType, size: data.length })
     return `${workspace}/.runrail/attachments/a.jpg`
@@ -56,6 +63,9 @@ describe("quick chat", () => {
     const thread = get().threads[0]
     expect(thread).toMatchObject({ projectId: "p1", title: "why is this red?" })
     expect(saved).toEqual([{ workspace: "/code/app", mediaType: "image/jpeg", size: "jpeg-bytes".length }])
+    // Sent before the test ends, so the message never reaches a later file's host.
+    for (let tried = 0; tried < 1_000 && enqueued === 0; tried += 1) await new Promise((resolve) => setTimeout(resolve, 5))
+    expect(enqueued).toBe(1)
   })
 
   test("without a model to send on, keeps the message as the new thread's draft; without a project, says so", async () => {
