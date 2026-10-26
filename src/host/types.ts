@@ -42,7 +42,8 @@ export interface Behavior {
 }
 
 /** Whose key: an account's, a coding-tool connection's, or a built-in connector's (named by its kind). */
-export type SecretTarget = "account" | "tool" | "connector"
+/** `mcp-client`: the secret of the app a remote MCP server signs in with, named by the engine's id for that server. */
+export type SecretTarget = "account" | "tool" | "connector" | "mcp-client"
 
 export interface EngineStartInput {
   readonly engineId: string

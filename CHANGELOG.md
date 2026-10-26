@@ -9,6 +9,20 @@ All notable changes to Runrail Desktop will be documented here.
   same thing in other words. The page names the provider the memories are sent
   to, or says the model runs on this computer, and shows how far indexing has
   got. Off until you pick a model.
+- Sign in to a remote MCP server from Settings, MCP servers. A server added by
+  address with no token variable gets a Sign in button; your browser opens the
+  server's own sign-in page, and threads use the sign-in when their agent next
+  starts. Sign out is in the server's menu, and removing the server forgets
+  its sign-in too. A server that wants a sign-in now says so instead of "It did
+  not start."
+- A server whose provider does not let apps register themselves, such as
+  GitHub's, asks for an app you registered: enter its app ID, its secret
+  (kept in the Keychain through the host, never sent through the page), and
+  an optional callback port, from the sign-in or the server's menu.
+- One-click suggestions for hosted servers you sign in to in the browser
+  (Linear, Notion, Jira and Confluence, Sentry, GitHub) fill in the add-server
+  form, and Integrations, Connectors points to them for anyone who would
+  rather sign in than paste a key.
 
 ## [0.1.2] - 2026-10-25
 

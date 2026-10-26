@@ -16,7 +16,7 @@ type Status = "unconfigured" | "ready" | "expired" | "refreshing" | "error" | "r
  */
 export interface PreviewScenario {
   readonly seed?: "default" | "empty" | "mixed"
-  readonly signIn?: "ok" | "port-busy" | "denied" | "never"
+  readonly signIn?: "ok" | "port-busy" | "denied" | "never" | "unsupported"
   readonly offline?: boolean
   /** Every thread opens with a 2,000-item history, for measuring a long thread. */
   readonly long?: boolean
@@ -118,6 +118,8 @@ interface FakeTool {
 interface FakeLogin {
   readonly loginId: string
   readonly flow: string
+  /** The MCP server address a server sign-in is for; such a sign-in makes no connection. */
+  readonly mcp?: string
   readonly preset: string
   readonly accountId: string
   readonly label: string
@@ -195,6 +197,16 @@ const IMAGE_MODELS: Readonly<Record<string, readonly { readonly id: string; read
   openai: [{ id: "dall-e-3", route: "images" }, { id: "gpt-image-1", route: "images" }],
   openrouter: [{ id: "google/gemini-2.5-flash-image", name: "Gemini 2.5 Flash Image", route: "chat" }, { id: "openai/gpt-5-image", name: "GPT-5 Image", route: "chat" }],
   xai: [{ id: "grok-2-image-1212", route: "images" }],
+}
+
+const EMBEDDING_MODELS: Readonly<Record<string, readonly { readonly id: string; readonly name?: string }[]>> = {
+  openai: [{ id: "text-embedding-3-large" }, { id: "text-embedding-3-small" }],
+  openrouter: [{ id: "openai/text-embedding-3-small", name: "Text Embedding 3 Small" }],
+}
+
+/** Whether the connection's own list names this embedding model. */
+export function listsEmbeddingModel(presetId: string, model: string): boolean {
+  return (EMBEDDING_MODELS[presetId] ?? []).some((entry) => entry.id === model)
 }
 
 /** Shell variables the preview pretends the login shell has set. */
@@ -302,8 +314,29 @@ const LOGINS: Readonly<Record<string, { command: string; args: string[]; variabl
 }
 const MODEL_ID = /^(?!-)[A-Za-z0-9._\-:/@+[\]]{1,256}$/
 
+/** A stand-in for the engine's id for a server: stable per address, the same shape. */
+function mcpServerId(url: string): string {
+  let hash = ""
+  for (let round = 0; hash.length < 32; round += 1) {
+    let value = 0x811c9dc5 ^ round
+    for (const char of url) value = Math.imul(value ^ char.charCodeAt(0), 0x01000193) >>> 0
+    hash += value.toString(16).padStart(8, "0")
+  }
+  return `mcp-oauth:${hash.slice(0, 32)}`
+}
+
+function mcpAddress(value: unknown): string {
+  if (typeof value !== "string" || !/^(https:\/\/|http:\/\/(localhost|127\.0\.0\.1)[:/])/.test(value)) throw invalid("url must be an https address")
+  const url = new URL(value)
+  return `${url.origin}${url.pathname === "/" ? "" : url.pathname}${url.search}`
+}
+
 export class FakeConnections {
   private readonly accounts = new Map<string, FakeAccount>()
+  /** MCP server addresses with a saved sign-in, and when it was made. */
+  private readonly mcpSignIns = new Map<string, number>()
+  /** Apps named for MCP servers whose authorization server registers none, by address. */
+  private readonly mcpClients = new Map<string, { id: string; callbackPort?: number; secret: boolean }>()
   private readonly logins = new Map<string, FakeLogin>()
   private readonly scenario: PreviewScenario
   /** Settings beside each account; an account with none is on with every model. */
@@ -533,6 +566,12 @@ export class FakeConnections {
     if (login.state !== "waiting") return
     login.state = "done"
     const now = Date.now()
+    if (login.mcp !== undefined) {
+      this.mcpSignIns.set(login.mcp, now)
+      this.push(login, { type: "finishing" })
+      this.push(login, { type: "done", accountId: login.accountId })
+      return
+    }
     const existing = this.accounts.get(login.accountId)
     this.accounts.set(login.accountId, {
       reference: { accountId: login.accountId, provider: login.preset, label: existing?.reference.label ?? login.label, authMode: login.authMode, scopes: [], preset: login.preset, createdAt: existing?.reference.createdAt ?? now, updatedAt: now },
@@ -766,6 +805,7 @@ export class FakeConnections {
           presetId,
           models: listed.map((model) => ({ ...model, source: "live" })),
           images: problem === undefined ? (IMAGE_MODELS[presetId] ?? []) : [],
+          embeddings: problem === undefined ? (EMBEDDING_MODELS[presetId] ?? []) : [],
           live: problem === undefined ? (listed.length > 0 ? { ok: true, code: "OK" } : { ok: false, code: "NO_MODEL_LIST" }) : { ok: false, code: problem },
           manualEntry: true,
         }
@@ -780,7 +820,8 @@ export class FakeConnections {
         return count === undefined ? { ...base, status: "unverified", code: "NO_MODEL_LIST" } : { ...base, status: "ok", code: "OK", modelCount: count }
       }
       case "auth.flows":
-        return FLOWS
+        // The engine lists a running MCP server sign-in too, so the host can check the page it opens.
+        return [...FLOWS, ...[...this.logins.values()].filter((login) => login.mcp !== undefined && login.state === "waiting").map((login) => ({ id: login.flow, label: login.label, preset: login.preset, kind: "browser", authMode: "oauth", unofficial: false, browserHosts: [new URL(login.mcp!).hostname] }))]
       case "auth.login.start": {
         const flow = FLOWS.find((entry) => entry.id === params.flow)
         if (flow === undefined) throw new HostError("AUTH_FLOW_UNKNOWN", "sign-in is not available", 404)
@@ -815,6 +856,52 @@ export class FakeConnections {
         this.push(login, { type: "waiting" })
         this.logins.set(login.loginId, login)
         return this.snapshot(login)
+      }
+      case "auth.mcp.list": {
+        const urls = new Set([...this.mcpSignIns.keys(), ...this.mcpClients.keys()])
+        return { servers: [...urls].map((url) => ({ url, signedIn: this.mcpSignIns.has(url), updatedAt: this.mcpSignIns.get(url) ?? 0, ...(this.mcpClients.has(url) ? { client: { ...this.mcpClients.get(url)! } } : {}) })) }
+      }
+      case "auth.mcp.client.set": {
+        const url = mcpAddress(params.url)
+        if (typeof params.clientId !== "string" || !/^[\x21-\x7e]{1,512}$/.test(params.clientId)) throw invalid("clientId is invalid")
+        const previous = this.mcpClients.get(url)
+        const client = { id: params.clientId, ...(typeof params.callbackPort === "number" ? { callbackPort: params.callbackPort } : {}), secret: previous?.id === params.clientId && previous.secret }
+        this.mcpClients.set(url, client)
+        return { id: mcpServerId(url), url, client }
+      }
+      case "auth.mcp.client.clear": {
+        const url = mcpAddress(params.url)
+        return { url, removed: this.mcpClients.delete(url) }
+      }
+      case "auth.mcp.start": {
+        const url = mcpAddress(params.url)
+        if (this.scenario.signIn === "unsupported") throw new HostError("AUTH_UNSUPPORTED", "sign-in failed", 409)
+        // GitHub's authorization server registers no apps; the person names one they registered.
+        if (new URL(url).hostname === "api.githubcopilot.com" && !this.mcpClients.has(url)) throw new HostError("AUTH_CLIENT_REQUIRED", "sign-in failed", 409)
+        for (const other of this.logins.values()) if (other.mcp === url) this.fail(other, "AUTH_CANCELLED", "cancelled")
+        const startedAt = Date.now()
+        const login: FakeLogin = {
+          loginId: `login-${crypto.randomUUID()}`,
+          flow: `mcp-${String(this.logins.size).padStart(12, "0")}`,
+          mcp: url,
+          preset: "mcp-oauth",
+          accountId: `mcp-oauth:${String(this.logins.size).padStart(32, "0")}`,
+          label: typeof params.name === "string" ? params.name.slice(0, 160) : new URL(url).host,
+          authMode: "oauth",
+          state: "waiting",
+          acceptsInput: true,
+          events: [],
+          startedAt,
+          expiresAt: startedAt + LOGIN_TTL_MS,
+        }
+        this.push(login, { type: "open-url", url: `${new URL(url).origin}/authorize`, redirect: "loopback" })
+        this.push(login, { type: "waiting" })
+        this.logins.set(login.loginId, login)
+        return this.snapshot(login)
+      }
+      case "auth.mcp.signout": {
+        const url = mcpAddress(params.url)
+        return { url, removed: this.mcpSignIns.delete(url) }
       }
       case "auth.login.status": {
         const login = this.login(params.loginId)
@@ -884,6 +971,19 @@ export class FakeConnections {
   finishToolSignIn(id: string): void {
     const tool = this.tools.get(id)
     if (tool?.separateAccount === true && tool.authMode === "subscription") this.toolSignIns.add(id)
+  }
+
+  mcpSignedIn(url: string): boolean {
+    return this.mcpSignIns.has(mcpAddress(url))
+  }
+
+  /** Marks the named app's secret as kept and drops the value: the preview keeps no secret. */
+  setMcpClientSecret(id: string): unknown {
+    const url = [...this.mcpClients.keys()].find((candidate) => mcpServerId(candidate) === id)
+    if (url === undefined) throw invalid("name the server's app before its secret")
+    const client = { ...this.mcpClients.get(url)!, secret: true }
+    this.mcpClients.set(url, client)
+    return { url, client }
   }
 
   /** Stands in for the browser round trip: the sign-in completes shortly after it is "opened". */

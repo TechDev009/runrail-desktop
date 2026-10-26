@@ -78,12 +78,15 @@ function failed(view: SignInView, code: string): SignInView {
   return signInFinished(view) ? view : { ...view, phase: "failed", acceptsInput: false, code }
 }
 
-export interface SignInInput {
-  readonly flow: string
-  /** An existing connection to sign in again, or a new id for another account. */
-  readonly accountId?: string
-  readonly label?: string
-}
+export type SignInInput =
+  | {
+      readonly flow: string
+      /** An existing connection to sign in again, or a new id for another account. */
+      readonly accountId?: string
+      readonly label?: string
+    }
+  /** A remote MCP server's own sign-in; its tokens are kept for that address, not as a connection. */
+  | { readonly mcp: { readonly url: string; readonly name: string } }
 
 export interface SignInRun {
   /** Opens the sign-in page again. The host takes the address from the engine. */
@@ -107,7 +110,7 @@ export function runSignIn(input: SignInInput, onChange: (view: SignInView) => vo
     if (next === view) return
     const finishedNow = !signInFinished(view) && next.phase === "done"
     view = next
-    if (finishedNow) connectionsChanged()
+    if (finishedNow && !("mcp" in input)) connectionsChanged()
     onChange(view)
   }
 
@@ -124,7 +127,9 @@ export function runSignIn(input: SignInInput, onChange: (view: SignInView) => vo
   const follow = async (): Promise<void> => {
     let started: unknown
     try {
-      started = await systemRpc("auth.login.start", { flow: input.flow, ...(input.accountId === undefined ? {} : { accountId: input.accountId }), ...(input.label === undefined ? {} : { label: input.label }) })
+      started = "mcp" in input
+        ? await systemRpc("auth.mcp.start", { url: input.mcp.url, name: input.mcp.name })
+        : await systemRpc("auth.login.start", { flow: input.flow, ...(input.accountId === undefined ? {} : { accountId: input.accountId }), ...(input.label === undefined ? {} : { label: input.label }) })
     } catch (error) {
       update(failed(view, toHostError(error).code))
       return

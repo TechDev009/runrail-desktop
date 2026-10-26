@@ -809,6 +809,8 @@ class FakeEngine {
     history = 0,
     /** An office preview thread's role, which its first turn plays instead of the usual flow. */
     private readonly script?: OfficeScript,
+    /** Whether a remote server with no token variable has a saved sign-in. */
+    private readonly mcpSignedIn: (url: string) => boolean = () => false,
   ) {
     this.behavior = input.behavior ?? { mode: "ask", effort: "medium", permissionDefault: "ask", rules: [] }
     this.browserTools = input.browserTools === true
@@ -849,6 +851,12 @@ class FakeEngine {
       },
     }
     this.event("session.started", { snapshot: this.snapshot("idle") })
+  }
+
+  /** A remote server with no token variable answers only once it is signed in to. */
+  mcpStatus(server: McpServer): Record<string, unknown> {
+    if (server.url !== undefined && server.bearerEnv === undefined && !this.mcpSignedIn(server.url)) return { name: server.name, state: "failed", tools: 0, code: "MCP_SIGN_IN_REQUIRED" }
+    return { name: server.name, state: "ready", tools: 3 }
   }
 
   snapshot(status: string, activeTurnId?: string): Record<string, unknown> {
@@ -1736,13 +1744,13 @@ class FakeEngine {
       case "nifra.status":
         return this.nifra
       case "mcp.status":
-        return { servers: this.mcp.map((server) => (server.enabled ? { name: server.name, state: "ready", tools: 3 } : { name: server.name, state: "off", tools: 0 })) }
+        return { servers: this.mcp.map((server) => (!server.enabled ? { name: server.name, state: "off", tools: 0 } : this.mcpStatus(server))) }
       case "mcp.check": {
         const server = this.mcp.find((item) => item.name === params.name)
         if (server === undefined) throw new HostError("CONTROL_INVALID_INPUT", "no MCP server has this name", 400)
         await delay(500)
         // A command that names a program the preview cannot find fails the way a missing one would.
-        return server.command.includes("missing") ? { name: server.name, state: "failed", tools: 0, code: "MCP_TRANSPORT_FAILED" } : { name: server.name, state: "ready", tools: 3 }
+        return server.command.includes("missing") ? { name: server.name, state: "failed", tools: 0, code: "MCP_TRANSPORT_FAILED" } : this.mcpStatus(server)
       }
       case "skills.list":
         return [
@@ -2393,7 +2401,7 @@ export function createFakeHost(scenario: PreviewScenario = {}): Host {
       instance += 1
       const script = scripted.has(input.sessionId) ? undefined : officeScripts(scenario).get(input.sessionId)
       if (script !== undefined) scripted.add(input.sessionId)
-      const created = new FakeEngine(input, (frames) => batch.forEach((listener) => listener(input.engineId, frames)), instance, scenario.seed ?? "default", mcpServers, scenario.long === true ? 2_000 : 0, script)
+      const created = new FakeEngine(input, (frames) => batch.forEach((listener) => listener(input.engineId, frames)), instance, scenario.seed ?? "default", mcpServers, scenario.long === true ? 2_000 : 0, script, (url) => connections.mcpSignedIn(url))
       // A continued thread starts with the conversation of the thread it continues, as the engine copies it.
       const parent = input.continueFrom === undefined ? undefined : [...engines.values()].find((engine) => engine.info.sessionId === input.continueFrom)
       if (parent !== undefined && created.conversation.length === 0) {
@@ -2441,11 +2449,13 @@ export function createFakeHost(scenario: PreviewScenario = {}): Host {
     },
     connectionSecretSet: async (connectionId, secret, target) => {
       await delay(80)
+      if (target === "mcp-client") return connections.setMcpClientSecret(connectionId)
       return target === "connector" ? fakeConnectors.setSecret(connectionId) : connections.setSecret(connectionId, secret, target)
     },
     // The preview has no clipboard access; a placeholder stands in for whatever would be read.
     connectionSecretFromClipboard: async (connectionId, target) => {
       await delay(80)
+      if (target === "mcp-client") return connections.setMcpClientSecret(connectionId)
       return target === "connector" ? fakeConnectors.setSecret(connectionId) : connections.setSecret(connectionId, "preview-placeholder", target)
     },
     authOpen: async (loginId) => connections.open(loginId),

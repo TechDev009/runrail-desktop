@@ -43,8 +43,8 @@ export function createTauriHost(): Host {
     engineList: () => call<EngineInfo[]>("engine_list"),
     rpc: (engineId, method, params = {}) => call<unknown>("control_rpc", { engineId, method, params }),
     systemEngine: () => call<EngineInfo>("system_engine"),
-    connectionSecretSet: (connectionId, secret, target) => call<unknown>("connection_secret_set", { connectionId, secret, tool: target === "tool", connector: target === "connector" }),
-    connectionSecretFromClipboard: (connectionId, target) => call<unknown>("connection_secret_from_clipboard", { connectionId, tool: target === "tool", connector: target === "connector" }),
+    connectionSecretSet: (connectionId, secret, target) => call<unknown>("connection_secret_set", { connectionId, secret, tool: target === "tool", connector: target === "connector", mcp: target === "mcp-client" }),
+    connectionSecretFromClipboard: (connectionId, target) => call<unknown>("connection_secret_from_clipboard", { connectionId, tool: target === "tool", connector: target === "connector", mcp: target === "mcp-client" }),
     authOpen: (loginId) => call<void>("auth_open", { loginId }),
     authSubmitInput: (loginId, input) => call<unknown>("auth_submit_input", { loginId, input }),
     streamStart: (engineId, afterSeq, afterLiveSeq) => {

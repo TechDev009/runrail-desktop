@@ -215,6 +215,8 @@ const SIGN_IN_PROBLEMS: Readonly<Record<string, SignInProblem>> = {
   AUTH_ACCOUNT_MISMATCH: { title: "That connection cannot hold this sign-in", next: "It belongs to another provider or another way in. Add a new connection instead.", retry: false },
   AUTH_FLOW_UNKNOWN: { title: "This sign-in is not available", next: "This build of the engine does not offer it. Connect with an API key instead.", retry: false },
   AUTH_UNAVAILABLE: { title: "This sign-in is not available", next: "Connect with an API key instead.", retry: false },
+  AUTH_UNSUPPORTED: { title: "This server offers no sign-in Runrail can use", next: "Its sign-in does not support PKCE, which Runrail needs. If the server gives you an access token, put it in a shell variable and name that variable as the server's token variable.", retry: false },
+  AUTH_CLIENT_REQUIRED: { title: "This server needs an app you register", next: "Its provider does not let apps register themselves. Register an OAuth app with the provider, then enter its app ID with Sign in with your own app.", retry: false },
   AUTH_LIMIT: { title: "Too many sign-ins are open", next: "Finish or cancel the others, then try again.", retry: true },
   AUTH_URL_REFUSED: { title: "The sign-in page was not opened", next: "Its address did not belong to the provider, so the app refused to open it. Nothing was sent.", retry: false },
   ENGINE_NOT_RUNNING: { title: "The engine is not running", next: "Try again in a moment.", retry: true },

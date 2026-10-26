@@ -23,6 +23,7 @@ import { useWords } from "../../app/platformWords"
 import { toast, useApp, type View } from "../../app/store"
 import { toHostError } from "../../host"
 import { McpSection } from "../shell/McpSettings"
+import { revealSetting } from "../shell/revealSetting"
 import { Button, cx, Spinner } from "../common"
 import { ExtensionsView } from "./Extensions"
 
@@ -77,7 +78,15 @@ export function IntegrationsView({ section: wanted }: { readonly section?: Integ
       <section className="agents-detail">
         <div className="agents-detail-top" data-tauri-drag-region />
         <div className="agents-body integrations-body">
-          {section === "connectors" && <Connectors connectors={connectors} />}
+          {section === "connectors" && (
+            <Connectors
+              connectors={connectors}
+              onSignInServers={() => {
+                setSection("mcp")
+                revealSetting("mcp-hosted")
+              }}
+            />
+          )}
           {section === "mcp" && <McpSection />}
           {section === "grants" && <Grants connectors={connectors} servers={servers.map((server) => server.name)} />}
           {section === "extensions" && (
@@ -101,12 +110,19 @@ function Head({ title, lead }: { readonly title: string; readonly lead: string }
   )
 }
 
-function Connectors({ connectors }: { readonly connectors: readonly ConnectorStatus[] | undefined }) {
+function Connectors({ connectors, onSignInServers }: { readonly connectors: readonly ConnectorStatus[] | undefined; readonly onSignInServers: () => void }) {
   const words = useWords()
   const error = useConnectors((state) => state.error)
   return (
     <>
       <Head title="Connectors" lead={`Each service is reached at its own address only. A key goes to the ${words.keychain} through Runrail's own path and is read only when a call is made.`} />
+      <p className="agents-note" data-setting="connectors-signin">
+        Rather sign in than paste a key? Linear and Jira also run MCP servers you sign in to in the browser, and GitHub does with an app you register. Add one in{" "}
+        <button type="button" className="link-button" onClick={onSignInServers}>
+          MCP servers
+        </button>
+        .
+      </p>
       {error !== undefined && <p className="agents-note is-error">{error}</p>}
       {connectors === undefined && error === undefined ? (
         <p className="agents-note" role="status">

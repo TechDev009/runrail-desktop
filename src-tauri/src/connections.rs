@@ -320,10 +320,17 @@ pub enum SecretOwner {
     ToolConnection,
     /// A built-in connector's key (Linear, Slack, Jira), named by its kind.
     Connector,
+    /// The secret of an app the person registered for a remote MCP server's sign-in, named by the
+    /// id the engine gave that server (`mcp-oauth:<32 hex>`).
+    McpClient,
+}
+
+fn valid_mcp_client_id(value: &str) -> bool {
+    value.strip_prefix("mcp-oauth:").is_some_and(|hex| hex.len() == 32 && hex.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)))
 }
 
 pub fn secret_body_for(owner: SecretOwner, connection_id: &str, secret: &str) -> BridgeResult<Zeroizing<Vec<u8>>> {
-    if !valid_connection_id(connection_id) {
+    if !valid_connection_id(connection_id) || (owner == SecretOwner::McpClient && !valid_mcp_client_id(connection_id)) {
         return Err(BridgeError::new("CONTROL_INVALID_INPUT", "connection id is invalid"));
     }
     let secret = bounded_input(secret, MAX_SECRET_BYTES, "CONNECTION_SECRET_INVALID", "the key is empty, too long, or not plain text")?;
@@ -331,6 +338,7 @@ pub fn secret_body_for(owner: SecretOwner, connection_id: &str, secret: &str) ->
         SecretOwner::Account => "accountId",
         SecretOwner::ToolConnection => "connectionId",
         SecretOwner::Connector => "connectorId",
+        SecretOwner::McpClient => "mcpClientId",
     };
     Ok(private_body(id_key, connection_id, "secret", secret))
 }
@@ -595,6 +603,21 @@ mod tests {
     }
 
     #[test]
+    fn a_running_mcp_server_sign_in_opens_only_its_own_authorization_server() {
+        // The engine lists such a sign-in in `auth.flows` only while it runs, under the host its server named.
+        let flows = json!([
+            { "id": "chatgpt", "browserHosts": ["auth.openai.com"] },
+            { "id": "mcp-0123456789ab", "preset": "mcp-oauth", "browserHosts": ["mcp.linear.app"] },
+        ]);
+        let status = |url: &str| json!({ "loginId": "login-1", "flow": "mcp-0123456789ab", "state": "waiting", "events": [{ "seq": 1, "type": "open-url", "url": url, "redirect": "loopback" }] });
+        assert_eq!(sign_in_target(&status("https://mcp.linear.app/authorize?client_id=x&state=y"), &flows).unwrap().host_str(), Some("mcp.linear.app"));
+        assert_eq!(sign_in_target(&status("https://auth.openai.com/authorize"), &flows).unwrap_err().code, "AUTH_URL_REFUSED");
+        assert_eq!(sign_in_target(&status("http://mcp.linear.app/authorize"), &flows).unwrap_err().code, "AUTH_URL_REFUSED");
+        // Once it ends it is no longer listed, and its page is refused.
+        assert_eq!(sign_in_target(&status("https://mcp.linear.app/authorize"), &json!([{ "id": "chatgpt", "browserHosts": ["auth.openai.com"] }])).unwrap_err().code, "AUTH_URL_REFUSED");
+    }
+
+    #[test]
     fn ids_follow_the_engine_patterns() {
         assert!(valid_connection_id("openai-1") && valid_connection_id("signin-chatgpt") && valid_connection_id("a:b.c_d"));
         assert!(!valid_connection_id("") && !valid_connection_id("1abc") && !valid_connection_id("a b") && !valid_connection_id("a/b"));
@@ -611,6 +634,12 @@ mod tests {
         assert_eq!(parsed, json!({ "accountId": "conn-1", "secret": "sk-\"quoted\"\\key" }));
         let connector = secret_body_for(SecretOwner::Connector, "slack", "xoxb-1").unwrap();
         assert_eq!(serde_json::from_slice::<Value>(&connector).unwrap(), json!({ "connectorId": "slack", "secret": "xoxb-1" }));
+        let server = format!("mcp-oauth:{}", "0a".repeat(16));
+        let app = secret_body_for(SecretOwner::McpClient, &server, "app-secret").unwrap();
+        assert_eq!(serde_json::from_slice::<Value>(&app).unwrap(), json!({ "mcpClientId": server, "secret": "app-secret" }));
+        for id in ["conn-1".to_owned(), "mcp-oauth:0a0a".to_owned(), server.to_uppercase().replace("MCP-OAUTH", "mcp-oauth"), format!("{server}0")] {
+            assert_eq!(secret_body_for(SecretOwner::McpClient, &id, "app-secret").unwrap_err().code, "CONTROL_INVALID_INPUT");
+        }
         let body = secret_body_for(SecretOwner::ToolConnection, "claude-code-2", " sk-tool ").unwrap();
         assert_eq!(serde_json::from_slice::<Value>(&body).unwrap(), json!({ "connectionId": "claude-code-2", "secret": "sk-tool" }));
         assert_eq!(secret_body_for(SecretOwner::ToolConnection, "bad id", "sk-x").unwrap_err().code, "CONTROL_INVALID_INPUT");

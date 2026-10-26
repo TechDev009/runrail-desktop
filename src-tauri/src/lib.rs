@@ -243,31 +243,33 @@ async fn system_engine(state: State<'_, HostState>) -> BridgeResult<EngineInfo> 
 /// Write-only: stores a key for a connection. Nothing reads it back; the answer is the
 /// connection record without the key.
 /// `tool` names a coding-tool connection's key rather than an account's, `connector` a built-in
-/// connector's.
+/// connector's, `mcp` the secret of the app a remote MCP server signs in with.
 #[tauri::command]
-async fn connection_secret_set(state: State<'_, HostState>, connection_id: String, secret: String, tool: Option<bool>, connector: Option<bool>) -> BridgeResult<Value> {
+async fn connection_secret_set(state: State<'_, HostState>, connection_id: String, secret: String, tool: Option<bool>, connector: Option<bool>, mcp: Option<bool>) -> BridgeResult<Value> {
     let secret = Zeroizing::new(secret);
     let supervisor = state.supervisor.clone();
-    blocking(move || supervisor.store_secret_for(secret_owner(tool, connector), &connection_id, secret)).await
+    blocking(move || supervisor.store_secret_for(secret_owner(tool, connector, mcp), &connection_id, secret)).await
 }
 
 /// Same as `connection_secret_set`, but the host reads the clipboard itself so the key never
 /// enters the web view.
 #[tauri::command]
-async fn connection_secret_from_clipboard(state: State<'_, HostState>, connection_id: String, tool: Option<bool>, connector: Option<bool>) -> BridgeResult<Value> {
+async fn connection_secret_from_clipboard(state: State<'_, HostState>, connection_id: String, tool: Option<bool>, connector: Option<bool>, mcp: Option<bool>) -> BridgeResult<Value> {
     let supervisor = state.supervisor.clone();
     blocking(move || {
         if !connections::valid_connection_id(&connection_id) {
             return Err(BridgeError::new("CONTROL_INVALID_INPUT", "connection id is invalid"));
         }
         let secret = connections::read_clipboard_secret()?;
-        supervisor.store_secret_for(secret_owner(tool, connector), &connection_id, secret)
+        supervisor.store_secret_for(secret_owner(tool, connector, mcp), &connection_id, secret)
     })
     .await
 }
 
-fn secret_owner(tool: Option<bool>, connector: Option<bool>) -> connections::SecretOwner {
-    if connector == Some(true) {
+fn secret_owner(tool: Option<bool>, connector: Option<bool>, mcp: Option<bool>) -> connections::SecretOwner {
+    if mcp == Some(true) {
+        connections::SecretOwner::McpClient
+    } else if connector == Some(true) {
         connections::SecretOwner::Connector
     } else if tool == Some(true) {
         connections::SecretOwner::ToolConnection

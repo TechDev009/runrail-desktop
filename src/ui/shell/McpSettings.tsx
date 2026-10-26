@@ -1,13 +1,16 @@
-import { Cable, CircleAlert, CircleCheck, Download, MoreHorizontal, Plus } from "lucide-react"
-import { useState } from "react"
+import { Cable, CircleAlert, CircleCheck, Download, KeyRound, MoreHorizontal, Plus } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { confirmAction, openDialog } from "../../app/actions"
-import { checkMcpServer, joinArgs, mcpFailureText, removeMcpServer, saveMcpServer, setMcpEnabled, splitArgs, useMcpServers, type McpStatus } from "../../app/mcp"
+import { checkMcpServer, clearMcpApp, HOSTED_SERVERS, joinArgs, listMcpSignIns, mcpFailureText, removeMcpServer, saveMcpServer, setMcpApp, setMcpEnabled, signInAddress, signInMcpServer, signOutMcpServer, signsIn, splitArgs, useMcpServers, type McpApp, type McpSignIn, type McpStatus } from "../../app/mcp"
+import { useWords } from "../../app/platformWords"
+import type { SignInRun, SignInView } from "../../app/signIn"
 import { nifraOn } from "../../app/nifra"
 import { set as setApp, toast, useApp } from "../../app/store"
 import { toHostError, type McpServer } from "../../host"
 import { basename, plural } from "../../lib/format"
 import { Button, cx, Menu, Segmented, Spinner, Toggle } from "../common"
+import { signInProblem } from "../connections/text"
 import { revealSetting } from "./revealSetting"
 
 /**
@@ -143,7 +146,7 @@ function Form({ initial, previous, enabled, project, onDone, onCancel }: { reado
           <label className="entry-field">
             <span className="entry-field-label">Token variable (optional)</span>
             <input className="input mono" value={draft.bearerEnv} maxLength={64} placeholder="LINEAR_API_KEY" spellCheck={false} onChange={(event) => setDraft({ ...draft, bearerEnv: event.target.value })} />
-            <span className="entry-field-hint">The name of a shell variable holding the server's access token. Its value is sent to this address only, and is never saved here.</span>
+            <span className="entry-field-hint">The name of a shell variable holding the server's access token. Its value is sent to this address only, and is never saved here. Leave it empty for a server you sign in to in the browser.</span>
           </label>
         </>
       )}
@@ -201,13 +204,119 @@ function StatusLine({ server, status, checking }: { readonly server: McpServer; 
   )
 }
 
+/** Where a server's browser sign-in stands, in the row that started it. */
+function SigningIn({ view, onOpen, onCancel }: { readonly view: SignInView; readonly onOpen: () => void; readonly onCancel: () => void }) {
+  return (
+    <span className="entry-status" role="status">
+      <Spinner size={11} /> {view.phase === "finishing" ? "Finishing the sign-in…" : view.phase === "browser" ? "Finish signing in on the page that opened in your browser." : "Starting the sign-in…"}
+      {view.phase === "browser" && (
+        <button type="button" className="link-button" onClick={onOpen}>
+          Open the page again
+        </button>
+      )}
+      {view.phase !== "finishing" && (
+        <button type="button" className="link-button" onClick={onCancel}>
+          Cancel
+        </button>
+      )}
+    </span>
+  )
+}
+
+const APP_ID = /^[\x21-\x7e]{1,512}$/
+
+/**
+ * The app a server signs in with, for an authorization server that registers none: the person
+ * registers one there and names it here. Its secret goes to the keychain through the host.
+ */
+function AppForm({ server, app, onSaved, onCancel }: { readonly server: McpServer & { readonly url: string }; readonly app: McpApp | undefined; readonly onSaved: () => void; readonly onCancel: () => void }) {
+  const words = useWords()
+  const [clientId, setClientId] = useState(app?.id ?? "")
+  const [secret, setSecret] = useState("")
+  const [port, setPort] = useState(app?.callbackPort === undefined ? "" : String(app.callbackPort))
+  const [error, setError] = useState<string | undefined>()
+  const [saving, setSaving] = useState(false)
+  const submit = (): void => {
+    const id = clientId.trim()
+    if (!APP_ID.test(id)) return setError("App ID: the ID the provider showed when you registered the app, with no spaces.")
+    const callbackPort = port.trim().length === 0 ? undefined : Number(port.trim())
+    if (callbackPort !== undefined && (!Number.isInteger(callbackPort) || callbackPort < 1_024 || callbackPort > 65_535)) return setError("Callback port: a number from 1024 to 65535, or empty for any port.")
+    setError(undefined)
+    setSaving(true)
+    setMcpApp(server.url, { clientId: id, ...(callbackPort === undefined ? {} : { callbackPort }), ...(secret.trim().length === 0 ? {} : { secret: secret.trim() }) })
+      .then(() => {
+        setSecret("")
+        onSaved()
+      })
+      .catch((caught: unknown) => setError(toHostError(caught).message))
+      .finally(() => setSaving(false))
+  }
+  const callback = `http://127.0.0.1${port.trim().length === 0 ? "" : `:${port.trim()}`}/callback`
+  return (
+    <form
+      className="entry-form"
+      onSubmit={(event) => {
+        event.preventDefault()
+        submit()
+      }}
+    >
+      <p className="setting-hint">
+        {server.name}'s provider does not let apps register themselves, so sign-in needs an app you register there. Register an OAuth app with <code>{callback}</code> as its callback address, then enter its ID here.
+      </p>
+      <label className="entry-field">
+        <span className="entry-field-label">App ID</span>
+        <input className="input mono" value={clientId} maxLength={512} spellCheck={false} autoComplete="off" autoFocus onChange={(event) => setClientId(event.target.value)} />
+      </label>
+      <label className="entry-field">
+        <span className="entry-field-label">App secret (if it has one)</span>
+        <input className="input" type="password" value={secret} maxLength={4_096} spellCheck={false} autoComplete="off" placeholder={app?.secret === true && app.id === clientId.trim() ? "Kept. Leave empty to keep it." : ""} onChange={(event) => setSecret(event.target.value)} />
+        <span className="entry-field-hint">Kept in the {words.keychain} and sent only to the provider's token address.</span>
+      </label>
+      <label className="entry-field">
+        <span className="entry-field-label">Callback port (optional)</span>
+        <input className="input mono" value={port} inputMode="numeric" maxLength={5} placeholder="Any" spellCheck={false} onChange={(event) => setPort(event.target.value)} />
+        <span className="entry-field-hint">Only when the app was registered with a fixed port.</span>
+      </label>
+      {error !== undefined && (
+        <p className="setting-hint is-error" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="entry-form-actions">
+        <Button size="sm" variant="ghost" type="button" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+        <Button size="sm" variant="primary" type="submit" loading={saving}>
+          Save and sign in
+        </Button>
+      </div>
+    </form>
+  )
+}
+
 export function McpSection() {
   const { servers, loading, error, set } = useMcpServers()
   const project = useApp(useShallow((state) => state.projects.find((item) => item.id === (state.layout.activeProjectId ?? state.projects[0]?.id))))
   const [editing, setEditing] = useState<string | "new" | undefined>()
   const [statuses, setStatuses] = useState<Readonly<Record<string, McpStatus>>>({})
   const [checking, setChecking] = useState<string | undefined>()
+  // Undefined until the engine answers; an engine without a credential store offers no sign-in.
+  const [known, setKnown] = useState<ReadonlyMap<string, McpSignIn> | undefined>()
+  const [signing, setSigning] = useState<{ readonly name: string; readonly view: SignInView } | undefined>()
+  const [appFor, setAppFor] = useState<string | undefined>()
+  const [seed, setSeed] = useState<Draft>(EMPTY)
+  const run = useRef<SignInRun | undefined>(undefined)
   const nifra = useApp((state) => nifraOn(state.prefs))
+
+  const refreshSignIns = (): void => {
+    listMcpSignIns()
+      .then(setKnown)
+      .catch(() => setKnown(undefined))
+  }
+  const entryOf = (server: McpServer): McpSignIn | undefined => (server.url === undefined ? undefined : known?.get(signInAddress(server.url)))
+  useEffect(refreshSignIns, [])
+  // Leaving the page ends a sign-in still waiting, so none keeps a callback port open behind it.
+  useEffect(() => () => void run.current?.cancel(), [])
 
   const check = (name: string): void => {
     if (project === undefined) return
@@ -216,6 +325,49 @@ export function McpSection() {
       .then((status) => setStatuses((current) => ({ ...current, [name]: status })))
       .catch((caught: unknown) => toast("error", `Check failed: ${toHostError(caught).message}`))
       .finally(() => setChecking(undefined))
+  }
+
+  const signIn = (server: McpServer & { readonly url: string }): void => {
+    void run.current?.cancel()
+    run.current = signInMcpServer(server, (view) => {
+      setSigning({ name: server.name, view })
+      if (view.phase === "done") {
+        setSigning(undefined)
+        // Shown at once; the engine's own list follows.
+        const address = signInAddress(server.url)
+        setKnown((current) => new Map([...(current ?? []), [address, { ...(current?.get(address) ?? { url: address, updatedAt: Date.now() }), signedIn: true }]]))
+        refreshSignIns()
+        toast("success", `Signed in to ${server.name}. Threads use it when their agent next starts.`)
+        if (project !== undefined && (server.project === undefined || server.project === project.path)) check(server.name)
+      } else if (view.phase === "failed" && view.code === "AUTH_CLIENT_REQUIRED") {
+        // The form says what is needed; a toast would only repeat it.
+        setSigning(undefined)
+        setAppFor(server.name)
+      } else if (view.phase === "failed") {
+        setSigning(undefined)
+        const problem = signInProblem(view.code)
+        toast("error", `${problem.title}. ${problem.next} (${view.code ?? "AUTH_FAILED"})`)
+      } else if (view.phase === "cancelled") setSigning(undefined)
+    })
+  }
+
+  const forgetApp = (server: McpServer & { readonly url: string }): void => {
+    clearMcpApp(server.url)
+      .then(() => {
+        refreshSignIns()
+        toast("success", `${server.name} no longer signs in with your app.`)
+      })
+      .catch((caught: unknown) => toast("error", toHostError(caught).message))
+  }
+
+  const signOut = (server: McpServer & { readonly url: string }): void => {
+    signOutMcpServer(server.url)
+      .then(() => {
+        refreshSignIns()
+        setStatuses(({ [server.name]: _dropped, ...rest }) => rest)
+        toast("success", `Signed out of ${server.name}.`)
+      })
+      .catch((caught: unknown) => toast("error", toHostError(caught).message))
   }
 
   return (
@@ -254,7 +406,20 @@ export function McpSection() {
           {servers.length > 0 && (
             <ul className="entry-list">
               {servers.map((server) =>
-                editing === server.name ? (
+                appFor === server.name && server.url !== undefined ? (
+                  <li key={server.name} className="entry-row is-editing">
+                    <AppForm
+                      server={{ ...server, url: server.url }}
+                      app={entryOf(server)?.client}
+                      onCancel={() => setAppFor(undefined)}
+                      onSaved={() => {
+                        setAppFor(undefined)
+                        refreshSignIns()
+                        signIn({ ...server, url: server.url! })
+                      }}
+                    />
+                  </li>
+                ) : editing === server.name ? (
                   <li key={server.name} className="entry-row is-editing">
                     <Form
                       initial={draftOf(server)}
@@ -280,8 +445,18 @@ export function McpSection() {
                         {whereItRuns(server)}
                       </code>
                       {server.project !== undefined && <span className="entry-scope">Only in {server.project === project?.path ? project.name : basename(server.project)}</span>}
-                      <StatusLine server={server} status={statuses[server.name]} checking={checking === server.name} />
+                      {signsIn(server) && entryOf(server) !== undefined && <span className="entry-scope">{entryOf(server)?.signedIn === true ? (entryOf(server)?.client === undefined ? "Signed in" : "Signed in with your app") : "Signs in with your app"}</span>}
+                      {signing?.name === server.name ? (
+                        <SigningIn view={signing.view} onOpen={() => void run.current?.open().catch((caught: unknown) => toast("error", `The page could not be opened. (${toHostError(caught).code})`))} onCancel={() => void run.current?.cancel()} />
+                      ) : (
+                        <StatusLine server={server} status={statuses[server.name]} checking={checking === server.name} />
+                      )}
                     </span>
+                    {server.url !== undefined && signsIn(server) && known !== undefined && entryOf(server)?.signedIn !== true && signing?.name !== server.name && (
+                      <Button size="sm" variant="ghost" icon={<KeyRound size={13} />} disabled={signing !== undefined} title="Sign in to this server in your browser" onClick={() => signIn({ ...server, url: server.url! })}>
+                        Sign in
+                      </Button>
+                    )}
                     <Button size="sm" variant="ghost" disabled={project === undefined || checking !== undefined || (server.project !== undefined && server.project !== project.path)} title={project === undefined ? "Open a project to check a server" : server.project !== undefined && server.project !== project.path ? "Open its project to check it" : server.url === undefined ? "Start it once and list its tools" : "Connect once and list its tools"} onClick={() => check(server.name)}>
                       Check
                     </Button>
@@ -299,6 +474,9 @@ export function McpSection() {
                       width={180}
                       items={[
                         { id: "edit", label: "Edit", onSelect: () => setEditing(server.name) },
+                        ...(server.url !== undefined && signsIn(server) && known !== undefined ? [{ id: "app", label: entryOf(server)?.client === undefined ? "Sign in with your own app…" : "Change your app…", onSelect: () => setAppFor(server.name) }] : []),
+                        ...(server.url !== undefined && entryOf(server)?.client !== undefined ? [{ id: "forget-app", label: "Forget your app", onSelect: () => forgetApp({ ...server, url: server.url! }) }] : []),
+                        ...(server.url !== undefined && entryOf(server)?.signedIn === true ? [{ id: "signout", label: "Sign out", onSelect: () => signOut({ ...server, url: server.url! }) }] : []),
                         {
                           id: "remove",
                           label: "Remove",
@@ -306,12 +484,21 @@ export function McpSection() {
                           onSelect: () =>
                             confirmAction({
                               title: `Remove ${server.name}?`,
-                              body: "Threads stop getting its tools when their agent next starts.",
+                              body: entryOf(server) !== undefined ? "Threads stop getting its tools when their agent next starts, and its sign-in and app are forgotten." : "Threads stop getting its tools when their agent next starts.",
                               confirm: "Remove",
                               danger: true,
                               onConfirm: () => {
+                                const kept = entryOf(server)
+                                const url = server.url
                                 removeMcpServer(server.name)
-                                  .then(set)
+                                  .then(async (list) => {
+                                    set(list)
+                                    if (kept !== undefined && url !== undefined) {
+                                      if (kept.signedIn) await signOutMcpServer(url)
+                                      if (kept.client !== undefined) await clearMcpApp(url)
+                                      refreshSignIns()
+                                    }
+                                  })
                                   .catch((caught: unknown) => toast("error", toHostError(caught).message))
                               },
                             }),
@@ -331,7 +518,7 @@ export function McpSection() {
           {editing === "new" ? (
             <div className="entry-row is-editing">
               <Form
-                initial={EMPTY}
+                initial={seed}
                 enabled
                 project={project}
                 onCancel={() => setEditing(undefined)}
@@ -343,7 +530,15 @@ export function McpSection() {
             </div>
           ) : (
             <div className="entry-add">
-              <Button size="sm" icon={<Plus size={13} />} disabled={servers.length >= 16 || editing !== undefined} onClick={() => setEditing("new")}>
+              <Button
+                size="sm"
+                icon={<Plus size={13} />}
+                disabled={servers.length >= 16 || editing !== undefined}
+                onClick={() => {
+                  setSeed(EMPTY)
+                  setEditing("new")
+                }}
+              >
                 Add server
               </Button>
               <Button size="sm" variant="ghost" icon={<Download size={13} />} disabled={project === undefined || servers.length >= 16 || editing !== undefined} title={project === undefined ? "Open a project first" : "Servers set up in Claude Code, Codex, Cursor, and other tools"} onClick={() => project !== undefined && openDialog({ kind: "other-tools", section: "servers", projectId: project.id })} data-setting="mcp-import">
@@ -351,6 +546,28 @@ export function McpSection() {
               </Button>
               {servers.length >= 16 && <span className="setting-hint">At most 16 servers.</span>}
             </div>
+          )}
+          {editing === undefined && servers.length < 16 && HOSTED_SERVERS.some((hosted) => !servers.some((server) => server.name === hosted.name || server.url === hosted.url)) && (
+            <p className="setting-hint" data-setting="mcp-hosted">
+              Sign in with your browser instead of a key:{" "}
+              {HOSTED_SERVERS.filter((hosted) => !servers.some((server) => server.name === hosted.name || server.url === hosted.url)).map((hosted, index) => (
+                <span key={hosted.name}>
+                  {index > 0 && ", "}
+                  <button
+                    type="button"
+                    className="link-button"
+                    title={hosted.ownApp === true ? `${hosted.url} (needs an app you register with GitHub)` : hosted.url}
+                    onClick={() => {
+                      setSeed({ ...EMPTY, name: hosted.name, transport: "address", url: hosted.url })
+                      setEditing("new")
+                    }}
+                  >
+                    {hosted.label}
+                  </button>
+                </span>
+              ))}
+              .
+            </p>
           )}
         </>
       )}
