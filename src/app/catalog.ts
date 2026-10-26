@@ -39,6 +39,14 @@ interface ConnectionCatalog {
   /** Image generators the ready connections list, and the one agents use. */
   readonly imageModels: readonly CatalogImageModel[]
   readonly imageChoice?: ImageChoice
+  /** Embedding models the ready connections list, for recall by meaning. */
+  readonly embeddingModels: readonly CatalogEmbeddingModel[]
+}
+
+export interface CatalogEmbeddingModel {
+  readonly connectionId: string
+  readonly id: string
+  readonly name?: string
 }
 
 export interface CatalogImageModel {
@@ -53,7 +61,7 @@ export interface Catalog extends ConnectionCatalog {
   readonly agents: readonly AgentInfo[]
 }
 
-const NO_CONNECTIONS: ConnectionCatalog = { connections: [], models: [], modelErrors: {}, imageModels: [] }
+const NO_CONNECTIONS: ConnectionCatalog = { connections: [], models: [], modelErrors: {}, imageModels: [], embeddingModels: [] }
 const EMPTY: Catalog = { ...NO_CONNECTIONS, harnesses: [], skills: [], agents: [] }
 /** Listed by vendors next to their chat models, but not usable as one. */
 export const NOT_CHAT = /embed|whisper|tts|dall-e|moderation|transcri|audio|realtime|image|sora|babbage|davinci/i
@@ -83,6 +91,7 @@ async function readConnections(): Promise<ConnectionCatalog> {
   if (settings !== undefined) adoptEngineDefault(settings)
   const modelErrors: Record<string, string> = {}
   const imageModels: CatalogImageModel[] = []
+  const embeddingModels: CatalogEmbeddingModel[] = []
   const lists = await Promise.all(
     connections
       // A connection that is off is not offered, so its list is read only when it is edited.
@@ -91,6 +100,7 @@ async function readConnections(): Promise<ConnectionCatalog> {
         const listed = await connectionModels(connection.id)
         if (listed.code !== undefined) modelErrors[connection.id] = listed.code
         for (const image of listed.images) imageModels.push({ connectionId: connection.id, id: image.id, ...(image.name === undefined ? {} : { name: image.name }) })
+        for (const embedding of listed.embeddings) embeddingModels.push({ connectionId: connection.id, id: embedding.id, ...(embedding.name === undefined ? {} : { name: embedding.name }) })
         return listed.models.filter((model) => !NOT_CHAT.test(model.id)).map((model) => ({ ...model, connectionId: connection.id }))
       }),
   )
@@ -99,6 +109,7 @@ async function readConnections(): Promise<ConnectionCatalog> {
     models: lists.flat(),
     modelErrors,
     imageModels,
+    embeddingModels,
     ...(settings === undefined ? {} : { tools: settings.tools, ...(settings.default === undefined ? {} : { defaultChoice: settings.default }), ...(settings.image === undefined ? {} : { imageChoice: settings.image }) }),
   }
 }

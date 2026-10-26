@@ -4,6 +4,12 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+- Recall by meaning, in Memory under "Recall memories": pick an embedding
+  model from your connections and Runrail also recalls a memory that says the
+  same thing in other words. The page names the provider the memories are sent
+  to, or says the model runs on this computer, and shows how far indexing has
+  got. Off until you pick a model.
+
 ## [0.1.2] - 2026-10-25
 
 Report a problem, a Homebrew cask, and the bundled engine kept clear of a

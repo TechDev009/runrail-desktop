@@ -113,6 +113,16 @@ export async function loadMemory(projectId: string, query?: string): Promise<voi
   }
 }
 
+/** The status alone, without reloading the list: indexing progress for recall by meaning. */
+export async function refreshMemoryStatus(projectId: string): Promise<void> {
+  try {
+    const status = parseOr(MemoryStatusSchema, await projectRpc(projectId, "memory.status"))
+    if (status !== undefined) patchProject(projectId, { status })
+  } catch {
+    // The next full load says what went wrong.
+  }
+}
+
 /** A source's own entries, newest first. */
 export async function sourceEntries(projectId: string, sourceId: string): Promise<readonly MemoryInfo[]> {
   return parseList(MemorySchema, parseOr(MemoryListSchema, await projectRpc(projectId, "memory.list", { sourceId, limit: 100 }))?.memories ?? [], 100)
@@ -139,6 +149,12 @@ export async function readSettings(projectId: string): Promise<MemorySettings | 
 
 export async function saveSettings(projectId: string, provider: "local" | "server-memory" | Record<string, unknown>): Promise<void> {
   await projectRpc(projectId, "memory.settings.set", { provider })
+  await loadMemory(projectId)
+}
+
+/** Recall by meaning with this embedding model, or off. The engine checks the model answers before keeping it. */
+export async function setEmbeddingModel(projectId: string, choice: { readonly connectionId: string; readonly model: string } | undefined): Promise<void> {
+  await projectRpc(projectId, "memory.settings.set", { embeddings: choice ?? null })
   await loadMemory(projectId)
 }
 

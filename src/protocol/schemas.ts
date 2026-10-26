@@ -539,6 +539,10 @@ export type ConnectionModel = z.infer<typeof ConnectionModelSchema>
 export const ImageModelSchema = z.looseObject({ id: z.string().min(1).max(256), name: z.string().max(256).optional(), route: ImageRouteSchema })
 export type ImageModel = z.infer<typeof ImageModelSchema>
 
+/** An embedding model a connection's own list names, for recall by meaning. */
+export const EmbeddingModelSchema = z.looseObject({ id: z.string().min(1).max(256), name: z.string().max(256).optional() })
+export type EmbeddingModel = z.infer<typeof EmbeddingModelSchema>
+
 /** `connection.models`: what one connection can run, and whether its endpoint answered. */
 export const ConnectionModelsSchema = z.looseObject({
   connectionId: ConnectionId,
@@ -546,6 +550,8 @@ export const ConnectionModelsSchema = z.looseObject({
   models: z.array(z.unknown()).max(2_000),
   /** Absent from an engine without image tools. */
   images: z.array(z.unknown()).max(500).optional().catch(undefined),
+  /** Absent from an engine without recall by meaning. */
+  embeddings: z.array(z.unknown()).max(500).optional().catch(undefined),
   live: z.looseObject({ ok: z.boolean(), code: Code }),
 })
 
@@ -1296,6 +1302,11 @@ export const MemoryStatusSchema = z.looseObject({
   provider: z.looseObject({ kind: z.enum(["local", "mcp"]), name: z.string().max(80).optional() }),
   health: z.looseObject({ ok: z.boolean(), detail: z.string().max(500).optional() }),
   counts: z.looseObject({ project: z.number().int().nonnegative(), person: z.number().int().nonnegative() }),
+  /** Recall by meaning, when an embedding model is picked: memories with a vector, those still waiting, and why the model last failed. */
+  semantic: z
+    .looseObject({ connectionId: z.string().max(256), model: z.string().max(256), indexed: z.number().int().nonnegative(), pending: z.number().int().nonnegative(), indexing: z.boolean().catch(false), problem: z.string().max(500).optional() })
+    .optional()
+    .catch(undefined),
 })
 export type MemoryStatus = z.infer<typeof MemoryStatusSchema>
 export const MemorySourceSchema = z.looseObject({
@@ -1312,6 +1323,7 @@ export type MemorySourceInfo = z.infer<typeof MemorySourceSchema>
 export const MemorySourceListSchema = z.looseObject({ sources: z.array(z.unknown()).max(50) })
 export const MemorySettingsSchema = z.looseObject({
   provider: z.union([z.literal("local"), z.looseObject({ kind: z.literal("mcp"), name: z.string().max(80), command: z.string().max(1_024).optional(), args: z.array(z.string().max(4_096)).max(64).optional(), inherit: z.array(z.string().max(128)).max(32).optional(), url: z.string().max(4_096).optional(), mapping: z.unknown() })]),
+  embeddings: z.looseObject({ connectionId: z.string().max(256), model: z.string().max(256) }).optional().catch(undefined),
 })
 export type MemorySettings = z.infer<typeof MemorySettingsSchema>
 

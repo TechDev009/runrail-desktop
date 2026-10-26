@@ -1,7 +1,8 @@
 import { Brain, CircleAlert, CircleDot, FileText, FolderOpen, Pencil, Plus, RefreshCw, Rss, Settings2, Trash2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { confirmAction } from "../../app/actions"
-import { addMemory, addSource, forgetMemory, loadMemory, memoryLabel, readSettings, removeSource, saveSettings, sourceEntries, syncSource, updateMemory, useMemory, type ScopeName } from "../../app/memory"
+import { useCatalog } from "../../app/catalog"
+import { addMemory, addSource, forgetMemory, loadMemory, memoryLabel, readSettings, refreshMemoryStatus, removeSource, saveSettings, setEmbeddingModel, sourceEntries, syncSource, updateMemory, useMemory, type ScopeName } from "../../app/memory"
 import { useWords } from "../../app/platformWords"
 import { activeProject, setPrefs, toast, useApp } from "../../app/store"
 import { toHostError } from "../../host"
@@ -121,6 +122,7 @@ function sourceLine(source: MemorySourceInfo, now: number): string {
 // ---------------------------------------------------------------------------------------------
 
 function ScopeDetail({ projectId, scope, memories, loading, now }: { readonly projectId: string; readonly scope: ScopeName; readonly memories: readonly MemoryInfo[]; readonly loading: boolean; readonly now: number }) {
+  const byMeaning = useMemory((state) => state.byProject[projectId]?.status?.semantic !== undefined)
   const [text, setText] = useState("")
   const [query, setQuery] = useState("")
   const [busy, setBusy] = useState(false)
@@ -163,7 +165,7 @@ function ScopeDetail({ projectId, scope, memories, loading, now }: { readonly pr
             />
           </label>
           <div className="agents-row">
-            <span className="form-hint">Recalled when a message shares its words. Each recall shows on the message.</span>
+            <span className="form-hint">Recalled when a message shares its words{byMeaning ? " or its meaning" : ""}. Each recall shows on the message.</span>
             <span className="agents-spacer" />
             <Button variant="primary" icon={<Plus size={13} />} loading={busy} disabled={text.trim().length === 0} onClick={() => void add()}>
               Add
@@ -508,13 +510,100 @@ function SettingsDetail({ projectId }: { readonly projectId: string }) {
         </div>
         <div className="toggle-row">
           <Toggle label="Recall memories" checked={prefs.recall} onChange={(value) => setPrefs({ memory: { ...prefs, recall: value } })} />
-          <span>Add up to three memories a message shares words with, shown on the message</span>
+          <span>Add up to three memories a message shares words{settings?.embeddings === undefined ? "" : " or meaning"} with, shown on the message</span>
         </div>
+        <RecallByMeaning projectId={projectId} {...(settings?.embeddings === undefined ? {} : { choice: settings.embeddings })} onChanged={() => void readSettings(projectId).then(setSettings)} />
         <div className="toggle-row">
           <Toggle label="Offer to remember" checked={prefs.suggest} onChange={(value) => setPrefs({ memory: { ...prefs, suggest: value } })} />
           <span>After two turns, offer to suggest facts to keep from a thread</span>
         </div>
       </div>
+    </div>
+  )
+}
+
+const SEPARATOR = "\u0000"
+const STATUS_EVERY_MS = 3_000
+
+/**
+ * Recall by meaning: an embedding model from the person's own connections. Off until one is
+ * picked, because memories and messages then go to that provider to be compared.
+ */
+function RecallByMeaning({ projectId, choice, onChanged }: { readonly projectId: string; readonly choice?: { readonly connectionId: string; readonly model: string }; readonly onChanged: () => void }) {
+  const words = useWords()
+  const catalog = useCatalog(projectId)
+  const semantic = useMemory((state) => state.byProject[projectId]?.status?.semantic)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string>()
+  const groups = catalog.connections.map((connection) => ({ connection, models: catalog.embeddingModels.filter((model) => model.connectionId === connection.id) })).filter((group) => group.models.length > 0)
+  const value = choice === undefined ? "" : `${choice.connectionId}${SEPARATOR}${choice.model}`
+  // A pick whose connection is off, or whose list did not load this time, still shows as picked.
+  const listed = choice === undefined || catalog.embeddingModels.some((model) => model.connectionId === choice.connectionId && model.id === choice.model)
+  const owner = choice === undefined ? undefined : catalog.connections.find((connection) => connection.id === choice.connectionId)
+  const onThisMachine = owner?.baseUrl !== undefined && /^https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/|$)/i.test(owner.baseUrl)
+  const waiting = semantic !== undefined && semantic.pending > 0 && semantic.problem === undefined
+
+  useEffect(() => {
+    if (!waiting) return
+    const timer = setInterval(() => void refreshMemoryStatus(projectId), STATUS_EVERY_MS)
+    return () => clearInterval(timer)
+  }, [projectId, waiting])
+
+  const pick = (next: string): void => {
+    const [connectionId, model] = next.split(SEPARATOR)
+    setBusy(true)
+    setError(undefined)
+    void setEmbeddingModel(projectId, connectionId === undefined || model === undefined || next.length === 0 ? undefined : { connectionId, model })
+      .then(onChanged, (caught: unknown) => setError(toHostError(caught).message))
+      .finally(() => setBusy(false))
+  }
+
+  const hint =
+    choice === undefined
+      ? groups.length === 0
+        ? "None of your providers lists an embedding model. Add one that does, such as OpenAI, or a local Ollama with an embedding model, and it shows here."
+        : "Off: a memory is recalled only when a message shares its words."
+      : onThisMachine
+        ? `Memories and messages are compared by meaning with ${owner?.label ?? "this provider"}, which runs on this ${words.computer}.`
+        : `Memories, and each message you send, also go to ${owner?.label ?? "this provider"} to be compared by meaning. Each request is billed to that provider.`
+
+  return (
+    <div className="memory-meaning" data-setting="recall-by-meaning">
+      <div className="setting-row">
+        <div className="setting-text">
+          <div className="setting-label">Recall by meaning</div>
+          <div className="setting-hint">{hint}</div>
+        </div>
+        <div className="setting-control">
+          <select className="select" aria-label="Embedding model" value={value} disabled={busy || (groups.length === 0 && choice === undefined)} onChange={(event) => pick(event.target.value)}>
+            <option value="">Off</option>
+            {!listed && choice !== undefined && <option value={value}>{`${choice.model} · ${owner?.label ?? choice.connectionId}`}</option>}
+            {groups.map((group) => (
+              <optgroup key={group.connection.id} label={group.connection.label}>
+                {group.models.map((model) => (
+                  <option key={model.id} value={`${group.connection.id}${SEPARATOR}${model.id}`}>
+                    {model.name ?? model.id}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+      </div>
+      {semantic !== undefined && (
+        <p className={cx("form-hint", semantic.problem !== undefined && "tone-red")}>
+          {semantic.problem !== undefined
+            ? `${semantic.problem} Recall uses words until it answers again.`
+            : semantic.pending > 0
+              ? `Reading memories: ${String(semantic.indexed)} of ${String(semantic.indexed + semantic.pending)} ready.`
+              : `All ${String(semantic.indexed)} memor${semantic.indexed === 1 ? "y is" : "ies are"} ready.`}
+        </p>
+      )}
+      {error !== undefined && (
+        <p className="form-warning" role="alert">
+          <CircleAlert size={13} /> {error}
+        </p>
+      )}
     </div>
   )
 }

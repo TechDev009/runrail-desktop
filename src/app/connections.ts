@@ -12,6 +12,7 @@ import {
   DetectedConnectionsSchema,
   ImportableConnectionSchema,
   ImportableConnectionsSchema,
+  EmbeddingModelSchema,
   ImageModelSchema,
   SignInFlowSchema,
   hasCapability,
@@ -22,6 +23,7 @@ import {
   type ConnectionPreset,
   type ConnectionRecord,
   type CustomPreset,
+  type EmbeddingModel,
   type ImageModel,
   type DetectedConnection,
   type SignInFlow,
@@ -57,6 +59,8 @@ export interface ConnectionModels {
   readonly models: readonly ConnectionModel[]
   /** The image generators the same list names. */
   readonly images: readonly ImageModel[]
+  /** The embedding models the same list names. */
+  readonly embeddings: readonly EmbeddingModel[]
   /** Why the endpoint's own list could not be read; absent when it answered. */
   readonly code?: string
 }
@@ -133,12 +137,12 @@ export function knownConnections(): readonly Connection[] | undefined {
 export async function connectionModels(connectionId: string): Promise<ConnectionModels> {
   try {
     const parsed = parseOr(ConnectionModelsSchema, await systemRpc("connection.models", { connectionId }))
-    if (parsed === undefined) return { models: [], images: [], code: "INVALID_RESPONSE" }
+    if (parsed === undefined) return { models: [], images: [], embeddings: [], code: "INVALID_RESPONSE" }
     // Some endpoints have no list at all; that is not a failure.
     const failed = !parsed.live.ok && parsed.live.code !== "NO_MODEL_LIST"
-    return { models: parseList(ConnectionModelSchema, parsed.models, 2_000), images: parseList(ImageModelSchema, parsed.images ?? [], 500), ...(failed ? { code: parsed.live.code } : {}) }
+    return { models: parseList(ConnectionModelSchema, parsed.models, 2_000), images: parseList(ImageModelSchema, parsed.images ?? [], 500), embeddings: parseList(EmbeddingModelSchema, parsed.embeddings ?? [], 500), ...(failed ? { code: parsed.live.code } : {}) }
   } catch (error) {
-    return { models: [], images: [], code: toHostError(error).code }
+    return { models: [], images: [], embeddings: [], code: toHostError(error).code }
   }
 }
 
@@ -202,7 +206,8 @@ export async function importableConnections(): Promise<ImportableConnection[]> {
 
 /** Subscription sign-ins this engine can run. */
 export async function signInFlows(): Promise<SignInFlow[]> {
-  return parseList(SignInFlowSchema, await systemRpc("auth.flows"), 64)
+  // A running MCP server sign-in is listed too, for the host's page check; it is no provider to connect.
+  return parseList(SignInFlowSchema, await systemRpc("auth.flows"), 64).filter((flow) => flow.preset !== "mcp-oauth")
 }
 
 /** Why a typed key cannot be stored, or `undefined`. The same limits the host enforces. */

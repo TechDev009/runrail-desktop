@@ -68,6 +68,7 @@ export class FakeMemory {
   ]
   private readonly sources: FakeSource[] = []
   private provider: unknown = "local"
+  private embeddings: { readonly connectionId: string; readonly model: string } | undefined
   private next = 10
 
   async rpc(method: string, params: Record<string, unknown>): Promise<unknown> {
@@ -77,6 +78,7 @@ export class FakeMemory {
           provider: this.provider === "local" ? { kind: "local" } : { kind: "mcp", name: (this.provider as { name: string }).name },
           health: { ok: true, detail: `${String(this.entries.length)} memories` },
           counts: { project: this.count("project"), person: this.count("person") },
+          ...(this.embeddings === undefined ? {} : { semantic: { ...this.embeddings, indexed: this.entries.length, pending: 0, indexing: false } }),
         }
       case "memory.recall": {
         const query = terms(String(params.query ?? ""))
@@ -123,15 +125,23 @@ export class FakeMemory {
         }
       }
       case "memory.settings.get":
-        return { provider: this.provider }
-      case "memory.settings.set":
-        this.provider =
-          params.provider === "server-memory"
-            ? { kind: "mcp", name: "MCP memory server", command: "npx", args: ["-y", "@modelcontextprotocol/server-memory"], mapping: {} }
-            : params.provider === "local"
-              ? "local"
-              : { kind: "mcp", ...(params.provider as object) }
-        return { provider: this.provider }
+        return { provider: this.provider, ...(this.embeddings === undefined ? {} : { embeddings: this.embeddings }) }
+      case "memory.settings.set": {
+        if (params.embeddings !== undefined) {
+          const choice = params.embeddings as { connectionId?: unknown; model?: unknown } | null
+          // The engine asks the model once before keeping it; the preview takes any model named as an embedder.
+          if (choice !== null && (typeof choice.model !== "string" || !/embed/i.test(choice.model))) throw new HostError("CONTROL_MEMORY_UNAVAILABLE", "This connection does not serve embeddings with this model.", 503)
+          this.embeddings = choice === null ? undefined : { connectionId: String(choice.connectionId), model: String(choice.model) }
+        }
+        if (params.provider !== undefined)
+          this.provider =
+            params.provider === "server-memory"
+              ? { kind: "mcp", name: "MCP memory server", command: "npx", args: ["-y", "@modelcontextprotocol/server-memory"], mapping: {} }
+              : params.provider === "local"
+                ? "local"
+                : { kind: "mcp", ...(params.provider as object) }
+        return { provider: this.provider, ...(this.embeddings === undefined ? {} : { embeddings: this.embeddings }) }
+      }
       case "memory.source.list":
         return { sources: this.sources.map((source) => ({ ...source, entries: this.entries.filter((entry) => entry.source.id === source.id).length })) }
       case "memory.source.add": {

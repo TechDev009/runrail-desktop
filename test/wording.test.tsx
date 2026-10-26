@@ -100,7 +100,7 @@ function conn(id: string, label: string, extra: Partial<Connection> = {}): Conne
 type MenuCatalog = Catalog & { readonly loading: boolean; readonly reload: () => void }
 
 function catalog(extra: Partial<MenuCatalog> = {}): MenuCatalog {
-  return { connections: [], models: [], modelErrors: {}, imageModels: [], harnesses: [], skills: [], agents: [], loading: false, reload: () => undefined, ...extra }
+  return { connections: [], models: [], modelErrors: {}, imageModels: [], embeddingModels: [], harnesses: [], skills: [], agents: [], loading: false, reload: () => undefined, ...extra }
 }
 
 const FULL = catalog({

@@ -60,13 +60,13 @@ describe("connections", () => {
 
   test("a custom address with no model list is not an error", async () => {
     await systemRpc("account.create", { accountId: "relay", provider: "custom-openai-chat", preset: "custom-openai-chat", label: "Relay", authMode: "api-key", scopes: [], baseUrl: "http://127.0.0.1:9/v1", status: "unconfigured" })
-    expect(await connectionModels("relay")).toEqual({ models: [], images: [], code: "CREDENTIAL_MISSING" })
+    expect(await connectionModels("relay")).toEqual({ models: [], images: [], embeddings: [], code: "CREDENTIAL_MISSING" })
     await host.connectionSecretSet("relay", CANARY)
-    expect(await connectionModels("relay")).toEqual({ models: [], images: [] })
+    expect(await connectionModels("relay")).toEqual({ models: [], images: [], embeddings: [] })
   })
 
   test("an unknown connection reports its code instead of throwing", async () => {
-    expect(await connectionModels("nobody")).toEqual({ models: [], images: [], code: "CONTROL_ACCOUNT_NOT_FOUND" })
+    expect(await connectionModels("nobody")).toEqual({ models: [], images: [], embeddings: [], code: "CONTROL_ACCOUNT_NOT_FOUND" })
   })
 
   test("a key goes in and never comes back", async () => {
