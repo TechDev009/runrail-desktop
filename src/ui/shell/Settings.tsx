@@ -459,7 +459,7 @@ function General() {
       )}
       {desktopRows && <LoginItemRow />}
       {desktopRows && <WakeServiceRow />}
-      <Row id="confirm-quit" label="Ask before quitting while threads or runs go" hint="Quitting stops running turns and workflow, setup and eval runs. A stopped thread can be continued later.">
+      <Row id="confirm-quit" label="Ask before quitting while threads or runs go" hint="Quitting stops running turns and workflow and eval runs; a setup run you started picks up where it stopped when Runrail opens again. A stopped thread can be continued later.">
         <Toggle label="Ask before quitting while threads or runs go" checked={prefs.confirmQuit} onChange={(confirmQuit) => setPrefs({ confirmQuit })} />
       </Row>
       <Row id="nifra" label="Nifra in Nifra projects" hint={`${NIFRA_SETTING_HINT} Turning it off or on restarts each thread's engine when it is idle.`}>

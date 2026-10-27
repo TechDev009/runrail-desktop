@@ -1063,11 +1063,13 @@ export const SetupSchema = z.looseObject({
     approvePlan: z.boolean(),
     reviewRounds: z.number().int().min(0).max(5),
     check: z.string().max(4_000).optional(),
-    budget: z.looseObject({ maxTurns: z.number().int().positive(), maxMinutes: z.number().int().positive() }),
+    budget: z.looseObject({ maxTurns: z.number().int().positive(), maxMinutes: z.number().int().positive(), maxTokens: z.number().int().positive().optional().catch(undefined) }),
   }),
 })
 export type SetupInfo = z.infer<typeof SetupSchema>
 export const SetupListSchema = z.looseObject({ setups: z.array(z.unknown()).max(128), skipped: z.number().int().catch(0) })
+/** `setup.run.saved`: the projects whose engines kept runs to continue. */
+export const SavedSetupRunsSchema = z.looseObject({ projects: z.array(z.looseObject({ root: z.string().max(4_096), runs: z.number().int().nonnegative() })).max(256) })
 
 const SetupPlanSchema = z.looseObject({ summary: z.string().max(2_000).optional(), steps: z.array(z.looseObject({ title: z.string().max(200), detail: z.string().max(4_000).optional() })).max(20) })
 export type SetupPlanInfo = z.infer<typeof SetupPlanSchema>
@@ -1081,6 +1083,8 @@ export const SetupRunSchema = z.looseObject({
   startedAt: z.number(),
   endedAt: z.number().optional(),
   turns: z.number().int(),
+  /** Tokens across the run's threads, once one has reported any. */
+  tokens: z.number().int().nonnegative().optional().catch(undefined),
   worktree: z.string().max(64).optional(),
   checkout: z.boolean().optional(),
   plan: SetupPlanSchema.optional().catch(undefined),
@@ -1152,6 +1156,7 @@ export const EvalRunSchema = z.looseObject({
         setupState: z.string().max(20).optional(),
         worktree: z.string().max(64).optional(),
         turns: z.number().int().nonnegative().optional(),
+        tokens: z.number().int().nonnegative().optional().catch(undefined),
         durationMs: z.number().nonnegative().optional(),
         check: z.looseObject({ exitCode: z.number().int().optional(), timedOut: z.boolean().catch(false), counts: EvalCountsSchema.optional().catch(undefined) }).optional().catch(undefined),
         error: z.string().max(64).optional().catch(undefined),

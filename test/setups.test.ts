@@ -28,6 +28,10 @@ describe("setups on the desktop", () => {
   test("an engine setup becomes an editable draft without its source", () => {
     const setup = parseOr(SetupSchema, { id: "s", name: "S", source: "project", roles: { executor: { route: "pi" } }, rules: { approvePlan: false, reviewRounds: 0, budget: { maxTurns: 5, maxMinutes: 9 } } })
     expect(setup === undefined ? undefined : draftOf(setup)).toEqual({ id: "s", name: "S", roles: { executor: { route: "pi" } }, rules: { approvePlan: false, reviewRounds: 0, budget: { maxTurns: 5, maxMinutes: 9 } } })
+
+    // A token budget travels with the draft; a run reports what its threads used.
+    const capped = parseOr(SetupSchema, { id: "s", name: "S", roles: { executor: { route: "pi" } }, rules: { approvePlan: false, reviewRounds: 0, budget: { maxTurns: 5, maxMinutes: 9, maxTokens: 200_000 } } })
+    expect(capped === undefined ? undefined : draftOf(capped).rules.budget).toEqual({ maxTurns: 5, maxMinutes: 9, maxTokens: 200_000 })
   })
 
   test("a run's status reads, waiting on a turn or on the person", () => {
@@ -35,6 +39,7 @@ describe("setups on the desktop", () => {
     expect(parseOr(SetupRunSchema, { ...base, waiting: { kind: "approve", stepId: "approve-2", plan: { steps: [{ title: "One" }] } } })?.waiting?.kind).toBe("approve")
     expect(parseOr(SetupRunSchema, { ...base, waiting: { kind: "turn", stepId: "3-2", role: "executor", thread: "setup-1:executor", runsOn: { route: "codex" }, mode: "agent", access: "ask", title: "S: executor", prompt: "Do step 1" } })?.waiting?.kind).toBe("turn")
     expect(parseOr(SetupRunSchema, { ...base, state: "dreaming" })).toBeUndefined()
+    expect(parseOr(SetupRunSchema, { ...base, tokens: 41_200 })?.tokens).toBe(41_200)
   })
 
   test("a run the desktop cannot read leaves the others in the list", () => {

@@ -9,7 +9,7 @@ import { active, answerApproval, deleteSetup, draftOf, draftSetup, loadRuns, loa
 import { activeProject, openThread, set, startSelection, toast, useApp } from "../../app/store"
 import { toHostError } from "../../host"
 import type { Thinking } from "../../host/types"
-import { duration, timeAgo } from "../../lib/format"
+import { compact, duration, timeAgo } from "../../lib/format"
 import type { SetupInfo, SetupPlanInfo, SetupRole, SetupRun } from "../../protocol/schemas"
 import { Button, cx, EmptyState, IconButton, Select, Spinner, statusLabel, StatusIcon, Toggle, useTicker } from "../common"
 import { useStatuses } from "../hooks"
@@ -397,6 +397,22 @@ function SetupEditor({
             <span className="field-label">Most minutes</span>
             <input className="input" type="number" min={1} max={1440} value={draft.rules.budget.maxMinutes} disabled={readOnly} onChange={(event) => setRules({ budget: { ...draft.rules.budget, maxMinutes: clamp(event.target.value, 1, 1_440) } })} />
           </label>
+          <label className="field">
+            <span className="field-label">Most tokens (K)</span>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              max={MAX_BUDGET_TOKENS / 1_000}
+              placeholder="No limit"
+              value={draft.rules.budget.maxTokens === undefined ? "" : Math.round(draft.rules.budget.maxTokens / 1_000)}
+              disabled={readOnly}
+              onChange={(event) => {
+                const { maxTurns, maxMinutes } = draft.rules.budget
+                setRules({ budget: { maxTurns, maxMinutes, ...(event.target.value.trim() === "" ? {} : { maxTokens: clamp(event.target.value, 1, MAX_BUDGET_TOKENS / 1_000) * 1_000 }) } })
+              }}
+            />
+          </label>
         </div>
         <label className="field">
           <span className="field-label">Check after each step (optional)</span>
@@ -455,6 +471,9 @@ function SetupEditor({
     </div>
   )
 }
+
+/** As many input and output tokens as the engine allows a run, across its threads. */
+const MAX_BUDGET_TOKENS = 1_000_000_000
 
 function clamp(value: string, min: number, max: number): number {
   const number = Math.round(Number(value))
@@ -554,7 +573,8 @@ function RunDetail({ runId, projectId, now }: { readonly runId: string; readonly
             {stateLabel(run)}
           </span>
           <span className="agents-run-stats">
-            {run.setupName} · {run.checkout === true ? "main checkout" : "own worktree"} · {run.turns} turn{run.turns === 1 ? "" : "s"} · {duration(elapsed)}
+            {run.setupName} · {run.checkout === true ? "main checkout" : "own worktree"} · {run.turns} turn{run.turns === 1 ? "" : "s"}
+            {run.tokens === undefined ? "" : ` · ${compact(run.tokens)} tokens`} · {duration(elapsed)}
           </span>
           <span className="agents-spacer" />
           {active(run) && (

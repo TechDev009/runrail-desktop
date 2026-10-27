@@ -111,7 +111,7 @@ export class FakeEvals {
   }
 
   private start(params: Record<string, unknown>): FakeEval {
-    if ([...this.runs.values()].some((run) => run.state === "running")) throw new HostError("CONTROL_EVAL_LIMIT", "an eval is already running in this project; stop it first", 429)
+    if ([...this.runs.values()].filter((run) => run.state === "running").length >= 4) throw new HostError("CONTROL_EVAL_LIMIT", "4 evals are already running in this project; stop one first", 429)
     const name = String(params.suite)
     const suite = this.suites.get(name)
     if (suite === undefined) throw new HostError("CONTROL_EVAL_NOT_FOUND", "no suite has that name", 404)

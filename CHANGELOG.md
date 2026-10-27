@@ -4,6 +4,14 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+- A Setup chip in the composer sends the message to a setup instead of the
+  thread: pick one of the project's setups, or Manage setups to make one.
+- A setup run you started picks up where it stopped after Runrail quits or
+  restarts, and a note says which run carried on.
+- Setups can cap tokens ("Most tokens (K)" in the budget), and a run's header
+  shows the tokens its threads have used.
+- Up to four evals run at once in a project (was one), and the scoreboard
+  shows tokens per passing case.
 - Recall by meaning, in Memory under "Recall memories": pick an embedding
   model from your connections and Runrail also recalls a memory that says the
   same thing in other words. The page names the provider the memories are sent

@@ -1,12 +1,14 @@
 import { create } from "zustand"
 import { toHostError } from "../host"
 import type { BackendId, Thinking } from "../host/types"
-import { parseList, parseOr, SetupListSchema, SetupRunSchema, SetupSchema, type SetupInfo, type SetupPlanInfo, type SetupRole, type SetupRun } from "../protocol/schemas"
+import { MetricsSchema, parseList, parseOr, SavedSetupRunsSchema, SetupListSchema, SetupRunSchema, SetupSchema, type SetupInfo, type SetupPlanInfo, type SetupRole, type SetupRun } from "../protocol/schemas"
 import type { TimelineItem } from "../thread/reducer"
-import { onSendFailed, onTurnEnded, projectRpc, send } from "./engines"
+import { systemRpc } from "./connections"
+import { onSendFailed, onServiceStarted, onTurnEnded, projectRpc, send, threadRpc } from "./engines"
 import { announceRun } from "./notifications"
 import type { PermissionPreset, ThreadMeta } from "./persist"
 import { createThread, get, projectById, runtimeOf, set as setApp, threadById, toast } from "./store"
+import { projectForRoot } from "./workflowRuns"
 import { createWorktreeThread } from "./workflows"
 import { HEAD_START } from "./worktreeStart"
 
@@ -59,7 +61,14 @@ export interface SetupDraft {
   readonly name: string
   readonly description?: string
   readonly roles: { readonly planner?: SetupRole; readonly executor: SetupRole; readonly reviewer?: SetupRole }
-  readonly rules: { readonly approvePlan: boolean; readonly reviewRounds: number; readonly check?: string; readonly budget: { readonly maxTurns: number; readonly maxMinutes: number } }
+  readonly rules: { readonly approvePlan: boolean; readonly reviewRounds: number; readonly check?: string; readonly budget: SetupBudget }
+}
+
+export interface SetupBudget {
+  readonly maxTurns: number
+  readonly maxMinutes: number
+  /** Unset: no limit on tokens. */
+  readonly maxTokens?: number
 }
 
 export function draftOf(setup: SetupInfo): SetupDraft {
@@ -70,7 +79,7 @@ export function draftOf(setup: SetupInfo): SetupDraft {
     name: setup.name,
     ...(setup.description === undefined ? {} : { description: setup.description }),
     roles: { ...(planner === undefined ? {} : { planner }), executor, ...(reviewer === undefined ? {} : { reviewer }) },
-    rules: { approvePlan, reviewRounds, ...(check === undefined ? {} : { check }), budget: { maxTurns: budget.maxTurns, maxMinutes: budget.maxMinutes } },
+    rules: { approvePlan, reviewRounds, ...(check === undefined ? {} : { check }), budget: { maxTurns: budget.maxTurns, maxMinutes: budget.maxMinutes, ...(budget.maxTokens === undefined ? {} : { maxTokens: budget.maxTokens }) } },
   }
 }
 
@@ -157,6 +166,31 @@ export function groupSetupThreads(grouper: GroupFor): void {
 /** A run some other place started and reports on: an eval's, or a workflow step's. */
 export function startedElsewhere(runId: string): boolean {
   return useSetups.getState().runs[runId]?.run.owner !== undefined || groupers.some((grouper) => grouper(runId) !== undefined)
+}
+
+/**
+ * Setup runs an engine kept when the app quit or the engine stopped: each project's engine continues
+ * its own when it starts, and at launch the projects that have some start their engines.
+ */
+export function initSetupRuns(): void {
+  onServiceStarted((projectId) => void restoreRuns(projectId))
+  setTimeout(() => void restoreSaved(), 3_000)
+}
+
+async function restoreSaved(): Promise<void> {
+  const saved = parseOr(SavedSetupRunsSchema, await systemRpc("setup.run.saved").catch(() => undefined))
+  for (const entry of saved?.projects ?? []) {
+    const project = projectForRoot(entry.root)
+    if (project !== undefined) void restoreRuns(project.id)
+  }
+}
+
+async function restoreRuns(projectId: string): Promise<void> {
+  const runs = listedRuns(await projectRpc(projectId, "setup.run.restore").catch(() => undefined))
+  if (runs === undefined || runs.length === 0) return
+  for (const run of runs) putRun(projectId, run)
+  watch(projectId)
+  toast("info", runs.length === 1 ? `${runs[0]?.setupName ?? "A setup run"} picked up where it stopped` : `${String(runs.length)} setup runs picked up where they stopped`)
 }
 
 /** Runs the turns of this project's active setup runs, including ones the desktop did not start. */
@@ -267,15 +301,27 @@ onTurnEnded((threadId, turnId) => {
   const timeline = runtimeOf(threadId).timeline
   const status = timeline.lastTurnEnd?.status
   const thread = threadById(threadId)
-  void projectRpc(waiting.projectId, "setup.run.answer", {
-    runId: waiting.runId,
-    stepId: waiting.stepId,
-    ok: status === "completed",
-    text: turnAnswer(timeline.items, turnId),
-    ...(thread?.worktree === undefined ? {} : { worktree: thread.worktree.id }),
-    ...(status === "completed" ? {} : { error: status === "stopped" ? "the turn was stopped" : "the turn failed" }),
-  }).catch(() => undefined)
+  const text = turnAnswer(timeline.items, turnId)
+  void threadTokens(threadId).then((tokens) =>
+    projectRpc(waiting.projectId, "setup.run.answer", {
+      runId: waiting.runId,
+      stepId: waiting.stepId,
+      ok: status === "completed",
+      text,
+      ...(thread?.worktree === undefined ? {} : { worktree: thread.worktree.id }),
+      ...(tokens === undefined ? {} : { tokens }),
+      ...(status === "completed" ? {} : { error: status === "stopped" ? "the turn was stopped" : "the turn failed" }),
+    }).catch(() => undefined),
+  )
 })
+
+/** The thread's input and output tokens so far, for the run's token budget; undefined when its engine cannot say. */
+async function threadTokens(threadId: string): Promise<number | undefined> {
+  const metrics = parseOr(MetricsSchema, await threadRpc(threadId, "metrics.snapshot", {}).catch(() => undefined))
+  if (metrics?.inputTokens === undefined && metrics?.outputTokens === undefined) return undefined
+  const total = Math.round((metrics.inputTokens ?? 0) + (metrics.outputTokens ?? 0))
+  return Number.isSafeInteger(total) && total >= 0 ? total : undefined
+}
 
 /**
  * The roles in use with nothing to run on: Runrail's own loop with no model picked. Such a run's
@@ -294,6 +340,13 @@ export function pickModelHint(roles: readonly SetupRoleName[]): string {
   const names = roles.map((role) => ROLE_NAMES[role].toLowerCase())
   const last = names[names.length - 1] ?? ""
   return `Pick a model for the ${names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${last}` : last}`
+}
+
+/** "Plans, executes, reviews twice" from a setup's roles, for a list that has no room for more. */
+export function setupSummary(setup: Pick<SetupInfo, "roles" | "rules">): string {
+  const parts = [...(setup.roles.planner === undefined ? [] : ["plans"]), "executes", ...(setup.roles.reviewer === undefined || setup.rules.reviewRounds === 0 ? [] : [setup.rules.reviewRounds === 1 ? "reviews" : `reviews ${setup.rules.reviewRounds === 2 ? "twice" : `${String(setup.rules.reviewRounds)} times`}`])]
+  const text = parts.length === 1 ? (parts[0] ?? "") : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1] ?? ""}`
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 /** The setup a new one starts from: every role on what a new thread would run on. */

@@ -1,5 +1,6 @@
 import { getHost, toHostError } from "../host"
 import { initWorkflows } from "./workflowRuns"
+import { initSetupRuns } from "./setups"
 import { initBackground } from "./background"
 import { initEngines } from "./engines"
 import { glassAvailable, loadState, type StateProblem } from "./persist"
@@ -80,6 +81,7 @@ export async function boot(): Promise<void> {
   window.addEventListener("beforeunload", () => void saving.flush())
   initQuests()
   initWorkflows()
+  initSetupRuns()
   initKeepAwake()
   initLimitResume()
   initCiWatch()

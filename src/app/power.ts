@@ -53,7 +53,7 @@ function sync(): void {
   setGuard?.((busy || runsGoing) && state.prefs.confirmQuit)
 }
 
-/** A workflow, setup or eval run is going; it lives in its project's engine, so Quit ends it too. */
+/** A workflow, setup or eval run is going in its project's engine: Quit ends it, or pauses a setup run the person started until the app opens again. */
 export function guardRuns(on: boolean): void {
   if (runsGoing === on) return
   runsGoing = on

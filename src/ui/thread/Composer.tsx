@@ -47,7 +47,7 @@ import { isImage, prepareImage, type PreparedImage } from "../../lib/images"
 import { isBusy } from "../../thread/reducer"
 import { Button, cx, IconButton, Kbd, Spinner } from "../common"
 import { useProject, useRuntime, useThread } from "../hooks"
-import { AccessMenu, AddMenu, GoalChip, TokenChip, WorktreeMenu, type ComposerToken } from "./ComposerMenus"
+import { AccessMenu, AddMenu, GoalChip, SetupMenu, TokenChip, WorktreeMenu, type ComposerToken } from "./ComposerMenus"
 import { ContextRing } from "./ContextRing"
 import { ModelPicker } from "./ModelPicker"
 import { MicButton, TalkButton, useTalkAvailable } from "./Voice"
@@ -484,6 +484,13 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
   const chooseMode = (value: ThreadMode): void => (threadId === undefined ? setConfig((current) => ({ ...current, mode: value })) : setMode(threadId, value))
   const chooseAccess = (value: Access): void => (threadId === undefined ? setConfig((current) => ({ ...current, ...withAccess(current, value) })) : setAccess(threadId, value))
   const chooseGoal = (on: boolean): void => chooseMode(on ? "goal" : "agent")
+  const setupChosen = tokens.find((token) => token.kind === "setup")
+  // The footer's setup chip shows the chosen setup where it is offered.
+  const chipTokens = project?.git === true ? tokens.filter((token) => token.kind !== "setup") : tokens
+  const chooseSetup = (setup: { readonly id: string; readonly name: string } | undefined): void => {
+    setTokens((current) => [...current.filter((token) => token.kind !== "setup"), ...(setup === undefined ? [] : [{ kind: "setup" as const, ...setup }])])
+    inputRef.current?.focus()
+  }
   const addToken = (token: ComposerToken): void => {
     setTokens((current) => (current.some((item) => item.kind === token.kind && item.id === token.id) ? current : [...current, token]))
     inputRef.current?.focus()
@@ -943,9 +950,9 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
               ))}
             </div>
           )}
-          {(attachments.length > 0 || uploading > 0 || tokens.length > 0 || pageComments.length > 0) && (
+          {(attachments.length > 0 || uploading > 0 || chipTokens.length > 0 || pageComments.length > 0) && (
             <div className="composer-attachments">
-              {tokens.map((token) => (
+              {chipTokens.map((token) => (
                 <TokenChip key={`${token.kind}:${token.id}`} token={token} onRemove={() => setTokens((current) => current.filter((item) => item !== token))} />
               ))}
               {threadId !== undefined && pageComments.map((comment) => <PageCommentChip key={comment.id} comment={comment} onRemove={() => removePageComment(threadId, comment.id)} />)}
@@ -1014,6 +1021,7 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
                 }}
               />
               <AccessMenu access={access} backend={backend} onChoose={chooseAccess} />
+              {project?.git === true && <SetupMenu projectId={projectId} value={setupChosen} onChoose={chooseSetup} />}
               {mode === "goal" && <GoalChip onOff={() => chooseGoal(false)} />}
             </div>
             <div className="composer-send">

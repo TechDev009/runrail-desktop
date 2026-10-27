@@ -45,6 +45,10 @@ interface EvalsState {
 
 export const useEvals = create<EvalsState>()(() => ({ byProject: {}, runs: {} }))
 
+/** Evals one project's engine runs at once, and the setup runs their cases share. */
+export const MAX_RUNNING_EVALS = 4
+export const SETUP_RUN_SLOTS = 4
+
 export async function loadSuites(projectId: string): Promise<void> {
   const before = useEvals.getState().byProject[projectId]
   patchProject(projectId, { state: "loading", suites: before?.suites ?? [], skipped: before?.skipped ?? [] })
@@ -201,6 +205,8 @@ export interface Score {
   readonly total: number
   readonly medianMs?: number
   readonly meanTurns?: number
+  /** Tokens spent on every scored job, per job that passed; set when each scored job reported tokens. */
+  readonly tokensPerPass?: number
 }
 
 export function totals(jobs: readonly EvalJob[]): Score {
@@ -208,12 +214,15 @@ export function totals(jobs: readonly EvalJob[]): Score {
   const durations = scored.flatMap((job) => (job.durationMs === undefined ? [] : [job.durationMs])).sort((a, b) => a - b)
   const turns = scored.flatMap((job) => (job.turns === undefined ? [] : [job.turns]))
   const middle = Math.floor(durations.length / 2)
+  const passed = scored.filter((job) => job.state === "passed").length
+  const tokens = scored.every((job) => job.tokens !== undefined) ? scored.reduce((sum, job) => sum + (job.tokens ?? 0), 0) : undefined
   return {
     scored: scored.length,
-    passed: scored.filter((job) => job.state === "passed").length,
+    passed,
     total: jobs.length,
     ...(durations.length === 0 ? {} : { medianMs: durations.length % 2 === 1 ? (durations[middle] ?? 0) : ((durations[middle - 1] ?? 0) + (durations[middle] ?? 0)) / 2 }),
     ...(turns.length === 0 ? {} : { meanTurns: turns.reduce((sum, value) => sum + value, 0) / turns.length }),
+    ...(tokens === undefined || passed === 0 ? {} : { tokensPerPass: tokens / passed }),
   }
 }
 

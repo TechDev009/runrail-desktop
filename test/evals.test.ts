@@ -29,6 +29,9 @@ describe("eval scores", () => {
   test("only passed, failed and errored jobs count; median time and mean turns over those", () => {
     expect(totals(RUN.jobs.filter((item) => item.setupId === "slow"))).toEqual({ scored: 2, passed: 1, total: 3, medianMs: 8_000, meanTurns: 5 })
     expect(totals([])).toEqual({ scored: 0, passed: 0, total: 0 })
+    // Tokens per pass counts the failed job's tokens too, and only when every scored job reported them.
+    expect(totals([job(0, "a", "passed", { tokens: 30_000 }), job(1, "a", "failed", { tokens: 10_000 })]).tokensPerPass).toBe(40_000)
+    expect(totals([job(0, "a", "passed", { tokens: 30_000 }), job(1, "a", "failed")]).tokensPerPass).toBeUndefined()
     expect(rate({ passed: 0, scored: 0 })).toBe(0)
   })
 

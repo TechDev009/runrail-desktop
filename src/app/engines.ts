@@ -631,6 +631,10 @@ function ensureService(projectId: string): Promise<string> {
       const contract = parseOr(ContractSchema, info.contract)
       if (contract !== undefined) serviceContracts.set(projectId, contract)
       await applySkillChoices(engineId, projectId)
+      // After this call resolves, so a listener's own call reaches the engine that just started.
+      queueMicrotask(() => {
+        for (const listener of serviceStartListeners) listener(projectId)
+      })
       return engineId
     })
   promise.catch(() => services.delete(projectId))
@@ -775,6 +779,13 @@ async function computeTurnChanges(threadId: string, turnId: string): Promise<voi
 
 const turnEndListeners = new Set<(threadId: string, turnId: string) => void>()
 const sendFailListeners = new Set<(threadId: string, reason: string) => void>()
+const serviceStartListeners = new Set<(projectId: string) => void>()
+
+/** Runs each time a project's quiet engine starts, including after it stopped or crashed. */
+export function onServiceStarted(listener: (projectId: string) => void): () => void {
+  serviceStartListeners.add(listener)
+  return () => serviceStartListeners.delete(listener)
+}
 
 /** Runs when a message could not reach the thread's engine: no turn starts, so none will end. */
 export function onSendFailed(listener: (threadId: string, reason: string) => void): () => void {

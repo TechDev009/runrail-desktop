@@ -1,4 +1,4 @@
-import { AppWindowMac, ArrowLeft, AtSign, Bot, Check, ChevronDown, ChevronRight, Columns2, File, Folder, FolderGit2, GitBranch, GitPullRequest, Globe, ImagePlus, Laptop, ListTodo, MessagesSquare, MousePointerClick, Play, Plug, Plus, Search, Settings2, Shield, ShieldCheck, ShieldHalf, ShieldOff, Target, X, Zap } from "lucide-react"
+import { AppWindowMac, ArrowLeft, AtSign, Bot, Check, ChevronDown, ChevronRight, Columns2, File, Folder, FolderGit2, GitBranch, GitPullRequest, Globe, ImagePlus, Laptop, ListTodo, MessageSquare, MessagesSquare, MousePointerClick, Play, Plug, Plus, Search, Settings2, Shield, ShieldCheck, ShieldHalf, ShieldOff, Target, X, Zap } from "lucide-react"
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 import { ACCESS_LABELS, ACCESS_ORDER, offersAuto, type Access } from "../../app/access"
 import { loadAndroidStatus, useAndroid } from "../../app/android"
@@ -10,6 +10,8 @@ import { projectRpc, setBrowserUse, setComputerUse } from "../../app/engines"
 import { useFiles } from "../../app/catalog"
 import { setMcpEnabled, useMcpServers } from "../../app/mcp"
 import { useProjectHeads } from "../../app/projectGit"
+import { useRunnables } from "../../app/composerRuns"
+import { setupSummary } from "../../app/setups"
 import { set, toast, useApp, type SettingsSection } from "../../app/store"
 import { startView } from "../../app/threadBar"
 import type { BackendId, McpServer } from "../../host/types"
@@ -89,6 +91,45 @@ export function AccessMenu({ access, backend, onChoose }: { readonly access: Acc
         })),
         { separator: true, id: "separator" },
         { id: "settings", label: "Permission settings", icon: <Settings2 size={14} />, onSelect: () => set({ settings: "permissions" }) },
+      ]}
+    />
+  )
+}
+
+/** Sends the message as a saved setup's task, run in its own threads, instead of a turn here. */
+export function SetupMenu({ projectId, value, onChoose }: { readonly projectId: string; readonly value: { readonly id: string; readonly name: string } | undefined; readonly onChoose: (setup: { readonly id: string; readonly name: string } | undefined) => void }) {
+  const [wanted, setWanted] = useState(false)
+  const { setups } = useRunnables(projectId, wanted || value !== undefined)
+  return (
+    <Menu
+      side="top"
+      width={312}
+      className="access-menu"
+      trigger={({ toggle, ref, open }) => (
+        <button
+          ref={ref}
+          type="button"
+          className={cx("tool-chip", value !== undefined && "is-setup", open && "is-open")}
+          onClick={() => {
+            setWanted(true)
+            toggle()
+          }}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          title={value === undefined ? "Run the message as a setup: its own threads plan, do, and review it" : `Sends the message to ${value.name}`}
+        >
+          <Bot size={13} />
+          <span>{value?.name ?? "Setup"}</span>
+          <ChevronDown size={11} className="tool-chip-chevron" />
+        </button>
+      )}
+      items={[
+        { heading: "Who works on the message", id: "heading" },
+        { id: "thread", label: "This thread", description: "One agent, here", icon: <MessageSquare size={14} />, checked: value === undefined, onSelect: () => onChoose(undefined) },
+        ...setups.map((setup) => ({ id: `setup:${setup.id}`, label: setup.name, description: setup.description ?? setupSummary(setup), icon: <Bot size={14} />, checked: value?.id === setup.id, onSelect: () => onChoose({ id: setup.id, name: setup.name }) })),
+        ...(setups.length === 0 ? [{ id: "none", label: "No setups yet", disabled: true, onSelect: () => undefined }] : []),
+        { separator: true, id: "separator" },
+        { id: "manage", label: "Manage setups", icon: <Settings2 size={14} />, onSelect: () => set({ view: { kind: "agents" } }) },
       ]}
     />
   )

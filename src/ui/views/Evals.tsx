@@ -7,10 +7,12 @@ import {
   getSuite,
   loadEvalRuns,
   loadSuites,
+  MAX_RUNNING_EVALS,
   mineCases,
   rate,
   saveSuite,
   scoreboard,
+  SETUP_RUN_SLOTS,
   startEval,
   stopEval,
   suiteName,
@@ -23,7 +25,7 @@ import {
 import { loadSetups, useSetups } from "../../app/setups"
 import { activeProject, set, useApp } from "../../app/store"
 import { toHostError } from "../../host"
-import { duration, timeAgo } from "../../lib/format"
+import { compact, duration, timeAgo } from "../../lib/format"
 import type { EvalJob, EvalRun, EvalSuiteInfo } from "../../protocol/schemas"
 import { Button, cx, EmptyState, IconButton, Select, Spinner, useTicker } from "../common"
 import { ProjectPicker } from "./ProjectPicker"
@@ -359,7 +361,8 @@ function SuiteDetail({ projectId, name, onStarted }: { readonly projectId: strin
   const [parallel, setParallel] = useState(2)
   const [minutes, setMinutes] = useState(120)
   const [starting, setStarting] = useState(false)
-  const running = useEvals((state) => Object.values(state.runs).some((entry) => entry.projectId === projectId && entry.run.state === "running"))
+  const running = useEvals((state) => Object.values(state.runs).filter((entry) => entry.projectId === projectId && entry.run.state === "running").length)
+  const full = running >= MAX_RUNNING_EVALS
 
   useEffect(() => {
     void getSuite(projectId, name).then(setSuite, (cause: unknown) => setError(toHostError(cause).message))
@@ -435,11 +438,15 @@ function SuiteDetail({ projectId, name, onStarted }: { readonly projectId: strin
               {total === 0 ? "Pick at least one setup." : `${String(total)} run${total === 1 ? "" : "s"}, each in its own copy of the project. They run unattended: plans are not held for approval, and executors have Full access in those copies.`}
             </span>
             <span className="agents-spacer" />
-            <Button variant="primary" icon={<Play size={13} />} loading={starting} disabled={total === 0 || running} onClick={() => void start()}>
+            <Button variant="primary" icon={<Play size={13} />} loading={starting} disabled={total === 0 || full} onClick={() => void start()}>
               Start eval
             </Button>
           </div>
-          {running && <p className="form-hint">An eval is running in this project. One runs at a time.</p>}
+          {full ? (
+            <p className="form-hint">{MAX_RUNNING_EVALS} evals are running in this project, the most at once. Stop one to start another.</p>
+          ) : (
+            running > 0 && <p className="form-hint">{running === 1 ? "An eval is" : `${String(running)} evals are`} running in this project. Their cases share its {SETUP_RUN_SLOTS} setup run slots, so each may wait its turn.</p>
+          )}
         </section>
         {error !== undefined && (
           <p className="form-warning" role="alert">
@@ -512,6 +519,7 @@ function RunDetail({ runId, projectId, now }: { readonly runId: string; readonly
             <th scope="col">Passed</th>
             <th scope="col">Median time</th>
             <th scope="col">Turns</th>
+            <th scope="col">Tokens per pass</th>
           </tr>
         </thead>
         <tbody>
@@ -532,6 +540,7 @@ function RunDetail({ runId, projectId, now }: { readonly runId: string; readonly
               </td>
               <td>{row.medianMs === undefined ? "-" : duration(row.medianMs)}</td>
               <td>{row.meanTurns === undefined ? "-" : row.meanTurns.toFixed(1)}</td>
+              <td>{row.tokensPerPass === undefined ? "-" : compact(Math.round(row.tokensPerPass))}</td>
             </tr>
           ))}
         </tbody>
@@ -587,7 +596,7 @@ function JobMark({ job }: { readonly job: EvalJob }) {
       <CircleDashed size={12} />
     )
   const counts = job.check?.counts
-  const label = `Run ${String(job.repeat)}: ${JOB_TEXT[job.state]}${counts === undefined ? "" : `, ${String(counts.passed)}/${String(counts.total)} tests`}${job.durationMs === undefined ? "" : `, ${duration(job.durationMs)}`}${job.error === undefined ? "" : ` (${job.error})`}`
+  const label = `Run ${String(job.repeat)}: ${JOB_TEXT[job.state]}${counts === undefined ? "" : `, ${String(counts.passed)}/${String(counts.total)} tests`}${job.durationMs === undefined ? "" : `, ${duration(job.durationMs)}`}${job.tokens === undefined ? "" : `, ${compact(job.tokens)} tokens`}${job.error === undefined ? "" : ` (${job.error})`}`
   const setupRunId = job.setupRunId
   return (
     <button

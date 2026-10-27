@@ -2073,6 +2073,24 @@
   opacity: 0.6;
 }
 
+/* A setup takes the message: it reads like the other "on" chips. */
+.tool-chip.is-setup {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.tool-chip.is-setup .tool-chip-chevron {
+  color: currentColor;
+  opacity: 0.6;
+}
+
+.tool-chip.is-setup span {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tool-chip.is-goal {
   gap: var(--sp-4);
   padding-right: var(--sp-4);

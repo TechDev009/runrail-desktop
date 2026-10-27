@@ -45,6 +45,8 @@ interface FakeRun {
   checkout?: boolean
   /** The last turn's answer, for a workflow's decision. */
   lastText?: string
+  /** Each role thread's reported token total. */
+  threadTokens?: Partial<Record<Role, number>>
 }
 
 const PLAN_FORMAT = 'End your final message with exactly one fenced code block tagged json: {"summary": "...", "steps": [{"title": "...", "detail": "..."}]}'
@@ -146,8 +148,9 @@ export class FakeSetups {
   }
 
   private status(run: FakeRun): unknown {
-    const { next: _next, setup, given: _given, checkout: _checkout, lastText: _lastText, ...rest } = run
-    return { ...rest, setupId: setup.id, setupName: setup.name, ...(run.checkout === true ? { checkout: true } : {}), steps: run.steps.map((step) => ({ ...step })) }
+    const { next: _next, setup, given: _given, checkout: _checkout, lastText: _lastText, threadTokens, ...rest } = run
+    const tokens = threadTokens === undefined ? undefined : Object.values(threadTokens).reduce((sum, value) => sum + value, 0)
+    return { ...rest, setupId: setup.id, setupName: setup.name, ...(run.checkout === true ? { checkout: true } : {}), ...(tokens === undefined ? {} : { tokens }), steps: run.steps.map((step) => ({ ...step })) }
   }
 
   private end(run: FakeRun, state: "succeeded" | "failed" | "stopped", error?: { readonly code: string; readonly message: string }): void {
@@ -173,6 +176,7 @@ export class FakeSetups {
     run.waiting = { kind: "turn", stepId: `${step.id}-${String(run.turns)}`, role, thread: `${run.runId}:${role}`, runsOn, mode: role === "executor" ? "agent" : "plan", access: role === "executor" ? (runsOn.access ?? "ask") : "ask", title: `${run.setup.name}: ${role}`, prompt, ...(run.given === undefined ? {} : { worktree: run.given }), ...(run.checkout === true ? { checkout: true } : {}) }
     run.next = (answer) => {
       run.lastText = typeof answer.text === "string" ? answer.text : ""
+      if (typeof answer.tokens === "number") run.threadTokens = { ...run.threadTokens, [role]: answer.tokens }
       if (answer.ok !== true) return this.end(run, "failed", { code: "SETUP_TURN_FAILED", message: `the ${role}'s turn did not finish` })
       next(answer)
     }
