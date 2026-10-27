@@ -407,7 +407,7 @@ function PostDialog({ refOf, commit, findings, tool, onClose }: { readonly refOf
             Cancel
           </Button>
           <Button variant="primary" icon={<Send size={13} />} loading={busy} disabled={post === undefined} onClick={() => void confirm()}>
-            Post review
+            Continue…
           </Button>
         </>
       }
@@ -507,7 +507,7 @@ export function MergeDialog({ detail, refOf, onClose }: { readonly detail: Revie
             Cancel
           </Button>
           <Button variant="primary" icon={<GitMerge size={13} />} loading={busy} disabled={method === undefined || headCommit === undefined} onClick={() => void confirm()}>
-            {method === undefined ? "Merge" : METHOD_NAMES[method]}
+            Continue…
           </Button>
         </>
       }
@@ -554,7 +554,9 @@ export function MergeDialog({ detail, refOf, onClose }: { readonly detail: Revie
             <span>Archive its review {reviews.length === 1 ? "thread" : "threads"}</span>
           </label>
         )}
-        <p className="form-hint">Merges on GitHub only if the head is still {headCommit === undefined ? "the one read here" : <code>{headCommit.slice(0, 7)}</code>}.</p>
+        <p className="form-hint">
+          Merges on GitHub only if the head is still {headCommit === undefined ? "the one read here" : <code>{headCommit.slice(0, 7)}</code>}, once you confirm it in the dialog that follows.
+        </p>
         {error !== undefined && (
           <p className="form-warning" role="alert">
             <CircleAlert size={13} /> {error}

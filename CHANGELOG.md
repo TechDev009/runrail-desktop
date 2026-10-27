@@ -23,6 +23,9 @@ All notable changes to Runrail Desktop will be documented here.
   (Linear, Notion, Jira and Confluence, Sentry, GitHub) fill in the add-server
   form, and Integrations, Connectors points to them for anyone who would
   rather sign in than paste a key.
+- The app's own dialogs for posting a review and merging a pull request end
+  in Continue instead of Post or Merge: they choose what to send, and the
+  macOS dialog after them is the one confirmation.
 
 ## [0.1.2] - 2026-10-25
 
