@@ -1,5 +1,5 @@
-import { Check, CircleAlert, CircleCheck, CircleX, LoaderCircle, Pause, X } from "lucide-react"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type Ref, type RefObject } from "react"
+import { Check, ChevronDown, CircleAlert, CircleCheck, CircleX, LoaderCircle, Pause, X } from "lucide-react"
+import { Children, isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type Ref, type RefObject } from "react"
 import { createPortal } from "react-dom"
 import { create } from "zustand"
 import type { ThreadStatus } from "../app/persist"
@@ -524,6 +524,294 @@ export function Popover({
             style={{ top: position.top, left: position.left, width, maxHeight: Math.max(180, position.maxHeight) }}
           >
             {children(close)}
+          </div>,
+          document.body,
+        )}
+    </>
+  )
+}
+
+interface SelectChoice {
+  readonly value: string
+  readonly text: string
+  readonly disabled: boolean
+  readonly group: string | undefined
+}
+
+interface OptionProps {
+  readonly value?: string | number
+  readonly label?: string
+  readonly disabled?: boolean
+  readonly children?: ReactNode
+}
+
+function textOf(node: ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node)
+  return Array.isArray(node) ? node.map(textOf).join("") : ""
+}
+
+/** The `<option>` and `<optgroup>` children of a Select, in order. */
+function choicesOf(children: ReactNode, group?: string): SelectChoice[] {
+  return Children.toArray(children).flatMap((child) => {
+    if (!isValidElement<OptionProps>(child)) return []
+    if (child.type === "optgroup") return choicesOf(child.props.children, child.props.label)
+    if (child.type !== "option") return []
+    const text = textOf(child.props.children)
+    return [{ value: String(child.props.value ?? text), text, disabled: child.props.disabled === true, group }]
+  })
+}
+
+/** How long typed letters keep adding to one search, as in a native select. */
+const TYPEAHEAD_MS = 700
+
+/**
+ * A select drawn in the app's theme. WebKit opens a native macOS menu for a `<select>` whatever its
+ * CSS, so this is a combobox button over a listbox. It takes the same `<option>` and `<optgroup>`
+ * children and answers the same keys: arrows, Home and End, Enter or Space to pick, Escape to close,
+ * and letters to jump to an option.
+ */
+export function Select({
+  value,
+  onChange,
+  children,
+  label,
+  className,
+  plain = false,
+  disabled,
+  title,
+}: {
+  readonly value: string | number | undefined
+  readonly onChange: (value: string) => void
+  readonly children: ReactNode
+  /** Accessible name, when no visible label wraps the select. */
+  readonly label?: string
+  readonly className?: string
+  /** Without the field box and chevron, for a select its parent dresses. */
+  readonly plain?: boolean
+  readonly disabled?: boolean
+  readonly title?: string
+}) {
+  const choices = choicesOf(children)
+  const next = (from: number, delta: 1 | -1): number => {
+    for (let index = from + delta; index >= 0 && index < choices.length; index += delta) if (choices[index]?.disabled === false) return index
+    return from
+  }
+  const first = next(-1, 1)
+  const last = next(choices.length, -1)
+  const matched = choices.findIndex((choice) => choice.value === String(value ?? ""))
+  // A value no option has shows the first option, as a controlled `<select>` does.
+  const selected = matched >= 0 ? matched : first
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(-1)
+  const [position, setPosition] = useState<(Placement & { readonly minWidth: number }) | undefined>()
+  const anchor = useRef<HTMLButtonElement | null>(null)
+  const panel = useRef<HTMLDivElement | null>(null)
+  const attach = useOverlayRef(panel)
+  const typed = useRef({ text: "", at: 0 })
+  const opened = useRef<DOMRect | undefined>(undefined)
+  const id = useId()
+  const optionId = (index: number): string => `${id}-${String(index)}`
+
+  const show = (index: number): void => {
+    setActive(index)
+    setOpen(true)
+  }
+  const pick = (index: number): void => {
+    const choice = choices[index]
+    if (choice === undefined || choice.disabled) return
+    setOpen(false)
+    if (index !== matched) onChange(choice.value)
+  }
+  const typeahead = (key: string): number | undefined => {
+    const now = Date.now()
+    const text = (now - typed.current.at < TYPEAHEAD_MS ? typed.current.text : "") + key.toLowerCase()
+    typed.current = { text, at: now }
+    // One letter pressed again and again steps through the options that start with it.
+    const repeated = [...text].every((char) => char === text[0])
+    const query = repeated ? text.slice(0, 1) : text
+    const from = Math.max(0, (open ? active : selected) + (repeated ? 1 : 0))
+    for (let offset = 0; offset < choices.length; offset++) {
+      const index = (from + offset) % choices.length
+      const choice = choices[index]
+      if (choice !== undefined && !choice.disabled && choice.text.toLowerCase().startsWith(query)) return index
+    }
+    return undefined
+  }
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>): void => {
+    const { key } = event
+    const letter = key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey
+    if (letter && (key !== " " || Date.now() - typed.current.at < TYPEAHEAD_MS)) {
+      event.preventDefault()
+      const found = typeahead(key)
+      if (found !== undefined) show(found)
+      return
+    }
+    if (!open) {
+      if (key === "ArrowDown" || key === "ArrowUp" || key === "Enter" || key === " ") show(selected)
+      else if (key === "Home") show(first)
+      else if (key === "End") show(last)
+      else return
+      event.preventDefault()
+      return
+    }
+    if (key === "ArrowDown") setActive(next(active, 1))
+    else if (key === "ArrowUp") setActive(next(active, -1))
+    else if (key === "Home") setActive(first)
+    else if (key === "End") setActive(last)
+    else if (key === "Enter" || key === " ") {
+      if (choices[active]?.disabled === false) pick(active)
+      else setOpen(false)
+    } else {
+      if (key === "Tab") setOpen(false)
+      return
+    }
+    event.preventDefault()
+  }
+
+  useLayoutEffect(() => {
+    if (!open || anchor.current === null) return
+    const rect = anchor.current.getBoundingClientRect()
+    opened.current = rect
+    setPosition({ left: rect.left, minWidth: rect.width, ...place(rect, "bottom") })
+  }, [open])
+
+  // A list wider than the room right of its trigger moves left to stay on screen.
+  useLayoutEffect(() => {
+    const right = panel.current?.getBoundingClientRect().right
+    if (position === undefined || right === undefined) return
+    const left = Math.max(8, position.left - (right - (window.innerWidth - 8)))
+    if (left < position.left) setPosition({ ...position, left })
+  }, [position])
+
+  useLayoutEffect(() => {
+    const list = panel.current
+    const option = document.getElementById(optionId(active))
+    if (!open || list === null || option === null) return
+    if (option.offsetTop < list.scrollTop) list.scrollTop = option.offsetTop
+    else if (option.offsetTop + option.offsetHeight > list.scrollTop + list.clientHeight) list.scrollTop = option.offsetTop + option.offsetHeight - list.clientHeight
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, active, position])
+
+  useEffect(() => {
+    if (!open) return
+    const close = (): void => setOpen(false)
+    // A click on the label around the trigger clicks the trigger too, which closes the list itself.
+    const owner = anchor.current?.closest("label") ?? anchor.current
+    const outside = (event: MouseEvent): void => {
+      const target = event.target as Node
+      if (panel.current?.contains(target) !== true && owner?.contains(target) !== true) close()
+    }
+    // On window, before the dialog or popover around the select hears Escape on document and closes too.
+    const escape = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return
+      event.preventDefault()
+      event.stopPropagation()
+      close()
+    }
+    // Only a scroll that moves the trigger closes the list; a scroll event that lands late from before it opened does not.
+    const scroll = (): void => {
+      const now = anchor.current?.getBoundingClientRect()
+      const then = opened.current
+      if (now !== undefined && then !== undefined && (Math.abs(now.top - then.top) > 1 || Math.abs(now.left - then.left) > 1)) close()
+    }
+    document.addEventListener("mousedown", outside)
+    window.addEventListener("keydown", escape, true)
+    window.addEventListener("scroll", scroll, true)
+    window.addEventListener("resize", close)
+    return () => {
+      document.removeEventListener("mousedown", outside)
+      window.removeEventListener("keydown", escape, true)
+      window.removeEventListener("scroll", scroll, true)
+      window.removeEventListener("resize", close)
+    }
+  }, [open])
+
+  const sections: { readonly group: string | undefined; readonly items: number[] }[] = []
+  choices.forEach((choice, index) => {
+    const tail = sections[sections.length - 1]
+    if (tail !== undefined && tail.group === choice.group) tail.items.push(index)
+    else sections.push({ group: choice.group, items: [index] })
+  })
+  const option = (index: number): ReactNode => {
+    const choice = choices[index]
+    if (choice === undefined) return null
+    return (
+      <div
+        key={index}
+        id={optionId(index)}
+        role="option"
+        aria-selected={index === selected}
+        aria-disabled={choice.disabled || undefined}
+        className={cx("menu-item", "select-option", index === active && "is-focus")}
+        onMouseEnter={() => !choice.disabled && setActive(index)}
+        onClick={() => pick(index)}
+      >
+        <span className="menu-icon">{index === selected && <Check size={14} />}</span>
+        <span className="menu-label">{choice.text}</span>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <button
+        ref={anchor}
+        type="button"
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? `${id}-list` : undefined}
+        aria-activedescendant={open && active >= 0 ? optionId(active) : undefined}
+        aria-label={label}
+        title={title}
+        disabled={disabled}
+        className={cx(!plain && "select", className)}
+        onClick={() => {
+          // WebKit does not focus a clicked button, and the keys that follow must reach this one.
+          anchor.current?.focus({ preventScroll: true })
+          if (open) setOpen(false)
+          else show(selected)
+        }}
+        onKeyDown={onKeyDown}
+        // Space picks on key down; its key up must not click the trigger and open the list again.
+        onKeyUp={(event) => event.key === " " && event.preventDefault()}
+      >
+        <span className="select-value">
+          <span className="select-text">{choices[selected]?.text}</span>
+          {choices.map((choice, index) => (
+            <span key={index} className="select-sizer" aria-hidden>
+              {choice.text}
+            </span>
+          ))}
+        </span>
+        {!plain && <ChevronDown size={13} className="select-chevron" aria-hidden />}
+      </button>
+      {open &&
+        position !== undefined &&
+        createPortal(
+          <div
+            ref={attach}
+            id={`${id}-list`}
+            role="listbox"
+            aria-label={label}
+            className={cx("menu", "select-menu", position.side === "top" && "menu-top")}
+            style={{ top: position.top, left: position.left, minWidth: position.minWidth, maxHeight: Math.max(160, position.maxHeight) }}
+            // Focus stays on the trigger, which answers the keys while the list is open.
+            onMouseDown={(event) => event.preventDefault()}
+          >
+            {sections.map((section, at) =>
+              section.group === undefined ? (
+                section.items.map(option)
+              ) : (
+                <div key={`group-${String(at)}`} role="group" aria-label={section.group}>
+                  <div className="menu-heading" aria-hidden>
+                    {section.group}
+                  </div>
+                  {section.items.map(option)}
+                </div>
+              ),
+            )}
           </div>,
           document.body,
         )}

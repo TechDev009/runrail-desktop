@@ -8,7 +8,7 @@ import { appFolderName, createApp, loadStarters, type AppStarters } from "../../
 import { toast, useApp, type ProjectWhere } from "../../app/store"
 import { getHost, toHostError } from "../../host"
 import { compactPath } from "../../lib/format"
-import { Button, IconButton, Modal, Segmented, Spinner } from "../common"
+import { Button, IconButton, Modal, Segmented, Select, Spinner } from "../common"
 import { MachineForm } from "../shell/RemoteMachines"
 import { foldersOverlap } from "../shell/ProjectFolders"
 
@@ -406,14 +406,14 @@ function RemoteSource({ onFound }: { readonly onFound: (folder: ProjectSource) =
   return (
     <div className="create-project-remote">
       <div className="create-project-remote-row">
-        <select className="input input-sm" aria-label="Remote machine" value={machine?.id ?? ""} onChange={(event) => (event.target.value === "add" ? setAdding(true) : setMachineId(event.target.value))}>
+        <Select className="select-sm" label="Remote machine" value={machine?.id ?? ""} onChange={(next) => (next === "add" ? setAdding(true) : setMachineId(next))}>
           {machines.map((item) => (
             <option key={item.id} value={item.id}>
               {item.host}
             </option>
           ))}
           <option value="add">Add a machine…</option>
-        </select>
+        </Select>
         <input
           className="input input-sm"
           aria-label="Folder on that machine"

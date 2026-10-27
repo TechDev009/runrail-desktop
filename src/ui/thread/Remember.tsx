@@ -3,7 +3,7 @@ import { useState } from "react"
 import { dismissSuggestions, keepSuggestion, setSuggestion, suggestMemories, useMemory, type ScopeName } from "../../app/memory"
 import { set } from "../../app/store"
 import { toHostError } from "../../host"
-import { Button, cx, IconButton, Spinner } from "../common"
+import { Button, cx, IconButton, Select, Spinner } from "../common"
 
 /**
  * "Remember this?" at the end of a thread at rest: asked first, then one call to the default model, then each
@@ -45,10 +45,10 @@ export function RememberCard({ threadId }: { readonly threadId: string }) {
               <span className="remember-text">{item.text}</span>
               {item.state === "new" ? (
                 <span className="remember-actions">
-                  <select className="select remember-scope" aria-label="Keep for" value={item.scope} onChange={(event) => setSuggestion(threadId, index, { scope: event.target.value as ScopeName })}>
+                  <Select className="remember-scope" label="Keep for" value={item.scope} onChange={(next) => setSuggestion(threadId, index, { scope: next as ScopeName })}>
                     <option value="project">This project</option>
                     <option value="person">All my projects</option>
-                  </select>
+                  </Select>
                   <Button size="sm" variant="secondary" icon={<Check size={12} />} onClick={() => void keepSuggestion(threadId, index).catch((cause: unknown) => setError(toHostError(cause).message))}>
                     Keep
                   </Button>

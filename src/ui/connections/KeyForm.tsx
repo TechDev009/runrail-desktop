@@ -14,7 +14,7 @@ import {
 import { useApp } from "../../app/store"
 import { toHostError } from "../../host"
 import type { ConnectionPreset, CustomPreset } from "../../protocol/schemas"
-import { Button } from "../common"
+import { Button, Select } from "../common"
 import { BackButton, Notice } from "./parts"
 import { addressProblemText, checkText, formatName, isRefusal, keyProblemText, presetHost, saveProblemText, storeText } from "./text"
 
@@ -213,13 +213,13 @@ export function KeyForm({ target, onDone, onBack, onModels }: { readonly target:
           </label>
           <label className="field">
             <span className="field-label">Format</span>
-            <select className="select" value={format} disabled={locked} onChange={(event) => setFormat(event.target.value)}>
+            <Select value={format} disabled={locked} onChange={setFormat}>
               {target.formats.map((item) => (
                 <option key={item.id} value={item.id}>
                   {formatName(item.id, item.name)}
                 </option>
               ))}
-            </select>
+            </Select>
             <span className="field-hint">Most local servers and proxies speak OpenAI Chat Completions.</span>
           </label>
         </>

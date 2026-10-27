@@ -76,14 +76,13 @@
 }
 
 .agents-project-select {
+  display: flex;
+  align-items: center;
+  min-width: 0;
   height: 100%;
   padding: 0 var(--sp-16) 0 0;
-  border: 0;
-  background: none;
-  appearance: none;
   cursor: pointer;
   outline: none;
-  text-overflow: ellipsis;
 }
 
 .agents-project-name {
@@ -392,24 +391,21 @@
   border-color: var(--border-strong);
 }
 
-.agents-launch-picker select {
+.agents-launch-select {
+  display: flex;
   flex: 1;
+  align-items: center;
   min-width: 0;
   height: 100%;
   padding: 0 var(--sp-16) 0 0;
-  border: 0;
-  background: none;
   color: var(--text);
-  font: inherit;
   font-size: var(--fs-ui);
   font-weight: 500;
-  appearance: none;
   outline: none;
-  text-overflow: ellipsis;
   cursor: pointer;
 }
 
-.agents-launch-picker.is-fixed select {
+.agents-launch-picker.is-fixed .agents-launch-select {
   cursor: default;
   opacity: 1;
 }

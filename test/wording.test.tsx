@@ -228,7 +228,18 @@ describe("the model menu, as drawn", () => {
 })
 
 describe("the runs-on select, as drawn", () => {
-  const draw = (value: PickerValue, from: MenuCatalog = FULL): string => renderToStaticMarkup(<RunsOnSelect catalog={from} value={value} label="Runs on" unbound={{ label: "First connected model", disabled: true }} onChange={() => undefined} />)
+  const props = (value: PickerValue, from: MenuCatalog): Parameters<typeof RunsOnSelect>[0] => ({ catalog: from, value, label: "Runs on", unbound: { label: "First connected model", disabled: true }, onChange: () => undefined })
+  // The list only opens on screen, so its options and group names are drawn here as a native select would hold them, the chosen one marked.
+  const draw = (value: PickerValue, from: MenuCatalog = FULL): string => {
+    const select = RunsOnSelect(props(value, from))
+    return renderToStaticMarkup(
+      <select value={select.props.value} onChange={() => undefined}>
+        {select.props.children}
+      </select>,
+    )
+  }
+  /** What the closed select shows. */
+  const shown = (value: PickerValue, from: MenuCatalog = FULL): string | undefined => /class="select-text">([^<]*)</.exec(renderToStaticMarkup(<RunsOnSelect {...props(value, from)} />))?.[1]
 
   test("groups models by connection, then the coding tools", () => {
     const markup = draw({ backend: "native", model: "claude-opus-5-5", connectionId: "anthropic" })
@@ -236,11 +247,13 @@ describe("the runs-on select, as drawn", () => {
     for (const expected of ["First connected model", "Anthropic", "Claude Opus 5.5", "OpenAI", "GPT-5.5 mini", "Coding tools", "Claude Code", "Opus via Claude Code", "Codex", "Pi (not installed)"]) expect(text).toContain(expected)
     expect(text).not.toMatch(WORD)
     expect(markup).toContain('value="native|anthropic|claude-opus-5-5" selected=""')
+    expect(shown({ backend: "native", model: "claude-opus-5-5", connectionId: "anthropic" })).toBe("Claude Opus 5.5")
   })
 
   test("a coding tool's model is the selected option, and a tool that cannot run says why", () => {
     const markup = draw({ backend: "claude-code", model: "opus" }, ASKED)
     expect(markup).toContain('value="claude-code|opus" selected=""')
+    expect(shown({ backend: "claude-code", model: "opus" }, ASKED)).toBe("Opus via Claude Code")
     const text = readable(markup)
     for (const expected of ["Opus via Claude Code", "Codex (not signed in)", "Codex Large via Codex (not signed in)", "Pi (not installed)"]) expect(text).toContain(expected)
     expect(text).not.toMatch(WORD)
@@ -251,6 +264,7 @@ describe("the runs-on select, as drawn", () => {
     const markup = draw({ backend: "native", model: "gpt-5.5", connectionId: "gone" })
     expect(readable(markup)).toContain("Removed connection")
     expect(markup).toContain('value="native|gone|gpt-5.5" selected=""')
+    expect(shown({ backend: "native", model: "gpt-5.5", connectionId: "gone" })).toBe("GPT-5.5")
     // While the connections are still being read, nothing is called removed.
     expect(readable(draw({ backend: "native", model: "gpt-5.5", connectionId: "gone" }, catalog({ loading: true })))).not.toContain("Removed connection")
   })

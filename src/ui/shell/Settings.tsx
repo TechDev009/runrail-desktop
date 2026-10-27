@@ -21,7 +21,7 @@ import { checkForUpdates, installUpdate, useUpdates } from "../../app/updates"
 import { BACKENDS, getHost, toHostError, type BackendId, type EditorId, type EngineInfo, type FoundInstructions, type LoginItemStatus, type ModelProgress, type ProjectInstructions, type Thinking, type VoiceDevice, type VoiceModel, type WakeServiceStatus } from "../../host"
 import { compactPath, plural, relativeTime } from "../../lib/format"
 import type { CapabilityState, Contract } from "../../protocol/schemas"
-import { Button, cx, CopyButton, IconButton, Kbd, Menu, Segmented, Spinner, Toggle } from "../common"
+import { Button, cx, CopyButton, IconButton, Kbd, Menu, Segmented, Select, Spinner, Toggle } from "../common"
 import { playTone, type Tone } from "../../lib/tones"
 import { readNotifyStatus, requestNotifications, useNotifyStatus } from "../../app/notifications"
 import { resetLessons } from "../../app/learning"
@@ -366,7 +366,7 @@ function General() {
         />
       </Row>
       <Row id="editor" label="Open files in">
-        <select className="select" value={editors.editor} onChange={(event) => setPrefs({ editor: event.target.value as EditorId })} aria-label="Editor">
+        <Select value={editors.editor} onChange={(next) => setPrefs({ editor: next as EditorId })} label="Editor">
           {(Object.keys(EDITOR_LABELS) as EditorId[])
             .filter((id) => editors.list.includes(id))
             .map((id) => (
@@ -374,7 +374,7 @@ function General() {
                 {EDITOR_LABELS[id]}
               </option>
             ))}
-        </select>
+        </Select>
       </Row>
       <Row id="motion" label="Reduce motion" hint="Follows the system's Reduce motion setting, or always keeps animations to a minimum.">
         <Segmented
@@ -437,13 +437,13 @@ function General() {
         </Row>
       )}
       <Row id="quiet-minutes" label="Flag quiet threads after" hint="A running thread that sends nothing for this long shows in Waiting on you, with what it was running. Long builds and test runs can be quiet too, so nothing is stopped.">
-        <select className="select" value={prefs.quietMinutes} onChange={(event) => setPrefs({ quietMinutes: Number(event.target.value) as QuietMinutes })} aria-label="Flag quiet threads after">
+        <Select value={prefs.quietMinutes} onChange={(next) => setPrefs({ quietMinutes: Number(next) as QuietMinutes })} label="Flag quiet threads after">
           {QUIET_MINUTES.map((value) => (
             <option key={value} value={value}>
               {value === 0 ? "Never" : `${String(value)} minutes`}
             </option>
           ))}
-        </select>
+        </Select>
       </Row>
       {desktopRows && (
         <>
@@ -684,13 +684,13 @@ function AgentSection() {
         <Toggle label="Continue after a usage limit" checked={prefs.continueAfterLimit} onChange={(continueAfterLimit) => setPrefs({ continueAfterLimit })} />
       </Row>
       <Row id="paste-threshold" label="Fold long pastes" hint="A longer paste shows as one line in the composer and is still sent in full.">
-        <select className="select" value={prefs.pasteThreshold} onChange={(event) => setPrefs({ pasteThreshold: Number(event.target.value) as PasteThreshold })} aria-label="Fold long pastes">
+        <Select value={prefs.pasteThreshold} onChange={(next) => setPrefs({ pasteThreshold: Number(next) as PasteThreshold })} label="Fold long pastes">
           {PASTE_THRESHOLDS.map((value) => (
             <option key={value} value={value}>
               {value === 0 ? "Never" : `Over ${value.toLocaleString("en-US")} characters`}
             </option>
           ))}
-        </select>
+        </Select>
       </Row>
       <h3>In the thread</h3>
       <Row id="show-reasoning" label="Reasoning" hint="The model's thinking, as a line you can open, open as it streams, or left out of the timeline.">
@@ -838,7 +838,7 @@ function MicrophoneRow({ value, onChange }: { readonly value: string | undefined
   const missing = value !== undefined && devices !== undefined && !devices.some((device) => device.id === value)
   return (
     <Row id="voice-microphone" label="Microphone" hint={error ?? (missing ? "That microphone is not connected; dictation uses the system's input until it is." : `Dictation listens on this input. The system's input is the one chosen in ${words.settingsApp} > Sound.`)}>
-      <select className="select" value={value ?? ""} onChange={(event) => onChange(event.target.value.length === 0 ? undefined : event.target.value)} aria-label="Microphone" disabled={devices === undefined}>
+      <Select value={value ?? ""} onChange={(next) => onChange(next.length === 0 ? undefined : next)} label="Microphone" disabled={devices === undefined}>
         <option value="">System input{fallback === undefined ? "" : ` (${fallback.name})`}</option>
         {missing && <option value={value}>Not connected</option>}
         {devices?.map((device) => (
@@ -846,7 +846,7 @@ function MicrophoneRow({ value, onChange }: { readonly value: string | undefined
             {device.name}
           </option>
         ))}
-      </select>
+      </Select>
     </Row>
   )
 }
@@ -1029,14 +1029,14 @@ function VoiceSection() {
       )}
       {native && engine === "whisper" && <WhisperModels selected={voice.model} onSelect={(model) => setVoice({ model })} />}
       <Row id="voice-language" label="Language" hint="The language you speak, for dictation and for reading answers aloud.">
-        <select className="select" value={voice.language ?? ""} onChange={(event) => setVoice(event.target.value.length === 0 ? { language: undefined } : { language: event.target.value })} aria-label="Language">
+        <Select value={voice.language ?? ""} onChange={(next) => setVoice(next.length === 0 ? { language: undefined } : { language: next })} label="Language">
           <option value="">Same as the system ({languageName(navigator.language)})</option>
           {DICTATION_LANGUAGES.map((tag) => (
             <option key={tag} value={tag}>
               {languageName(tag)}
             </option>
           ))}
-        </select>
+        </Select>
       </Row>
       <Row id="voice-auto-send" label="Send when you stop talking" hint="Otherwise the words wait in the composer for you to read, change, and send.">
         <Toggle label="Send when you stop talking" checked={voice.autoSend} onChange={(autoSend) => setVoice({ autoSend })} />
@@ -1057,7 +1057,7 @@ function VoiceSection() {
         <Toggle label="Read answers aloud" checked={voice.readAloud && canRead} disabled={!canRead} onChange={(readAloud) => setVoice({ readAloud })} />
       </Row>
       <Row id="voice-voice" label="Reading voice" hint={`Voices on this ${words.computer} for ${languageName(language)}.${words.moreVoices === undefined ? "" : ` ${words.moreVoices}`}`}>
-        <select className="select" value={voice.voiceId ?? ""} onChange={(event) => setVoice(event.target.value.length === 0 ? { voiceId: undefined } : { voiceId: event.target.value })} aria-label="Reading voice" disabled={!canRead}>
+        <Select value={voice.voiceId ?? ""} onChange={(next) => setVoice(next.length === 0 ? { voiceId: undefined } : { voiceId: next })} label="Reading voice" disabled={!canRead}>
           <option value="">System default</option>
           {voice.voiceId !== undefined && !matching.some((item) => item.id === voice.voiceId) && <option value={voice.voiceId}>{voices.find((item) => item.id === voice.voiceId)?.name ?? "A voice for another language"}</option>}
           {matching.map((item) => (
@@ -1065,19 +1065,19 @@ function VoiceSection() {
               {item.name} ({item.lang})
             </option>
           ))}
-        </select>
+        </Select>
       </Row>
       <Row id="voice-rate" label="Reading speed">
         <Button size="sm" variant="ghost" disabled={!canRead} onClick={() => speak("This is how answers will sound when they are read aloud.", "voice-sample")}>
           {speaking ? "Playing…" : "Play a sample"}
         </Button>
-        <select className="select" value={voice.rate} onChange={(event) => setVoice({ rate: Number(event.target.value) })} aria-label="Reading speed" disabled={!canRead}>
+        <Select value={voice.rate} onChange={(next) => setVoice({ rate: Number(next) })} label="Reading speed" disabled={!canRead}>
           {VOICE_RATES.map((rate) => (
             <option key={rate} value={rate}>
               {rate === 1 ? "Normal" : `${String(rate)}×`}
             </option>
           ))}
-        </select>
+        </Select>
       </Row>
       <h3>Talk mode</h3>
       <Row
@@ -1116,7 +1116,7 @@ function TerminalShellRow() {
   }
   return (
     <Row id="terminal-shell" label="Terminal shell" hint={`The shell a thread's terminal opens. Only the login shells this ${words.computer} lists in /etc/shells.`}>
-      <select className="select" value={shell ?? ""} onChange={(event) => choose(event.target.value)} aria-label="Terminal shell">
+      <Select value={shell ?? ""} onChange={choose} label="Terminal shell">
         <option value="">Your login shell</option>
         {shells.map((path) => (
           <option key={path} value={path}>
@@ -1124,7 +1124,7 @@ function TerminalShellRow() {
           </option>
         ))}
         {shell !== undefined && !shells.includes(shell) && <option value={shell}>{shell}</option>}
-      </select>
+      </Select>
     </Row>
   )
 }
@@ -1827,13 +1827,13 @@ function Developer() {
       </ul>
       {prefs.developer && (
         <Row label="New threads start on" hint="Replay plays a recorded session back. Runrail with no model picked uses the test model. Both cost nothing.">
-          <select className="select" value={prefs.defaultBackend} onChange={(event) => setPrefs({ defaultBackend: event.target.value as BackendId })} aria-label="New threads start on">
+          <Select value={prefs.defaultBackend} onChange={(next) => setPrefs({ defaultBackend: next as BackendId })} label="New threads start on">
             {BACKENDS.map((id) => (
               <option key={id} value={id}>
                 {BACKEND_LABELS[id]}
               </option>
             ))}
-          </select>
+          </Select>
         </Row>
       )}
 

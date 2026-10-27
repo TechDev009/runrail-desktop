@@ -25,7 +25,7 @@ import { activeProject, set, useApp } from "../../app/store"
 import { toHostError } from "../../host"
 import { duration, timeAgo } from "../../lib/format"
 import type { EvalJob, EvalRun, EvalSuiteInfo } from "../../protocol/schemas"
-import { Button, cx, EmptyState, IconButton, Spinner, useTicker } from "../common"
+import { Button, cx, EmptyState, IconButton, Select, Spinner, useTicker } from "../common"
 import { ProjectPicker } from "./ProjectPicker"
 
 /**
@@ -259,13 +259,13 @@ function FindCases({ projectId, existing, onSaved }: { readonly projectId: strin
         <div className="agents-row">
           <label className="field evals-limit">
             <span className="field-label">Look for</span>
-            <select className="select" value={limit} onChange={(event) => setLimit(Number(event.target.value))}>
+            <Select value={limit} onChange={(next) => setLimit(Number(next))}>
               {[5, 10, 20, 50].map((count) => (
                 <option key={count} value={count}>
                   {count} cases
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <span className="agents-spacer" />
           <Button variant={rows === undefined ? "primary" : "secondary"} icon={<Search size={13} />} loading={finding} onClick={() => void find()}>
@@ -407,23 +407,23 @@ function SuiteDetail({ projectId, name, onStarted }: { readonly projectId: strin
           <div className="field-row">
             <label className="field">
               <span className="field-label">Runs of each</span>
-              <select className="select" value={repeats} onChange={(event) => setRepeats(Number(event.target.value))}>
+              <Select value={repeats} onChange={(next) => setRepeats(Number(next))}>
                 {[1, 2, 3, 4, 5].map((count) => (
                   <option key={count} value={count}>
                     {count}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="field">
               <span className="field-label">At once</span>
-              <select className="select" value={parallel} onChange={(event) => setParallel(Number(event.target.value))}>
+              <Select value={parallel} onChange={(next) => setParallel(Number(next))}>
                 {[1, 2, 3, 4].map((count) => (
                   <option key={count} value={count}>
                     {count}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label className="field">
               <span className="field-label">Most minutes</span>

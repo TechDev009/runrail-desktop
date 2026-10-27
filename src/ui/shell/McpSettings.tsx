@@ -9,7 +9,7 @@ import { nifraOn } from "../../app/nifra"
 import { set as setApp, toast, useApp } from "../../app/store"
 import { toHostError, type McpServer } from "../../host"
 import { basename, plural } from "../../lib/format"
-import { Button, cx, Menu, Segmented, Spinner, Toggle } from "../common"
+import { Button, cx, Menu, Segmented, Select, Spinner, Toggle } from "../common"
 import { signInProblem } from "../connections/text"
 import { revealSetting } from "./revealSetting"
 
@@ -153,11 +153,11 @@ function Form({ initial, previous, enabled, project, onDone, onCancel }: { reado
       {(project !== undefined || draft.scope !== "all") && (
         <label className="entry-field">
           <span className="entry-field-label">Use in</span>
-          <select className="select" value={draft.scope} onChange={(event) => setDraft({ ...draft, scope: event.target.value })} aria-label="Use in">
+          <Select value={draft.scope} onChange={(next) => setDraft({ ...draft, scope: next })} label="Use in">
             <option value="all">Every project</option>
             {project !== undefined && <option value={project.path}>{project.name} only</option>}
             {draft.scope !== "all" && draft.scope !== project?.path && <option value={draft.scope}>{basename(draft.scope)} only</option>}
-          </select>
+          </Select>
         </label>
       )}
       {error !== undefined && (

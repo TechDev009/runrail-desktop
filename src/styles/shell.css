@@ -2789,7 +2789,7 @@
   min-width: 0;
 }
 
-.create-project-remote-row select {
+.create-project-remote-row .select {
   flex: 0 1 40%;
   min-width: 0;
 }

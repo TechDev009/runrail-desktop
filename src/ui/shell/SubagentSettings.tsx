@@ -5,7 +5,7 @@ import { useImportRevision } from "../../app/otherTools"
 import { toast } from "../../app/store"
 import { getHost, toHostError, type AgentDefinition } from "../../host"
 import { plural } from "../../lib/format"
-import { Button, cx, Menu, Spinner } from "../common"
+import { Button, cx, Menu, Select, Spinner } from "../common"
 
 /**
  * Settings → Subagents: the project's `.claude/agents` files, which Claude Code reads. The host
@@ -86,14 +86,14 @@ function AgentForm({ workspace, initial, previous, onDone, onCancel }: { readonl
       </label>
       <label className="entry-field">
         <span className="entry-field-label">Model</span>
-        <select className="select" value={draft.model} onChange={(event) => setDraft({ ...draft, model: event.target.value })} aria-label="Model">
+        <Select value={draft.model} onChange={(next) => setDraft({ ...draft, model: next })} label="Model">
           {MODELS.map((model) => (
             <option key={model} value={model}>
               {MODEL_LABELS[model]}
             </option>
           ))}
           {!(MODELS as readonly string[]).includes(draft.model) && <option value={draft.model}>{draft.model}</option>}
-        </select>
+        </Select>
       </label>
       <label className="entry-field">
         <span className="entry-field-label">Instructions</span>

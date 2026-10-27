@@ -1,0 +1,80 @@
+/*
+ * Checkboxes and radios in the app's theme, drawn over the real input so keys, labels and screen
+ * readers work as they do natively. Shared by the main window and the quick-chat window.
+ */
+
+input:is([type="checkbox"], [type="radio"]):not(.sr-only) {
+  appearance: none;
+  -webkit-appearance: none;
+  position: relative;
+  flex: none;
+  box-sizing: border-box;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  background: transparent;
+  vertical-align: middle;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast) var(--ease),
+    border-color var(--t-fast) var(--ease);
+}
+
+input[type="radio"]:not(.sr-only) {
+  border-radius: 50%;
+}
+
+input:is([type="checkbox"], [type="radio"]):hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+/* A radio is :indeterminate while its group has no choice, so only a checkbox shows that state. */
+input:is([type="checkbox"], [type="radio"]):checked,
+input[type="checkbox"]:indeterminate {
+  border-color: var(--accent);
+  background-color: var(--accent);
+}
+
+input:is([type="checkbox"], [type="radio"])::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-color: var(--text-on-accent);
+  transform: scale(0);
+  transition: transform var(--t-fast) var(--ease);
+}
+
+input[type="checkbox"]::before {
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 85% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / 85% no-repeat;
+}
+
+input[type="checkbox"]:indeterminate::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.5' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");
+}
+
+input[type="radio"]::before {
+  inset: 3.5px;
+  border-radius: 50%;
+}
+
+input:is([type="checkbox"], [type="radio"]):checked::before,
+input[type="checkbox"]:indeterminate::before {
+  transform: scale(1);
+}
+
+input:is([type="checkbox"], [type="radio"]):disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* The global ring rounds to --radius-sm; keep each control's own shape. */
+input[type="checkbox"]:focus-visible {
+  border-radius: var(--radius-xs);
+}
+
+input[type="radio"]:focus-visible {
+  border-radius: 50%;
+}

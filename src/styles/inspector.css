@@ -265,11 +265,10 @@
   color: var(--text-2);
 }
 
-.viewed-toggle input {
+.viewed-toggle input[type="checkbox"] {
   margin: 0;
-  width: 12px;
-  height: 12px;
-  accent-color: var(--accent);
+  width: 13px;
+  height: 13px;
 }
 
 .stage-box {

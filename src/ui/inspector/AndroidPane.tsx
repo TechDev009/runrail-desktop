@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { bootEmulator, loadAndroid, selectEmulator, shownEmulator, shutdownEmulator, useAndroid } from "../../app/android"
 import { toast, useApp } from "../../app/store"
 import { getHost, toHostError, type AndroidApp } from "../../host"
-import { Button, cx, EmptyState, IconButton, Menu, Spinner } from "../common"
+import { Button, cx, EmptyState, IconButton, Menu, Select, Spinner } from "../common"
 import { DeviceScreen } from "./DeviceScreen"
 
 /**
@@ -50,14 +50,14 @@ export function AndroidPane() {
     <div className="simulator">
       <div className="pane-toolbar">
         <Smartphone size={13} aria-hidden="true" className="muted" />
-        <select className="select select-sm simulator-device" aria-label="Emulator" value={device.avd} onChange={(event) => selectEmulator(event.target.value)}>
+        <Select className="select-sm simulator-device" label="Emulator" value={device.avd} onChange={selectEmulator}>
           {(devices ?? []).map((entry) => (
             <option key={entry.avd} value={entry.avd}>
               {entry.name}
               {entry.booted ? " · running" : ""}
             </option>
           ))}
-        </select>
+        </Select>
         <div className="pane-toolbar-spacer" />
         {serial !== undefined && <AppMenu serial={serial} />}
         {serial !== undefined && (

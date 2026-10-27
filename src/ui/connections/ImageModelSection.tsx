@@ -4,6 +4,7 @@ import type { Connection } from "../../app/connections"
 import { setImageModel, type ImageChoice } from "../../app/connectionSettings"
 import { toast } from "../../app/store"
 import { toHostError } from "../../host"
+import { Select } from "../common"
 import { saveProblemText } from "./text"
 
 /**
@@ -44,7 +45,7 @@ export function ImageModelSection({ connections, models, choice, onChanged }: { 
         <div className="setting-hint">{hint}</div>
       </div>
       <div className="setting-control">
-        <select className="select" aria-label="Image model" value={value} disabled={busy || (groups.length === 0 && choice === undefined)} onChange={(event) => pick(event.target.value)}>
+        <Select label="Image model" value={value} disabled={busy || (groups.length === 0 && choice === undefined)} onChange={pick}>
           <option value="">None</option>
           {!listed && choice !== undefined && <option value={value}>{`${choice.model} · ${owner?.label ?? choice.connectionId}`}</option>}
           {groups.map((group) => (
@@ -56,7 +57,7 @@ export function ImageModelSection({ connections, models, choice, onChanged }: { 
               ))}
             </optgroup>
           ))}
-        </select>
+        </Select>
       </div>
     </div>
   )

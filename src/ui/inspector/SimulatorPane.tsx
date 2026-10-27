@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { bootDevice, loadSimulator, selectDevice, shownDevice, shutdownDevice, useSimulator } from "../../app/simulator"
 import { toast } from "../../app/store"
 import { getHost, toHostError, type SimulatorApp, type SimulatorDevice } from "../../host"
-import { Button, cx, EmptyState, IconButton, Menu, Spinner } from "../common"
+import { Button, cx, EmptyState, IconButton, Menu, Select, Spinner } from "../common"
 import { DeviceScreen } from "./DeviceScreen"
 
 /**
@@ -48,14 +48,14 @@ export function SimulatorPane() {
     <div className="simulator">
       <div className="pane-toolbar">
         <Smartphone size={13} aria-hidden="true" className="muted" />
-        <select className="select select-sm simulator-device" aria-label="Simulator" value={device.udid} onChange={(event) => selectDevice(event.target.value)}>
+        <Select className="select-sm simulator-device" label="Simulator" value={device.udid} onChange={selectDevice}>
           {(devices ?? []).map((entry) => (
             <option key={entry.udid} value={entry.udid}>
               {entry.name} · {entry.runtime}
               {entry.booted ? " · running" : ""}
             </option>
           ))}
-        </select>
+        </Select>
         <div className="pane-toolbar-spacer" />
         {device.booted && <AppMenu device={device} />}
         <IconButton label="Show in the Simulator app" size="sm" onClick={() => void getHost().simulatorOpen(device.udid).catch((failure: unknown) => toast("error", toHostError(failure).message))}>

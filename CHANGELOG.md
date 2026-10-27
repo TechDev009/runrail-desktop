@@ -26,6 +26,11 @@ All notable changes to Runrail Desktop will be documented here.
 - The app's own dialogs for posting a review and merging a pull request end
   in Continue instead of Post or Merge: they choose what to send, and the
   macOS dialog after them is the one confirmation.
+- Checkboxes, radio buttons and dropdowns follow the app's theme instead of
+  drawing as native macOS controls: your accent and flower palette, in light
+  and dark. A dropdown opens the app's own list, grouped like before, and
+  answers the same keys: arrows, Home and End, Enter or Space, Escape, and
+  typing a few letters to jump to an option.
 
 ### Fixes
 

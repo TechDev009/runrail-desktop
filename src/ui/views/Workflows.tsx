@@ -51,7 +51,7 @@ import {
 import { toHostError } from "../../host"
 import { duration, timeAgo } from "../../lib/format"
 import type { SetupInfo, SetupRole, WorkflowInfo, WorkflowRun, WorkflowRunRecord, WorkflowSchedule, WorkflowStep, WorkflowTrigger } from "../../protocol/schemas"
-import { Button, CopyButton, cx, EmptyState, IconButton, Menu, Segmented, Spinner, Tabs, Toggle, useTicker } from "../common"
+import { Button, CopyButton, cx, EmptyState, IconButton, Menu, Segmented, Select, Spinner, Tabs, Toggle, useTicker } from "../common"
 import { RunsOnSelect } from "../RunsOnSelect"
 import { ProjectPicker } from "./ProjectPicker"
 
@@ -700,18 +700,17 @@ function TriggerFields({ draft, projectId, onChange }: { readonly draft: Workflo
       <span className="workflows-kind">Trigger</span>
       <div className="field">
         <span className="field-label">Runs</span>
-        <select
-          className="select"
-          aria-label="Trigger"
+        <Select
+          label="Trigger"
           value={trigger.kind}
-          onChange={(event) => setTrigger(event.target.value === "schedule" ? { kind: "schedule", schedule } : { kind: event.target.value as "manual" | "pr-review-requested" | "pr-opened" | "webhook" })}
+          onChange={(next) => setTrigger(next === "schedule" ? { kind: "schedule", schedule } : { kind: next as "manual" | "pr-review-requested" | "pr-opened" | "webhook" })}
         >
           <option value="manual">When I start it</option>
           <option value="schedule">On a schedule</option>
           <option value="pr-review-requested">When a pull request asks for my review</option>
           <option value="pr-opened">When a pull request is opened</option>
           <option value="webhook">When its link is called</option>
-        </select>
+        </Select>
       </div>
       {trigger.kind === "schedule" && (
         <div className="field">
@@ -730,23 +729,23 @@ function TriggerFields({ draft, projectId, onChange }: { readonly draft: Workflo
               ]}
             />
             {schedule.kind === "interval" ? (
-              <select className="select" aria-label="Interval" value={schedule.minutes} onChange={(event) => setSchedule({ kind: "interval", minutes: Number(event.target.value) })}>
+              <Select label="Interval" value={schedule.minutes} onChange={(next) => setSchedule({ kind: "interval", minutes: Number(next) })}>
                 {INTERVALS.map((minutes) => (
                   <option key={minutes} value={minutes}>
                     {describeSchedule({ kind: "interval", minutes }).replace(/^Every /, "")}
                   </option>
                 ))}
-              </select>
+              </Select>
             ) : (
               <>
                 {schedule.kind === "weekly" && (
-                  <select className="select" aria-label="Day" value={schedule.day} onChange={(event) => setSchedule({ ...schedule, day: Number(event.target.value) })}>
+                  <Select label="Day" value={schedule.day} onChange={(next) => setSchedule({ ...schedule, day: Number(next) })}>
                     {DAYS.map((day, at) => (
                       <option key={day} value={at}>
                         {day}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 )}
                 <input
                   className="input time"
@@ -883,13 +882,13 @@ function StepFields({
                 unbound={{ label: developer ? "Test model" : "Pick a model", disabled: !developer }}
                 onChange={(next) => onChange({ ...step, runsOn: { ...toRole(next), ...(step.runsOn.access === undefined ? {} : { access: step.runsOn.access }) } })}
               />
-              <select className="select" aria-label="Access" value={step.runsOn.access ?? "ask"} onChange={(event) => onChange({ ...step, runsOn: { ...step.runsOn, access: event.target.value as PermissionPreset } })}>
+              <Select label="Access" value={step.runsOn.access ?? "ask"} onChange={(next) => onChange({ ...step, runsOn: { ...step.runsOn, access: next as PermissionPreset } })}>
                 {ACCESS_LEVELS.map((level) => (
                   <option key={level} value={level}>
                     {PERMISSION_LABELS[level]}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           </div>
           {step.runsOn.access === "ask" && <p className="form-hint">Ask stops at each change for you in the step's thread.</p>}
@@ -900,14 +899,14 @@ function StepFields({
         <>
           <label className="field">
             <span className="field-label">Setup</span>
-            <select className="select" value={step.setupId} onChange={(event) => onChange({ ...step, setupId: event.target.value })}>
+            <Select value={step.setupId} onChange={(next) => onChange({ ...step, setupId: next })}>
               {step.setupId === "" && <option value="">Pick a setup</option>}
               {setups.map((setup) => (
                 <option key={setup.id} value={setup.id}>
                   {setup.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           {setups.length === 0 && <p className="form-hint">Make a setup on Agents first.</p>}
           <label className="field">
@@ -943,12 +942,11 @@ function StepFields({
           <div className="field-row">
             <label className="field grow">
               <span className="field-label">If it fails</span>
-              <select
-                className="select"
+              <Select
                 value={step.retry?.step ?? ""}
-                onChange={(event) => {
+                onChange={(next) => {
                   const { retry: _retry, ...rest } = step
-                  onChange(event.target.value === "" ? rest : { ...rest, retry: { step: event.target.value, times: step.retry?.times ?? 2 } })
+                  onChange(next === "" ? rest : { ...rest, retry: { step: next, times: step.retry?.times ?? 2 } })
                 }}
               >
                 <option value="">Stop and tell me</option>
@@ -957,7 +955,7 @@ function StepFields({
                     Send the log to "{item.title}"
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             {step.retry !== undefined && (
               <label className="field">

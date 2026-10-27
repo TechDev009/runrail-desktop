@@ -8,7 +8,7 @@ import { activeProject, setPrefs, toast, useApp } from "../../app/store"
 import { toHostError } from "../../host"
 import { timeAgo } from "../../lib/format"
 import type { MemoryInfo, MemorySettings, MemorySourceInfo } from "../../protocol/schemas"
-import { Button, cx, EmptyState, IconButton, Spinner, Toggle, useTicker } from "../common"
+import { Button, cx, EmptyState, IconButton, Select, Spinner, Toggle, useTicker } from "../common"
 import { ProjectPicker } from "./ProjectPicker"
 
 /**
@@ -363,18 +363,18 @@ function AddSource({ projectId, onAdded }: { readonly projectId: string; readonl
         <div className="field-row">
           <label className="field">
             <span className="field-label">Kind</span>
-            <select className="select" value={kind} onChange={(event) => setKind(event.target.value as MemorySourceInfo["kind"])}>
+            <Select value={kind} onChange={(next) => setKind(next as MemorySourceInfo["kind"])}>
               <option value="folder">A folder of notes</option>
               <option value="github">GitHub issues</option>
               <option value="feed">A feed</option>
-            </select>
+            </Select>
           </label>
           <label className="field">
             <span className="field-label">For</span>
-            <select className="select" value={scope} onChange={(event) => setScope(event.target.value as ScopeName)}>
+            <Select value={scope} onChange={(next) => setScope(next as ScopeName)}>
               <option value="project">This project</option>
               <option value="person">All my projects</option>
-            </select>
+            </Select>
           </label>
         </div>
         <label className="field">
@@ -575,7 +575,7 @@ function RecallByMeaning({ projectId, choice, onChanged }: { readonly projectId:
           <div className="setting-hint">{hint}</div>
         </div>
         <div className="setting-control">
-          <select className="select" aria-label="Embedding model" value={value} disabled={busy || (groups.length === 0 && choice === undefined)} onChange={(event) => pick(event.target.value)}>
+          <Select label="Embedding model" value={value} disabled={busy || (groups.length === 0 && choice === undefined)} onChange={pick}>
             <option value="">Off</option>
             {!listed && choice !== undefined && <option value={value}>{`${choice.model} · ${owner?.label ?? choice.connectionId}`}</option>}
             {groups.map((group) => (
@@ -587,7 +587,7 @@ function RecallByMeaning({ projectId, choice, onChanged }: { readonly projectId:
                 ))}
               </optgroup>
             ))}
-          </select>
+          </Select>
         </div>
       </div>
       {semantic !== undefined && (

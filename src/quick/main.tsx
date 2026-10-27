@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { StrictMode, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react"
 import { createRoot } from "react-dom/client"
 import "../styles/tokens.css"
+import "../styles/checks.css"
 import "../styles/quick.css"
 
 /**

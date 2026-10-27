@@ -7,7 +7,7 @@ import { toast, useApp } from "../../app/store"
 import { getHost, isUnsupported, toHostError } from "../../host"
 import { fuzzyScore } from "../../lib/fuzzy"
 import { PackageEntrySchema, parseList, PluginEntrySchema, SkillSchema, type PackageEntry, type PluginEntry, type Skill } from "../../protocol/schemas"
-import { Button, cx, EmptyState, IconButton, Menu, Spinner, Tabs, Toggle } from "../common"
+import { Button, cx, EmptyState, IconButton, Menu, Select, Spinner, Tabs, Toggle } from "../common"
 
 /**
  * Extensions: plugins, packages, and skills for a project, with install, update, rollback,
@@ -84,13 +84,13 @@ export function ExtensionsView({ embedded = false }: { readonly embedded?: boole
     <header className="view-header" data-tauri-drag-region>
       <div className="pane-toolbar-spacer" data-tauri-drag-region />
       {projects.length > 1 && (
-        <select className="select select-sm" value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Project">
+        <Select className="select-sm" value={projectId} onChange={setProjectId} label="Project">
           {projects.map((project) => (
             <option key={project.id} value={project.id}>
               {project.name}
             </option>
           ))}
-        </select>
+        </Select>
       )}
     </header>
   )
@@ -106,13 +106,13 @@ export function ExtensionsView({ embedded = false }: { readonly embedded?: boole
   )
 
   const projectSelect = projects.length > 1 && (
-    <select className="select select-sm" value={projectId} onChange={(event) => setProjectId(event.target.value)} aria-label="Project">
+    <Select className="select-sm" value={projectId} onChange={setProjectId} label="Project">
       {projects.map((item) => (
         <option key={item.id} value={item.id}>
           {item.name}
         </option>
       ))}
-    </select>
+    </Select>
   )
 
   if (projectId === undefined) {

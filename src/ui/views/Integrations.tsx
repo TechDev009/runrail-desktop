@@ -24,7 +24,7 @@ import { toast, useApp, type View } from "../../app/store"
 import { toHostError } from "../../host"
 import { McpSection } from "../shell/McpSettings"
 import { revealSetting } from "../shell/revealSetting"
-import { Button, cx, Spinner } from "../common"
+import { Button, cx, Select, Spinner } from "../common"
 import { ExtensionsView } from "./Extensions"
 
 /**
@@ -315,18 +315,18 @@ function Grants({ connectors, servers }: { readonly connectors: readonly Connect
                   const grant = grantOf(grants, role.role, row.key)
                   return (
                     <td key={role.role}>
-                      <select
-                        className={cx("select select-sm integrations-grant", `is-${grant}`)}
-                        aria-label={`${row.label} for ${role.label}`}
+                      <Select
+                        className={cx("select-sm integrations-grant", `is-${grant}`)}
+                        label={`${row.label} for ${role.label}`}
                         value={grant}
-                        onChange={(event) => setGrant(role.role, row.key, event.target.value as IntegrationGrant)}
+                        onChange={(next) => setGrant(role.role, row.key, next as IntegrationGrant)}
                       >
                         {GRANTS.map((value) => (
                           <option key={value} value={value}>
                             {GRANT_LABELS[value]}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </td>
                   )
                 })}

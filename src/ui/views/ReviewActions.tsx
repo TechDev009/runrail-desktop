@@ -29,7 +29,7 @@ import { openThread, set, startSelection, toast, useApp } from "../../app/store"
 import type { Thinking } from "../../host/types"
 import { toHostError } from "../../host"
 import type { ReviewDetail } from "../../protocol/schemas"
-import { Button, cx, Modal } from "../common"
+import { Button, cx, Modal, Select } from "../common"
 import { knownConnections, runProblemText, useStartModel } from "../dialogs/Dialogs"
 import { Markdown } from "../thread/Markdown"
 import { RunsOnSelect } from "../RunsOnSelect"
@@ -147,13 +147,13 @@ export function ReviewDialog({ detail, refOf, onClose }: { readonly detail: Revi
           {reasoning.shown && (
             <label className="field">
               <span className="field-label">Effort</span>
-              <select className="select" value={thinking} disabled={!reasoning.enabled} onChange={(event) => setThinking(event.target.value as Thinking)}>
+              <Select value={thinking} disabled={!reasoning.enabled} onChange={(next) => setThinking(next as Thinking)}>
                 {reasoning.levels.map((level) => (
                   <option key={level} value={level}>
                     {THINKING_NAME[level]}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           )}
         </div>
@@ -526,13 +526,13 @@ export function MergeDialog({ detail, refOf, onClose }: { readonly detail: Revie
         ) : (
           <label className="field">
             <span className="field-label">Method</span>
-            <select className="select" value={method} onChange={(event) => setMethod(event.target.value as typeof method)}>
+            <Select value={method} onChange={(next) => setMethod(next as typeof method)}>
               {methods.map((item) => (
                 <option key={item} value={item}>
                   {METHOD_NAMES[item]}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
         {method !== undefined && method !== "rebase" && (

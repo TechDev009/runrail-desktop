@@ -1,6 +1,6 @@
 import type { Catalog } from "../app/catalog"
 import { decodeSelection, encodeSelection, selectGroups, type Selection } from "../app/picker"
-import { cx } from "./common"
+import { Select } from "./common"
 
 /**
  * What a run uses, as one select: every connected model grouped by its connection, then the coding
@@ -28,13 +28,13 @@ export function RunsOnSelect({
   const known = !catalog.loading && catalog.connectionsError === undefined
   const groups = selectGroups(catalog, value, known)
   return (
-    <select
-      className={cx("select", className)}
-      aria-label={label}
+    <Select
+      className={className}
+      label={label}
       value={encodeSelection(value)}
       disabled={disabled}
-      onChange={(event) => {
-        const picked = decodeSelection(event.target.value)
+      onChange={(next) => {
+        const picked = decodeSelection(next)
         if (picked !== undefined) onChange(picked)
       }}
     >
@@ -50,6 +50,6 @@ export function RunsOnSelect({
           ))}
         </optgroup>
       ))}
-    </select>
+    </Select>
   )
 }

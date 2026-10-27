@@ -532,15 +532,13 @@ select:focus-visible {
 }
 
 .select {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-6);
   width: auto;
-  padding-right: var(--sp-28);
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238a929c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 9px center;
+  padding-right: var(--sp-8);
+  text-align: left;
   cursor: pointer;
-  text-overflow: ellipsis;
 }
 
 .select.grow {
@@ -551,6 +549,55 @@ select:focus-visible {
   height: var(--control-h-sm);
   font-size: var(--fs-sm);
   padding-left: var(--sp-8);
+}
+
+/* Every option sits unseen in the same cell as the chosen one, so a select is as wide as its longest option, as a native one is. */
+.select-value {
+  display: grid;
+  grid-template-columns: minmax(0, max-content);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.select-text,
+.select-sizer {
+  grid-area: 1 / 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-sizer {
+  visibility: hidden;
+}
+
+.select-chevron {
+  flex: none;
+  margin-left: auto;
+  color: var(--text-3);
+}
+
+.select-menu {
+  max-width: min(420px, calc(100vw - 16px));
+}
+
+.select-menu [role="group"] {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.select-option {
+  cursor: pointer;
+}
+
+.select-option[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.select-option[aria-disabled="true"]:is(:hover, .is-focus) {
+  background: none;
 }
 
 .textarea {
@@ -645,6 +692,11 @@ select:focus-visible {
 
 .field-row > .field:not(.grow) {
   flex: 0 1 200px;
+}
+
+/* A growing select takes the room left over, so the select beside it keeps its full width. */
+.field-row > .select.grow {
+  flex: 1 1 0;
 }
 
 .field-hint,

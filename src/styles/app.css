@@ -1,4 +1,5 @@
 @import "./base.css";
+@import "./checks.css";
 @import "./shell.css";
 @import "./thread.css";
 @import "./inspector.css";

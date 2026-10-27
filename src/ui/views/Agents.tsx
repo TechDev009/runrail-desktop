@@ -11,7 +11,7 @@ import { toHostError } from "../../host"
 import type { Thinking } from "../../host/types"
 import { duration, timeAgo } from "../../lib/format"
 import type { SetupInfo, SetupPlanInfo, SetupRole, SetupRun } from "../../protocol/schemas"
-import { Button, cx, EmptyState, IconButton, Spinner, statusLabel, StatusIcon, Toggle, useTicker } from "../common"
+import { Button, cx, EmptyState, IconButton, Select, Spinner, statusLabel, StatusIcon, Toggle, useTicker } from "../common"
 import { useStatuses } from "../hooks"
 import { RunsOnSelect } from "../RunsOnSelect"
 import { ProjectPicker } from "./ProjectPicker"
@@ -306,13 +306,13 @@ function SetupEditor({
               <span className="agents-launch-label">Project</span>
               <span className={cx("agents-launch-picker", runProjects.length < 2 && "is-fixed")}>
                 <FolderGit2 size={13} aria-hidden />
-                <select aria-label="Project to run in" value={runProject?.id} disabled={runProjects.length < 2} onChange={(event) => setRunProjectId(event.target.value)}>
+                <Select plain className="agents-launch-select" label="Project to run in" value={runProject?.id} disabled={runProjects.length < 2} onChange={setRunProjectId}>
                   {runProjects.map((project) => (
                     <option key={project.id} value={project.id}>
                       {project.name}
                     </option>
                   ))}
-                </select>
+                </Select>
                 {runProjects.length > 1 && <ChevronsUpDown size={12} className="agents-launch-chevron" aria-hidden />}
               </span>
             </label>
@@ -381,13 +381,13 @@ function SetupEditor({
         <div className="field-row">
           <label className="field">
             <span className="field-label">Review rounds</span>
-            <select className="select" value={draft.rules.reviewRounds} disabled={readOnly || draft.roles.reviewer === undefined} onChange={(event) => setRules({ reviewRounds: Number(event.target.value) })}>
+            <Select value={draft.rules.reviewRounds} disabled={readOnly || draft.roles.reviewer === undefined} onChange={(next) => setRules({ reviewRounds: Number(next) })}>
               {[0, 1, 2, 3, 4, 5].map((count) => (
                 <option key={count} value={count}>
                   {count === 0 ? "No review" : String(count)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <label className="field">
             <span className="field-label">Most turns</span>
@@ -484,17 +484,17 @@ function RoleField({ role, value, catalog, developer, disabled, onChange }: { re
         <div className="field-row">
           <RunsOnSelect className="grow" catalog={catalog} value={selection} label={`${ROLE_NAMES[role]} runs on`} unbound={{ label: developer ? "Test model" : "Pick a model", disabled: !developer }} onChange={(next) => onChange({ ...toRole(next), ...(value.effort === undefined ? {} : { effort: value.effort }), ...(value.access === undefined ? {} : { access: value.access }) })} />
           {reasoning?.shown === true && (
-            <select className="select" aria-label={`${ROLE_NAMES[role]} effort`} value={value.effort ?? "medium"} disabled={!reasoning.enabled} onChange={(event) => onChange({ ...value, effort: event.target.value as Thinking })}>
+            <Select label={`${ROLE_NAMES[role]} effort`} value={value.effort ?? "medium"} disabled={!reasoning.enabled} onChange={(next) => onChange({ ...value, effort: next as Thinking })}>
               {reasoning.levels.map((level) => (
                 <option key={level} value={level}>
                   {THINKING_NAME[level]}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
           {role === "executor" && (
-            <select className="select" aria-label="Executor access" value={value.access ?? "ask"} onChange={(event) => {
-                const access = event.target.value as PermissionPreset
+            <Select label="Executor access" value={value.access ?? "ask"} onChange={(next) => {
+                const access = next as PermissionPreset
                 if (access !== "full") onChange({ ...value, access })
                 else confirmAction({ title: "Let the executor run everything without asking?", body: "With full access the executor's commands and edits run with no approval. Use it only for projects you can throw away.", confirm: "Use full access", danger: true, onConfirm: () => onChange({ ...value, access }) })
               }}>
@@ -503,7 +503,7 @@ function RoleField({ role, value, catalog, developer, disabled, onChange }: { re
                   {PERMISSION_LABELS[level]}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
         </div>
       )}
