@@ -1729,8 +1729,12 @@ pub fn run() {
             if let Ok(home) = home_dir() {
                 wake::start_notes(home.clone());
                 let identifier = app.config().identifier.clone();
+                let woken = wake::woken();
                 let _ = std::thread::Builder::new().name("runrail-wake-refresh".into()).spawn(move || {
-                    wake::refresh(&identifier, &home);
+                    // Rewriting the agent restarts it, which would stop the service that opened this launch.
+                    if !woken {
+                        wake::refresh(&identifier, &home);
+                    }
                     #[cfg(target_os = "linux")]
                     login::refresh(&identifier);
                 });

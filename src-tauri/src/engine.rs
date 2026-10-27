@@ -1148,6 +1148,26 @@ fn login_environment() -> &'static LoginEnvironment {
     LOGIN_ENVIRONMENT.get_or_init(capture_login_environment)
 }
 
+/// The PATH the login shell starts from: launchd's on macOS, systemd's on Linux. From the app's own
+/// PATH, a profile's entries would be added again on every launch the wake service opens (it passes
+/// on the PATH written into its agent), so the agent would never match and be rewritten each time.
+#[cfg(target_os = "macos")]
+const LOGIN_SHELL_BASE_PATH: &str = "/usr/bin:/bin:/usr/sbin:/sbin";
+#[cfg(all(unix, not(target_os = "macos")))]
+const LOGIN_SHELL_BASE_PATH: &str = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+
+#[cfg(unix)]
+fn login_shell(shell: &str) -> Command {
+    let mut command = Command::new(shell);
+    command
+        .args(["-ilc", "printf '__RUNRAIL_ENV_BEGIN__'; env -0"])
+        .env("PATH", LOGIN_SHELL_BASE_PATH)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+    command
+}
+
 #[cfg(unix)]
 fn capture_login_environment() -> LoginEnvironment {
     const MARKER: &[u8] = b"__RUNRAIL_ENV_BEGIN__";
@@ -1155,13 +1175,7 @@ fn capture_login_environment() -> LoginEnvironment {
         .ok()
         .filter(|shell| Path::new(shell).is_absolute() && Path::new(shell).is_file())
         .unwrap_or_else(|| "/bin/zsh".into());
-    let Ok(mut child) = Command::new(&shell)
-        .args(["-ilc", "printf '__RUNRAIL_ENV_BEGIN__'; env -0"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-    else {
+    let Ok(mut child) = login_shell(&shell).spawn() else {
         return LoginEnvironment::fallback(LoginShellFailure::Unreadable);
     };
     let Some(mut stdout) = child.stdout.take() else {
@@ -1831,6 +1845,14 @@ mod tests {
         let (command, _) = resolve_program_for(Some(&resources), &root, true).unwrap();
         assert_eq!(Path::new(command.get_program()), resources.join(sidecar_name()));
         std::fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_login_shell_starts_from_the_system_path_not_the_apps() {
+        let shell = login_shell("/bin/sh");
+        let path = shell.get_envs().find(|(key, _)| *key == "PATH").and_then(|(_, value)| value);
+        assert_eq!(path, Some(std::ffi::OsStr::new(LOGIN_SHELL_BASE_PATH)));
     }
 
     #[test]

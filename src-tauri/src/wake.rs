@@ -126,6 +126,23 @@ fn launchctl(args: &[&str]) -> Result<(), String> {
     }
 }
 
+/// `bootout` returns while the old service is still exiting, and a bootstrap until it has gone
+/// fails with an I/O error, so it is tried again for a few seconds.
+fn bootstrap(path: &Path) -> Result<(), String> {
+    const TRIES: u32 = 24;
+    let path = path.to_string_lossy();
+    let mut tried = 1;
+    loop {
+        match launchctl(&["bootstrap", &domain(), &path]) {
+            Err(_) if tried < TRIES => {
+                tried += 1;
+                std::thread::sleep(Duration::from_millis(250));
+            }
+            done => return done,
+        }
+    }
+}
+
 fn expected(identifier: &str) -> Option<String> {
     let (app, engine) = bundle()?;
     let path_env = crate::engine::login_path().unwrap_or_else(|| "/usr/bin:/bin:/usr/sbin:/sbin".into());
@@ -162,7 +179,7 @@ pub fn set(identifier: &str, home: &Path, on: bool) -> Result<WakeService, Strin
     }
     let text = expected(identifier).ok_or("only the installed app can run after Quit")?;
     write_atomic(&path, text.as_bytes(), 0o644).map_err(|_| "the helper's file could not be written".to_string())?;
-    if let Err(error) = launchctl(&["bootstrap", &domain(), &path.to_string_lossy()]) {
+    if let Err(error) = bootstrap(&path) {
         let _ = std::fs::remove_file(&path);
         return Err(error);
     }

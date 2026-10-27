@@ -27,6 +27,14 @@ All notable changes to Runrail Desktop will be documented here.
   in Continue instead of Post or Merge: they choose what to send, and the
   macOS dialog after them is the one confirmation.
 
+### Fixes
+
+- Run schedules after Quit stays on after it opens Runrail. The launch it
+  opened wrote its helper again with a longer PATH, and the restart that
+  followed could fail and remove the helper, which turned the setting off.
+  The PATH coding tools get from your login shell now comes out the same
+  however Runrail was opened.
+
 ## [0.1.2] - 2026-10-25
 
 Report a problem, a Homebrew cask, and the bundled engine kept clear of a
