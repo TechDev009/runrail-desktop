@@ -335,7 +335,7 @@ jobs:
             fi
           }
           mkdir -p signed
-          for tarball in artifacts/runrail-desktop-macos-*/*.app.tar; do
+          for tarball in artifacts/runrail-desktop-macos-*/macos/*.app.tar; do
             name="$(basename "$tarball" .app.tar)"
             work="$RUNNER_TEMP/$name"
             app="$work/$product.app"
@@ -408,7 +408,7 @@ jobs:
           for file in signed/*.app.tar.gz; do
             "$TAURI" signer sign --app-version "${TAG#v}" "$file"
           done
-          for file in artifacts/runrail-desktop-*/*; do
+          for file in artifacts/runrail-desktop-*/*/*; do
             case "$file" in
               *.AppImage | *.deb | *.rpm | *.exe | *.msi)
                 "$TAURI" signer sign --app-version "${TAG#v}" "$file"
