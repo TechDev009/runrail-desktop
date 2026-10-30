@@ -4,6 +4,12 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-30
+
+Setup runs that resume, recall by meaning, sign-in to remote MCP servers, and
+form controls that follow the app's theme. Runrail Desktop 0.1.1 and 0.1.2
+were never released, so this release also brings their changes, listed below.
+
 - A Setup chip in the composer sends the message to a setup instead of the
   thread: pick one of the project's setups, or Manage setups to make one.
 - A setup run you started picks up where it stopped after Runrail quits or
