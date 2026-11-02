@@ -4,6 +4,8 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-02
+
 - Office mode now has a Sakura theme and a Needs attention board for approvals
   and questions across projects.
 - Pull request review adds an inbox and thread-aware review feedback. CI checks
