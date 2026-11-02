@@ -673,7 +673,7 @@ async function main(): Promise<number> {
       expect(shown.cards.length === 4 && ["Nifra", "Vite + React", "Next.js", "Empty"].every((label, index) => shown.cards[index]?.includes(label) === true), `the starters are ${JSON.stringify(shown.cards)}`)
       expect(shown.chosen.includes("Nifra") && shown.chosen.includes("Recommended") && shown.chosen.includes("By the authors of Runrail"), `the default is ${shown.chosen}`)
       expect(shown.slug === "e2e-shop", `the folder name shown is ${shown.slug}`)
-      expect(shown.note.includes("create-nifra@5.3.0 from npm"), `the dialog says ${shown.note}`)
+      expect(shown.note.includes("create-nifra@5.11.0 from npm"), `the dialog says ${shown.note}`)
       const started = Date.now()
       for (;;) {
         const state = await page<{ readonly added: boolean; readonly failure?: string }>(`
@@ -690,11 +690,11 @@ async function main(): Promise<number> {
       expect(nifra.length > 0, "the app names no Nifra package")
       expect(existsSync(join(newApp, "node_modules")), "the packages were not installed")
       const history = git(newApp, "log", "--format=%s").trim().split("\n")
-      expect(history.length === 1 && history[0] === "Start from create-nifra@5.3.0", `the history is ${JSON.stringify(history)}`)
+      expect(history.length === 1 && history[0] === "Start from create-nifra@5.11.0", `the history is ${JSON.stringify(history)}`)
       expect(git(newApp, "status", "--porcelain").trim() === "", "the new app has files left out of its first commit")
       const approved = JSON.parse(readFileSync(join(appData, "approved-folders.json"), "utf8")) as { readonly folders: readonly string[] }
       expect(approved.folders.includes(newApp) && !approved.folders.includes(appsParent), "only the folder the starter made may be approved")
-      return `${shown.slug} made in ${String(seconds)}s: create-nifra@5.3.0, packages installed, one commit, nothing left over; ${nifra.join(", ")}; only the app's folder approved`
+      return `${shown.slug} made in ${String(seconds)}s: create-nifra@5.11.0, packages installed, one commit, nothing left over; ${nifra.join(", ")}; only the app's folder approved`
     })
 
     if (made)

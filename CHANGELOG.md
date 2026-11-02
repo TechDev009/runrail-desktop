@@ -12,6 +12,7 @@ All notable changes to Runrail Desktop will be documented here.
   paired desktops; the relay does not store logs or raw webhook payloads.
 - Threads can use inline terminal runs, clearer question and review cards, and
   fast mode for supported coding tools.
+- Update the Nifra starter shown in the desktop app to `create-nifra@5.11.0`.
 
 ### Security
 
