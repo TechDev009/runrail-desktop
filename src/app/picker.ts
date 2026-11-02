@@ -62,6 +62,7 @@ export interface ToolProxy {
 
 export interface PickerValue extends Selection {
   readonly thinking?: Thinking | undefined
+  readonly fastMode?: boolean | undefined
 }
 
 export type { RecentModel }

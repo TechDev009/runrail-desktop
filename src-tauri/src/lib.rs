@@ -24,6 +24,8 @@ mod error;
 mod http;
 mod instructions;
 mod login;
+mod github_relay;
+mod github_reviews;
 mod mcp;
 mod notify;
 #[cfg(target_os = "linux")]
@@ -117,6 +119,17 @@ async fn engine_list(state: State<'_, HostState>) -> BridgeResult<Vec<EngineInfo
 async fn control_rpc(app: tauri::AppHandle, state: State<'_, HostState>, engine_id: String, method: String, params: Value) -> BridgeResult<Value> {
     let supervisor = state.supervisor.clone();
     blocking(move || {
+        if engine_id == connections::SYSTEM_ENGINE_ID && method == "git.pr.review.threads" {
+            connections::guard_renderer_rpc(&engine_id, &method, &params)?;
+            let fields = params.as_object().ok_or_else(|| BridgeError::new("CONTROL_INVALID_INPUT", "review thread request must be an object"))?;
+            if fields.get("host").and_then(Value::as_str).is_some_and(|host| host != "github.com") {
+                return Err(BridgeError::new("GITHUB_HOST_UNSUPPORTED", "native review feedback currently supports github.com only"));
+            }
+            let owner = fields.get("owner").and_then(Value::as_str).ok_or_else(|| BridgeError::new("CONTROL_INVALID_INPUT", "review thread owner is required"))?;
+            let repo = fields.get("repo").and_then(Value::as_str).ok_or_else(|| BridgeError::new("CONTROL_INVALID_INPUT", "review thread repository is required"))?;
+            let number = fields.get("number").and_then(Value::as_u64).ok_or_else(|| BridgeError::new("CONTROL_INVALID_INPUT", "review thread pull request number is required"))?;
+            return github_reviews::review_threads(owner, repo, number);
+        }
         if method == "memory.settings.set" {
             confirm_memory_provider(&app, &params)?;
         }
@@ -238,6 +251,39 @@ fn memory_provider_line(params: &Value) -> BridgeResult<Option<String>> {
 async fn system_engine(state: State<'_, HostState>) -> BridgeResult<EngineInfo> {
     let supervisor = state.supervisor.clone();
     blocking(move || supervisor.system()).await
+}
+
+#[tauri::command]
+async fn github_relay_status() -> BridgeResult<github_relay::RelayStatus> {
+    blocking(|| Ok(github_relay::status())).await
+}
+
+/// Starts GitHub App pairing. The one-time state and client token are generated and handled only
+/// in Rust; the renderer receives status metadata, never the bearer token.
+#[tauri::command]
+async fn github_relay_pair() -> BridgeResult<github_relay::RelayStatus> {
+    blocking(|| {
+        github_relay::pair(|url| {
+            tauri_plugin_opener::open_url(url, None::<&str>)
+                .map_err(|_| BridgeError::new("GITHUB_RELAY_OPEN_FAILED", "the GitHub App installation page could not be opened"))
+        })
+    })
+    .await
+}
+
+#[tauri::command]
+async fn github_relay_unpair() -> BridgeResult<github_relay::RelayStatus> {
+    blocking(github_relay::unpair).await
+}
+
+#[tauri::command]
+async fn github_relay_fetch_events() -> BridgeResult<Vec<github_relay::RelayEvent>> {
+    blocking(github_relay::fetch_events).await
+}
+
+#[tauri::command]
+async fn github_relay_acknowledge(delivery_ids: Vec<String>) -> BridgeResult<()> {
+    blocking(move || github_relay::acknowledge(delivery_ids)).await
 }
 
 /// Write-only: stores a key for a connection. Nothing reads it back; the answer is the
@@ -1810,6 +1856,11 @@ pub fn run() {
             engine_stop,
             engine_list,
             control_rpc,
+            github_relay_status,
+            github_relay_pair,
+            github_relay_unpair,
+            github_relay_fetch_events,
+            github_relay_acknowledge,
             system_engine,
             connection_secret_set,
             connection_secret_from_clipboard,

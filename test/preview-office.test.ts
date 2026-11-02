@@ -70,8 +70,9 @@ describe("the office preview's setup", () => {
     expect(state.projects.map((project) => project.name)).toEqual(["runrail", "nifra", "mobile-app", "website"])
     expect(state.projects).toEqual(seed.projects)
     expect(state.threads).toHaveLength(12)
-    // The seed is plain data; parseState is what types it.
-    expect<unknown>(state.threads).toEqual(seed.threads)
+    // Parsing applies the new thread preference default while leaving the seed's other data intact.
+    expect<unknown>(state.threads.map(({ fastMode: _fastMode, ...thread }) => thread)).toEqual(seed.threads)
+    expect(state.threads.every((thread) => thread.fastMode === false)).toBe(true)
     expect(state.prefs).toMatchObject({ sounds: true, notifications: true, quietMinutes: 2 })
     const open = state.threads.find((thread) => thread.id === state.layout.activeThreadId)
     expect(open).toMatchObject({ lastStatus: "completed" })

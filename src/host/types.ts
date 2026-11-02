@@ -57,6 +57,7 @@ export interface EngineStartInput {
   /** The coding-tool connection a tool runs as: its login, its own folder or key, and its models. */
   readonly toolConnectionId?: string
   readonly thinking?: Thinking
+  readonly fastMode?: boolean
   /** The thread this one continues: the engine copies its conversation in the first time it starts. */
   readonly continueFrom?: string
   /** Lets the agent use the thread's browser preview; pages on this computer only unless `browserAnySite`. */
@@ -463,6 +464,12 @@ export interface Host {
   rpc(engineId: string, method: string, params?: Record<string, unknown>): Promise<unknown>
   /** Starts (or returns) the system engine. Its id is `SYSTEM_ENGINE_ID`. */
   systemEngine(): Promise<EngineInfo>
+  /** GitHub event relay credentials are held only by the native OS credential store. */
+  githubRelayStatus(): Promise<GithubRelayStatus>
+  githubRelayPair(): Promise<GithubRelayStatus>
+  githubRelayUnpair(): Promise<GithubRelayStatus>
+  githubRelayFetchEvents(): Promise<readonly GithubRelayEvent[]>
+  githubRelayAcknowledge(deliveryIds: readonly string[]): Promise<void>
   /**
    * Write-only: stores a key for a connection. Returns the connection record, never the key. A
    * coding-tool connection's key is stored under its own id (`target: "tool"`).
@@ -818,4 +825,23 @@ export interface PhoneCall {
   readonly device: string
   readonly method: string
   readonly params: Readonly<Record<string, unknown>>
+}
+
+export interface GithubRelayStatus {
+  readonly state: "not-configured" | "unpaired" | "paired" | "unavailable"
+  readonly installationId?: string
+  readonly message?: string
+}
+
+/** Minimal webhook metadata; never contains CI logs, credentials, or webhook payloads. */
+export interface GithubRelayEvent {
+  readonly deliveryId: string
+  readonly event: "check_run.completed" | "workflow_run.completed" | "pull_request.closed" | "pull_request.synchronize"
+  readonly repository: string
+  readonly prNumber: number
+  readonly headSha: string
+  readonly runId?: number
+  readonly attempt?: number
+  readonly conclusion?: string
+  readonly occurredAt: string
 }

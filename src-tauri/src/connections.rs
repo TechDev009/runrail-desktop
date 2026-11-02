@@ -118,7 +118,7 @@ const SYSTEM_NAMESPACES: &[&str] = &["account.", "connection.", "auth."];
 /// `conversation.peek`: a thread's history, read from its transcript without changing it, which
 /// the web view is shown in that thread anyway. And `usage.read`: a coding tool's plan limits,
 /// percentages and reset times only, read one account at a time. And the Reviews inbox's reads,
-/// `git.pr.search`, `git.pr.teams`, `git.pr.view`, and `git.pr.diff`, through the person's own
+/// `git.pr.search`, `git.pr.teams`, `git.pr.view`, `git.pr.diff`, and `git.pr.review.threads`, through the person's own
 /// `gh` once they connected the host, and its two writes, `git.pr.review.post` and `git.pr.merge`,
 /// which the person confirms in a native dialog (`control_rpc`) before they reach the engine. And `workflow.due`:
 /// which saved workflows should start now, noted as fired so each fires once; it starts nothing.
@@ -128,7 +128,7 @@ const SYSTEM_NAMESPACES: &[&str] = &["account.", "connection.", "auth."];
 /// command. And `claude.sdk.status` and `claude.sdk.install`: whether the Claude Agent SDK is
 /// downloaded, and its download, pinned and checked against its SHA-512, which the person asks
 /// for in the app.
-const SYSTEM_METHODS: &[&str] = &["harness.status", "claude.sdk.status", "claude.sdk.install", "codehost.list", "codehost.set", "codehost.connect", "codehost.disconnect", "codehost.status", "codehost.remotes", "conversation.peek", "usage.read", "thread.copy", "git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.post", "git.pr.merge", "workflow.due", "workflow.upcoming", "connector.setup.list", "connector.setup.save", "connector.setup.remove", "push.vapid", "push.send"];
+const SYSTEM_METHODS: &[&str] = &["harness.status", "claude.sdk.status", "claude.sdk.install", "codehost.list", "codehost.set", "codehost.connect", "codehost.disconnect", "codehost.status", "codehost.remotes", "conversation.peek", "usage.read", "thread.copy", "git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.threads", "git.pr.review.post", "git.pr.merge", "workflow.due", "workflow.upcoming", "connector.setup.list", "connector.setup.save", "connector.setup.remove", "push.vapid", "push.send"];
 /// Answered only by the system engine, so one reader keeps tool starts to one at a time, and one
 /// engine downloads the SDK.
 const SYSTEM_ONLY_METHODS: &[&str] = &["conversation.peek", "usage.read", "claude.sdk.status", "claude.sdk.install", "thread.copy", "push.vapid", "push.send"];
@@ -461,7 +461,7 @@ mod tests {
             assert!(guard_renderer_rpc(SYSTEM_ENGINE_ID, method, &json!({ "confirm": true })).is_ok(), "{method}");
             assert!(is_refused("thread-1", method, json!({ "confirm": true })), "{method}");
         }
-        for method in ["git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.post", "git.pr.merge"] {
+        for method in ["git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.threads", "git.pr.review.post", "git.pr.merge"] {
             assert!(guard_renderer_rpc(SYSTEM_ENGINE_ID, method, &json!({ "owner": "example-org", "repo": "web", "number": 1 })).is_ok(), "{method}");
         }
         assert!(guard_renderer_rpc(SYSTEM_ENGINE_ID, "workflow.due", &json!({})).is_ok());

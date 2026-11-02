@@ -1,11 +1,13 @@
-import { memo, useEffect, useMemo, useState, type ReactNode } from "react"
+import { lazy, memo, Suspense, useEffect, useMemo, useState, type ReactNode } from "react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { SquareTerminal } from "lucide-react"
 import { openUrl } from "../../app/actions"
 import { openFileMenu } from "../../app/fileMenu"
 import { openFileLink } from "../../app/filePreview"
 import { highlightedHtml, highlightHtml, langFor } from "../../lib/highlight"
-import { CopyButton } from "../common"
+import { Button, CopyButton, Spinner } from "../common"
+import { useInlineRuns } from "../inspector/inlineRuns"
 
 /**
  * Assistant markdown. Raw HTML in model output is never rendered (react-markdown escapes it);
@@ -14,7 +16,10 @@ import { CopyButton } from "../common"
  */
 
 const PLUGINS = [remarkGfm]
-const PATH_LIKE = /^(?:\.{0,2}\/)?(?:[\w@.+-]+\/)*[\w@+-]+\.[A-Za-z0-9]{1,8}(?::\d+(?::\d+)?)?$/
+const RUN_LANGUAGES = new Set(["bash", "sh", "zsh", "shell"])
+const InlineTerminalView = lazy(() => import("../inspector/TerminalPane").then((module) => ({ default: module.InlineTerminalView })))
+const PATH_LIKE = /^(?:\.{0,2}\/)?(?:[\w@.+-]+\/)*[\w@+-]+\.[A-Za-z0-9]{1,8}(?:(?::\d+(?::\d+)?)|(?:#L\d+(?:-L?\d+)?))?$/
+const FILE_EXTENSIONS = new Set("astro c cc cjs cpp cs cts css csv diff go gql graphql h hpp html java js json jsx less lock log lua md mdx mjs mts php pl py rb rs sass scss sh sql svelte swift toml ts tsx txt vue xml yaml yml zsh".split(" "))
 
 /** `src/a.ts:42`, `src/a.ts:42:7` and `src/a.ts#L42` all name line 42. */
 export function splitLocation(value: string): { readonly path: string; readonly line?: number } {
@@ -23,6 +28,22 @@ export function splitLocation(value: string): { readonly path: string; readonly 
   const digits = match?.[2] ?? match?.[3]
   const line = digits === undefined ? undefined : Number(digits)
   return { path, ...(line === undefined || line < 1 ? {} : { line }) }
+}
+
+function isFilePathReference(value: string): boolean {
+  if (!PATH_LIKE.test(value) || value.includes("://")) return false
+  const location = splitLocation(value)
+  if (location.line !== undefined || location.path.includes("/") || location.path.startsWith(".")) return true
+  // Dotted event names such as `session.updated` are common inline code, not workspace files.
+  const extension = /\.([A-Za-z0-9]{1,8})$/.exec(location.path)?.[1]?.toLowerCase()
+  return extension !== undefined && FILE_EXTENSIONS.has(extension)
+}
+
+function isBareDottedIdentifier(value: string): boolean {
+  const location = splitLocation(value)
+  if (location.line !== undefined || location.path.includes("/") || location.path.startsWith(".")) return false
+  const extension = /\.([A-Za-z0-9]{1,8})$/.exec(location.path)?.[1]?.toLowerCase()
+  return extension !== undefined && !FILE_EXTENSIONS.has(extension)
 }
 
 /**
@@ -62,8 +83,11 @@ function FilePathLink({ workspace, value, children }: { readonly workspace: stri
   )
 }
 
-export const CodeBlock = memo(function CodeBlock({ code, lang, streaming }: { readonly code: string; readonly lang?: string; readonly streaming?: boolean }) {
+export const CodeBlock = memo(function CodeBlock({ code, lang, streaming, threadId, runKey }: { readonly code: string; readonly lang?: string; readonly streaming?: boolean; readonly threadId?: string; readonly runKey?: string }) {
   const [html, setHtml] = useState<string | undefined>(() => highlightedHtml(code, lang))
+  const launch = useInlineRuns((state) => state[runKey ?? ""])
+  const [runError, setRunError] = useState<string>()
+  const [running, setRunning] = useState(false)
   useEffect(() => {
     if (streaming === true) return
     let live = true
@@ -75,11 +99,28 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, streaming }: { re
     }
   }, [code, lang, streaming])
   const label = langFor(lang) === undefined ? (lang ?? "text") : lang
+  const canRun = threadId !== undefined && runKey !== undefined && streaming !== true && code.trim().length > 0 && RUN_LANGUAGES.has((lang ?? "").toLowerCase())
+  const run = async (): Promise<void> => {
+    if (!canRun || threadId === undefined || runKey === undefined || running || launch !== undefined) return
+    setRunning(true)
+    setRunError(undefined)
+    try {
+      const result = await import("../inspector/TerminalPane").then((module) => module.runInThreadTerminal(threadId, code, runKey))
+      if (result.threadId === undefined || result.terminalId === undefined) setRunError(result.error ?? "Could not open a terminal for this thread.")
+    } catch {
+      setRunError("Could not open a terminal for this thread.")
+    } finally {
+      setRunning(false)
+    }
+  }
   return (
     <div className="code-block">
       <div className="code-head">
         <span className="code-lang">{label}</span>
-        <CopyButton text={code} label="Copy code" />
+        <div className="code-actions">
+          <CopyButton text={code} label="Copy code" />
+          {canRun && launch === undefined && <Button size="sm" icon={<SquareTerminal size={12} />} loading={running} onClick={() => void run()}>Run</Button>}
+        </div>
       </div>
       {html !== undefined && streaming !== true ? (
         <div className="code-body" dangerouslySetInnerHTML={{ __html: html }} />
@@ -87,6 +128,12 @@ export const CodeBlock = memo(function CodeBlock({ code, lang, streaming }: { re
         <pre className="code-body">
           <code>{code}</code>
         </pre>
+      )}
+      {runError !== undefined && <div className="code-run-error" role="alert">{runError}</div>}
+      {launch !== undefined && runKey !== undefined && (
+        <Suspense fallback={<div className="code-run-loading"><Spinner size={12} /> Opening terminal…</div>}>
+          <InlineTerminalView threadId={launch.threadId} terminalId={launch.terminalId} runKey={runKey} />
+        </Suspense>
       )}
     </div>
   )
@@ -99,18 +146,44 @@ function textOf(node: ReactNode): string {
   return ""
 }
 
-function components(workspace: string | undefined, streaming: boolean): Components {
+function codeHash(value: string): string {
+  let first = 2_166_136_261
+  let second = 2_654_435_761
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index)
+    first = Math.imul(first ^ code, 16_777_619)
+    second = Math.imul(second ^ code, 2_246_822_519)
+  }
+  return `${value.length.toString(36)}-${(first >>> 0).toString(36)}${(second >>> 0).toString(36)}`
+}
+
+function sourceOffsetOf(node: unknown): number | undefined {
+  if (typeof node !== "object" || node === null || !("position" in node)) return undefined
+  const position = node.position
+  if (typeof position !== "object" || position === null || !("start" in position)) return undefined
+  const start = position.start
+  if (typeof start !== "object" || start === null || !("offset" in start)) return undefined
+  const offset = start.offset
+  return typeof offset === "number" && Number.isSafeInteger(offset) && offset >= 0 ? offset : undefined
+}
+
+function runBlockKey(threadId: string, runContext: string | undefined, sourceOffset: number | undefined, lang: string | undefined, code: string): string {
+  return `${threadId}:${runContext ?? "markdown"}:${String(sourceOffset ?? "block")}:${lang ?? ""}:${codeHash(code)}`
+}
+
+function components(workspace: string | undefined, streaming: boolean, threadId: string | undefined, runContext: string | undefined): Components {
   return {
-    pre: ({ children }) => {
+    pre: ({ children, node }) => {
       const child = Array.isArray(children) ? children[0] : children
       const className = child !== null && typeof child === "object" && "props" in child ? ((child.props as { className?: string }).className ?? "") : ""
       const lang = /language-([\w+#-]+)/.exec(className)?.[1]
       const code = textOf(child).replace(/\n$/, "")
-      return <CodeBlock code={code} {...(lang === undefined ? {} : { lang })} streaming={streaming} />
+      const runKey = threadId === undefined ? undefined : runBlockKey(threadId, runContext, sourceOffsetOf(node), lang, code)
+      return <CodeBlock code={code} {...(lang === undefined ? {} : { lang })} {...(threadId === undefined ? {} : { threadId })} {...(runKey === undefined ? {} : { runKey })} streaming={streaming} />
     },
     code: ({ children, className }) => {
       const text = textOf(children)
-      if (className === undefined && workspace !== undefined && PATH_LIKE.test(text) && !text.includes("://"))
+      if (className === undefined && workspace !== undefined && isFilePathReference(text))
         return (
           <FilePathLink workspace={workspace} value={text}>
             {children}
@@ -122,6 +195,7 @@ function components(workspace: string | undefined, streaming: boolean): Componen
       const target = href ?? ""
       const external = /^https?:\/\//i.test(target)
       const file = external || workspace === undefined ? undefined : fileLinkTarget(target)
+      if (file !== undefined && workspace !== undefined && isBareDottedIdentifier(file)) return <>{children}</>
       if (file !== undefined && workspace !== undefined) {
         const location = splitLocation(file)
         const at = location.line === undefined ? {} : { line: location.line }
@@ -198,8 +272,8 @@ const Block = memo(function Block({ text, parts }: { readonly text: string; read
   )
 })
 
-export const Markdown = memo(function Markdown({ text, workspace, streaming = false }: { readonly text: string; readonly workspace?: string; readonly streaming?: boolean }) {
-  const parts = useMemo(() => components(workspace, streaming), [workspace, streaming])
+export const Markdown = memo(function Markdown({ text, workspace, streaming = false, threadId, runContext }: { readonly text: string; readonly workspace?: string; readonly streaming?: boolean; readonly threadId?: string; readonly runContext?: string }) {
+  const parts = useMemo(() => components(workspace, streaming, threadId, runContext), [workspace, streaming, threadId, runContext])
   return (
     <div className="markdown">
       {streaming ? streamingBlocks(text).map((block, index) => <Block key={index} text={block} parts={parts} />) : <Block text={text} parts={parts} />}

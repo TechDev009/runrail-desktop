@@ -11,7 +11,6 @@ import { isBusy, isQuestion, pendingApprovals, type NoticeItem } from "../../thr
 import { approvalDetail, approvalQuestion, noticeCopy } from "../thread/rows"
 import { useProject, useThread } from "../hooks"
 import { Button } from "../common"
-import { QuestionForm } from "../thread/QuestionCard"
 
 /**
  * A thread's Peek card: what its person is doing, the latest reply, an approval or an error to
@@ -165,7 +164,9 @@ export function PeekBody({ thread, projectName, runtime, onClose }: { readonly t
           <span className="peek-approval-question">{approvalQuestion(approval)}</span>
           {detail !== undefined && <code className="peek-approval-detail">{detail}</code>}
           {approval.questions !== undefined ? (
-            <QuestionForm item={approval} threadId={threadId} primary={false} compact />
+            <div className="peek-actions">
+              <span>Answer in the blocking question dialog.</span>
+            </div>
           ) : isQuestion(approval) ? (
             <div className="peek-actions">
               <Button size="sm" onClick={() => openThread(threadId)}>

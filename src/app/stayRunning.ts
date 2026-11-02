@@ -1,4 +1,5 @@
 import { getHost } from "../host"
+import type { ThreadMeta } from "./persist"
 import type { EvalRun, SetupRun, WorkflowRun, WorkflowUpcoming } from "../protocol/schemas"
 import { isBusy } from "../thread/reducer"
 import { useEvals } from "./evals"
@@ -16,7 +17,7 @@ import { active as workflowActive, useUpcoming, useWorkflows } from "./workflowR
  * that sync hourly. While any holds, the host hides the window instead of quitting; hidden, it
  * quits a minute after the last one ends. The menu bar item's lines come from here too.
  */
-export type StayReason = "turn" | "workflow-run" | "setup-run" | "eval-run" | "schedule" | "memory-sync" | "limit-wait"
+export type StayReason = "turn" | "workflow-run" | "setup-run" | "eval-run" | "schedule" | "memory-sync" | "limit-wait" | "ci-watch"
 
 export interface StayInput {
   readonly runtime: Readonly<Record<string, ThreadRuntime>>
@@ -27,6 +28,15 @@ export interface StayInput {
   readonly sources: boolean
   /** Threads waiting to continue once a usage limit resets. */
   readonly limitWaits?: number
+  /** Non-archived threads with a persisted CI watch enabled. */
+  readonly ciWatchCount: number
+  /** PR numbers represented by the active watches. */
+  readonly ciWatchNumbers: readonly number[]
+}
+
+export function ciWatchSummary(threads: readonly Pick<ThreadMeta, "archived" | "ciWatch">[]): { readonly ciWatchCount: number; readonly ciWatchNumbers: readonly number[] } {
+  const watches = threads.flatMap((thread) => (thread.archived === true || thread.ciWatch === undefined ? [] : [thread.ciWatch.number]))
+  return { ciWatchCount: watches.length, ciWatchNumbers: [...new Set(watches)] }
 }
 
 export function stayReasons(input: StayInput): StayReason[] {
@@ -38,6 +48,7 @@ export function stayReasons(input: StayInput): StayReason[] {
   if ((input.upcoming?.armed ?? 0) > 0) reasons.push("schedule")
   if (input.sources) reasons.push("memory-sync")
   if ((input.limitWaits ?? 0) > 0) reasons.push("limit-wait")
+  if (input.ciWatchCount > 0) reasons.push("ci-watch")
   return reasons
 }
 
@@ -60,6 +71,12 @@ export function stayLines(input: StayInput, now: number): string[] {
     input.setupRuns.filter((run) => run.waiting?.kind === "approve").length
   const limited = input.limitWaits ?? 0
   const parts = [...(running > 0 ? [`${String(running)} running`] : []), ...(waiting > 0 ? [`${String(waiting)} waiting for you`] : []), ...(limited > 0 ? [`${String(limited)} waiting for a usage limit`] : [])]
+  const watchCount = input.ciWatchCount
+  const watchNumbers = [...new Set(input.ciWatchNumbers)]
+  if (watchCount > 0) {
+    const numbers = watchNumbers.length === 0 ? "" : ` · PR${watchNumbers.length === 1 ? "" : "s"} ${watchNumbers.map((number) => `#${String(number)}`).join(", ")}`
+    parts.push(`${String(watchCount)} CI watch${watchCount === 1 ? "" : "es"}${numbers}`)
+  }
   const next = input.upcoming?.next
   return [parts.length === 0 ? "Nothing running" : parts.join(", "), ...(next === undefined ? [] : [`Next: ${next.name}, ${when(next.at, now)}`])]
 }
@@ -79,15 +96,17 @@ export function clock(at: number, now: number): string {
 }
 
 function current(): StayInput {
+  const state = get()
   const upcoming = useUpcoming.getState().upcoming
   return {
-    runtime: get().runtime,
+    runtime: state.runtime,
     workflowRuns: Object.values(useWorkflows.getState().runs).map((entry) => entry.run),
     setupRuns: Object.values(useSetups.getState().runs).map((entry) => entry.run),
     evalRuns: Object.values(useEvals.getState().runs).map((entry) => entry.run),
     ...(upcoming === undefined ? {} : { upcoming }),
     sources: syncsSources(),
-    limitWaits: get().threads.filter((thread) => thread.resume !== undefined && thread.archived !== true).length,
+    limitWaits: state.threads.filter((thread) => thread.resume !== undefined && thread.archived !== true).length,
+    ...ciWatchSummary(state.threads),
   }
 }
 

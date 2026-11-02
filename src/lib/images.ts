@@ -7,9 +7,10 @@
 const MAX_EDGE = 1_568
 const TARGET_BYTES = 250 * 1_024
 const ACCEPTED = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"])
+const IMAGE_EXTENSION = /\.(?:png|jpe?g|webp|gif)$/i
 
 export function isImage(file: File): boolean {
-  return ACCEPTED.has(file.type)
+  return ACCEPTED.has(file.type.toLowerCase()) || IMAGE_EXTENSION.test(file.name)
 }
 
 export interface PreparedImage {

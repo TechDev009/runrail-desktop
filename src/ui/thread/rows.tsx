@@ -37,7 +37,7 @@ import { memo, useEffect, useState, type ReactNode } from "react"
 import { answerClaudeSdk, askAgain, offersSessionApproval, resolveApproval, restartEngine, retry } from "../../app/engines"
 import { APPROVAL_SETTLE_MS } from "../../app/attention"
 import { forkThread } from "../../app/workflows"
-import { openPanelHere } from "../../app/panels"
+import { openTurnReview } from "../../app/panels"
 import { get, openThread, setPrefs, threadById, useApp } from "../../app/store"
 import { openRewind } from "../../app/rewind"
 import { forkAt } from "../../app/fork"
@@ -221,7 +221,7 @@ export const AssistantRow = memo(function AssistantRow({ item, workspace, thread
   const text = item.text.trimEnd()
   return (
     <div className={cx("row-assistant", item.streaming && "is-streaming", last && "is-last")}>
-      <Markdown text={text} {...(workspace === undefined ? {} : { workspace })} streaming={item.streaming} />
+      <Markdown text={text} {...(workspace === undefined ? {} : { workspace })} {...(threadId === undefined ? {} : { threadId, runContext: item.key })} streaming={item.streaming} />
       {!item.streaming && text.length > 0 && (
         <div className="row-hover-actions">
           <CopyButton text={text} label="Copy reply" />
@@ -1303,7 +1303,7 @@ function PlainNotice({ item, threadId }: { readonly item: NoticeItem; readonly t
  * The end of a turn. When the turn's work folded into a "Worked for" line above the answer, this
  * line only carries what changed and the checks, and is left out when there is neither.
  */
-export const TurnEndRow = memo(function TurnEndRow({ item, changes, checks, folded = false }: { readonly item: TurnEndItem; readonly changes?: TurnChanges; readonly checks?: string; readonly folded?: boolean }) {
+export const TurnEndRow = memo(function TurnEndRow({ item, threadId, changes, checks, folded = false }: { readonly item: TurnEndItem; readonly threadId: string; readonly changes?: TurnChanges; readonly checks?: string; readonly folded?: boolean }) {
   const took = duration(item.endedAt - item.startedAt)
   const changed = changes !== undefined && changes.files > 0
   const run = item.backend === undefined && item.model === undefined && item.connectionId === undefined ? undefined : { backend: item.backend, model: item.model, connectionId: item.connectionId }
@@ -1326,8 +1326,8 @@ export const TurnEndRow = memo(function TurnEndRow({ item, changes, checks, fold
         {run !== undefined && <span className="turn-end-model">{verb === undefined || changed ? " · " : ""}{runLabel(run)}</span>}
       </span>
       {changed && (
-        <Button size="sm" variant="ghost" onClick={() => openPanelHere("review")}>
-          Review
+        <Button size="sm" variant="ghost" onClick={() => openTurnReview(threadId, item.turnId)}>
+          View changes
         </Button>
       )}
       {checks !== undefined && (

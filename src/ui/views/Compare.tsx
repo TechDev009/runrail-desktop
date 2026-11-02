@@ -9,7 +9,6 @@ import type { ThreadMeta } from "../../app/persist"
 import { selectionLabel } from "../../app/picker"
 import { openThread, set, toast, useApp } from "../../app/store"
 import { applyWinner, candidateDiff, discardWorktree } from "../../app/workflows"
-import { QuestionForm } from "../thread/QuestionCard"
 import { toHostError } from "../../host"
 import { duration, firstLine, plural } from "../../lib/format"
 import type { GitDiff, WorktreeApply } from "../../protocol/schemas"
@@ -228,7 +227,7 @@ function CandidateApproval({ threadId, item, items }: { readonly threadId: strin
         <span>{approvalQuestion(item)}</span>
       </div>
       {item.questions !== undefined ? (
-        <QuestionForm item={item} threadId={threadId} primary={false} compact />
+        <p className="candidate-approval-waiting">Answer this in the blocking question dialog.</p>
       ) : (
         <>
           <pre className="candidate-approval-action">{what}</pre>

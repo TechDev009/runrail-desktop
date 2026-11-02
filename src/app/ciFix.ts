@@ -1,11 +1,11 @@
-import { HostError, toHostError } from "../host"
+import { HostError, getHost, toHostError } from "../host"
 import { FailedChecksSchema, parseOr, ReviewDetailSchema, type FailedChecks, type PullRequestStatusEntry } from "../protocol/schemas"
 import { ciFixMessage } from "../thread/ciLogs"
 import { isBusy } from "../thread/reducer"
 import { confirmAction } from "./actions"
 import { onTurnEnded, send, threadRpc } from "./engines"
 import { gitHubHostOf, refreshPullRequests } from "./gitBar"
-import { pickPullRequest, PR_POLL_LIMIT_MS, PR_POLL_MS } from "./prStatus"
+import { pickPullRequest, PR_POLL_MS } from "./prStatus"
 import { get, patchThread, runtimeOf, threadById, toast, useApp } from "./store"
 
 /**
@@ -17,7 +17,15 @@ import { get, patchThread, runtimeOf, threadById, toast, useApp } from "./store"
  */
 
 export const MAX_WATCH_ROUNDS = 3
+export const MAX_WATCH_FAILURES = 3
+const MAX_WATCH_FAILURE_COUNT = 100
 const MAX_HEADS = 10
+const MAX_WATCH_POLL_MS = 5 * 60_000
+
+/** Error backoff: the first retry is one minute, capped at five. */
+export function watchPollDelay(failures: number): number {
+  return Math.min(PR_POLL_MS * 2 ** Math.max(0, failures), MAX_WATCH_POLL_MS)
+}
 
 function repositoryOf(threadId: string): { readonly owner: string; readonly repo: string } | undefined {
   const view = get().git[threadId]?.pr
@@ -38,7 +46,7 @@ export async function readFailedChecks(threadId: string, number: number): Promis
 }
 
 /** Sends the agent the failing checks' logs; false when there was nothing to fix or it failed. */
-export async function fixFailingChecks(threadId: string, number: number, push = false): Promise<{ readonly sent: boolean; readonly headCommit?: string }> {
+export async function fixFailingChecks(threadId: string, number: number, push = false, maySend?: () => boolean): Promise<{ readonly sent: boolean; readonly headCommit?: string }> {
   const where = repositoryOf(threadId)
   try {
     const logs = await readFailedChecks(threadId, number)
@@ -46,6 +54,7 @@ export async function fixFailingChecks(threadId: string, number: number, push = 
       if (!push) toast("info", "No checks are failing now.")
       return { sent: false }
     }
+    if (maySend !== undefined && !maySend()) return { sent: false }
     send(threadId, { text: ciFixMessage({ ...where, logs, push }) })
     return { sent: true, ...(logs.headCommit === undefined ? {} : { headCommit: logs.headCommit }) }
   } catch (error) {
@@ -69,27 +78,73 @@ export function watchStep(watch: NonNullable<ReturnType<typeof threadById>>["ciW
 }
 
 export function watchChecks(threadId: string, number: number, on: boolean): void {
-  patchThread(threadId, { ciWatch: on ? { number, heads: [], rounds: 0 } : undefined })
-  if (on) {
-    active.set(threadId, Date.now())
-    void refreshPullRequests(threadId, "click")
+  if (!on) {
+    stopWatch(threadId)
+    return
   }
+  invalidateWatch(threadId)
+  patchThread(threadId, { ciWatch: { number, heads: [], rounds: 0, failures: 0 } })
+  void refreshWatch(threadId, "click")
 }
 
-/** When each watched thread last moved: turned on, a fix sent, a turn ended. Reads stop 30 minutes after. */
-const active = new Map<string, number>()
+const timers = new Map<string, ReturnType<typeof setTimeout>>()
+const polling = new Map<string, Promise<void>>()
 const acting = new Set<string>()
+const generations = new Map<string, number>()
+const knownWatches = new Set<string>()
+let initialized = false
+let syncing = false
+
+function generation(threadId: string): number {
+  return generations.get(threadId) ?? 0
+}
+
+function invalidateWatch(threadId: string): void {
+  generations.set(threadId, generation(threadId) + 1)
+}
+
+function clearTimer(threadId: string): void {
+  const timer = timers.get(threadId)
+  if (timer === undefined) return
+  clearTimeout(timer)
+  timers.delete(threadId)
+}
+
+function watchedThread(threadId: string, number?: number): boolean {
+  const thread = threadById(threadId)
+  return thread !== undefined && thread.archived !== true && thread.ciWatch !== undefined && (number === undefined || thread.ciWatch.number === number)
+}
+
+function stopWatch(threadId: string): void {
+  clearTimer(threadId)
+  invalidateWatch(threadId)
+  if (threadById(threadId)?.ciWatch !== undefined) patchThread(threadId, { ciWatch: undefined })
+}
+
+function noteWatchCheck(threadId: string, number: number, passed: boolean): void {
+  const thread = threadById(threadId)
+  const watch = thread?.ciWatch
+  if (thread === undefined || thread.archived === true || watch === undefined || watch.number !== number) return
+  if (!polling.has(threadId)) clearTimer(threadId)
+  patchThread(threadId, {
+    ciWatch: {
+      ...watch,
+      lastCheckedAt: Date.now(),
+      failures: passed ? 0 : Math.min(MAX_WATCH_FAILURE_COUNT, (watch.failures ?? 0) + 1),
+    },
+  })
+}
 
 async function step(threadId: string): Promise<void> {
   const thread = threadById(threadId)
   const watch = thread?.ciWatch
-  if (thread === undefined || watch === undefined || acting.has(threadId)) return
+  if (thread === undefined || thread.archived === true || watch === undefined) return
   const view = get().git[threadId]?.pr
   if (view?.state !== "ready") return
   const pull = view.pullRequests.find((entry) => entry.number === watch.number) ?? pickPullRequest(view.pullRequests, Date.now())
   const next = watchStep(watch, pull)
   if (next === "end") {
-    patchThread(threadId, { ciWatch: undefined })
+    stopWatch(threadId)
     return
   }
   if (next === "passed") {
@@ -100,75 +155,130 @@ async function step(threadId: string): Promise<void> {
     return
   }
   if (next === "give-up") {
-    patchThread(threadId, { ciWatch: undefined })
+    stopWatch(threadId)
     toast("error", `The checks on #${String(watch.number)} still fail after ${String(MAX_WATCH_ROUNDS)} fixes. Stopped watching them.`)
     return
   }
   // A running turn may be the fix itself; its end reads the pull request again.
-  if (next !== "fix" || isBusy(runtimeOf(threadId).timeline)) return
+  if (next !== "fix" || acting.has(threadId) || isBusy(runtimeOf(threadId).timeline)) return
+  const head = pull?.headCommit
+  if (head === undefined) return
+  const token = generation(threadId)
   acting.add(threadId)
   try {
-    const head = pull?.headCommit as string
-    const sent = await fixFailingChecks(threadId, watch.number, true)
+    const sent = await fixFailingChecks(threadId, watch.number, true, () => generation(threadId) === token && watchedThread(threadId, watch.number))
     const current = threadById(threadId)?.ciWatch
-    if (current === undefined || current.number !== watch.number) return
-    active.set(threadId, Date.now())
-    const heads = [...new Set([...current.heads, head, ...(sent.headCommit === undefined ? [] : [sent.headCommit])])].slice(-MAX_HEADS)
+    if (generation(threadId) !== token || current === undefined || current.number !== watch.number) return
+    const attemptedHeads = sent.sent ? [head, ...(sent.headCommit === undefined ? [] : [sent.headCommit])] : []
+    const heads = [...new Set([...current.heads, ...attemptedHeads])].slice(-MAX_HEADS)
     patchThread(threadId, { ciWatch: { ...current, heads, rounds: current.rounds + (sent.sent ? 1 : 0) } })
   } finally {
     acting.delete(threadId)
   }
 }
 
-/** Keeps watched pull requests read every minute, on screen or not, until 30 minutes after the thread last moved. */
-const timers = new Map<string, ReturnType<typeof setTimeout>>()
-
 function schedule(threadId: string): void {
-  if (timers.has(threadId)) return
-  const since = active.get(threadId) ?? Date.now()
-  if (!active.has(threadId)) active.set(threadId, since)
-  if (Date.now() - since >= PR_POLL_LIMIT_MS) return
+  if (!initialized || timers.has(threadId) || polling.has(threadId)) return
+  const watch = threadById(threadId)?.ciWatch
+  if (!watchedThread(threadId) || watch === undefined) return
   timers.set(
     threadId,
     setTimeout(() => {
       timers.delete(threadId)
-      if (threadById(threadId)?.ciWatch === undefined) return
-      void refreshPullRequests(threadId, "poll").then(() => schedule(threadId))
-    }, PR_POLL_MS),
+      if (watchedThread(threadId)) void refreshWatch(threadId)
+    }, watchPollDelay(watch.failures ?? 0)),
   )
 }
 
+function refreshWatch(threadId: string, reason: "click" | "poll" = "poll"): Promise<void> {
+  if (!initialized || !watchedThread(threadId)) return Promise.resolve()
+  const inFlight = polling.get(threadId)
+  if (inFlight !== undefined) return inFlight
+  clearTimer(threadId)
+  let request: Promise<void>
+  request = refreshPullRequests(threadId, reason)
+    .catch(() => undefined)
+    .finally(() => {
+      if (polling.get(threadId) === request) polling.delete(threadId)
+      // A watch can be turned off and back on while this request is in flight. The old
+      // generation must not act on the new watch, but the new watch still needs its poll timer.
+      schedule(threadId)
+    })
+  polling.set(threadId, request)
+  return request
+}
+
+function refreshActiveWatches(): void {
+  for (const thread of get().threads) if (thread.ciWatch !== undefined && thread.archived !== true) void refreshWatch(thread.id)
+}
+
 function sync(): void {
-  const watched = new Set(get().threads.flatMap((thread) => (thread.ciWatch === undefined || thread.archived === true ? [] : [thread.id])))
-  for (const [threadId, timer] of timers) {
-    if (watched.has(threadId)) continue
-    clearTimeout(timer)
-    timers.delete(threadId)
-    active.delete(threadId)
+  if (!initialized || syncing) return
+  syncing = true
+  try {
+    for (const thread of get().threads) {
+      if (thread.archived === true && thread.ciWatch !== undefined) {
+        clearTimer(thread.id)
+        patchThread(thread.id, { ciWatch: undefined })
+      }
+    }
+    const watched = new Set(get().threads.flatMap((thread) => (thread.ciWatch === undefined || thread.archived === true ? [] : [thread.id])))
+    for (const threadId of knownWatches) {
+      if (watched.has(threadId)) continue
+      invalidateWatch(threadId)
+      knownWatches.delete(threadId)
+    }
+    for (const [threadId] of timers) if (!watched.has(threadId)) clearTimer(threadId)
+    for (const threadId of watched) {
+      knownWatches.add(threadId)
+      schedule(threadId)
+    }
+  } finally {
+    syncing = false
   }
-  for (const threadId of watched) schedule(threadId)
 }
 
 export function initCiWatch(): () => void {
-  sync()
+  initialized = true
   const unsubscribe = useApp.subscribe((state, previous) => {
     if (state.threads !== previous.threads) sync()
     if (state.git === previous.git) return
     for (const thread of state.threads) {
-      if (thread.ciWatch !== undefined && state.git[thread.id]?.pr !== previous.git[thread.id]?.pr) void step(thread.id)
+      if (thread.ciWatch === undefined || thread.archived === true) continue
+      const current = state.git[thread.id]?.pr
+      if (current === previous.git[thread.id]?.pr) continue
+      if (current !== undefined && current.state !== "loading") noteWatchCheck(thread.id, thread.ciWatch.number, current.state === "ready")
+      void step(thread.id)
     }
   })
   const offEnd = onTurnEnded((threadId) => {
-    if (threadById(threadId)?.ciWatch === undefined) return
-    active.set(threadId, Date.now())
-    schedule(threadId)
+    if (watchedThread(threadId)) void refreshWatch(threadId)
   })
+  const offBackground = getHost().onBackground((hidden) => {
+    if (!hidden) refreshActiveWatches()
+  })
+  const onForeground = (): void => {
+    if (typeof document === "undefined" || document.visibilityState === "visible") refreshActiveWatches()
+  }
+  if (typeof window !== "undefined") {
+    window.addEventListener("focus", onForeground)
+    window.addEventListener("pageshow", onForeground)
+  }
+  if (typeof document !== "undefined") document.addEventListener("visibilitychange", onForeground)
+  sync()
+  refreshActiveWatches()
   return () => {
+    initialized = false
     unsubscribe()
     offEnd()
-    for (const timer of timers.values()) clearTimeout(timer)
-    timers.clear()
-    active.clear()
+    offBackground()
+    if (typeof window !== "undefined") {
+      window.removeEventListener("focus", onForeground)
+      window.removeEventListener("pageshow", onForeground)
+    }
+    if (typeof document !== "undefined") document.removeEventListener("visibilitychange", onForeground)
+    for (const threadId of timers.keys()) clearTimer(threadId)
+    knownWatches.clear()
   }
 }
 

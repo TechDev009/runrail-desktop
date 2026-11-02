@@ -6,6 +6,7 @@ import type { PrView } from "./prStatus"
 import type { ChangeStats } from "./threadBar"
 import type { RewindPlan } from "./rewind"
 import { emptyTimeline, type Timeline } from "../thread/reducer"
+import { supportsFastMode } from "./fastMode"
 import {
   defaultState,
   MAX_DISABLED_SKILLS,
@@ -54,6 +55,7 @@ export interface TurnChanges {
   readonly files: number
   readonly additions: number
   readonly deletions: number
+  readonly paths: readonly string[]
 }
 
 export interface GoalState {
@@ -420,6 +422,7 @@ export interface NewThreadInput {
   /** Connection `model` is reached through. */
   readonly connectionId?: string
   readonly thinking?: Thinking
+  readonly fastMode?: boolean
   readonly mode?: ThreadMode
   readonly permission?: PermissionPreset
   readonly title?: string
@@ -484,6 +487,7 @@ export function createThread(input: NewThreadInput): ThreadMeta {
     ...(model === undefined ? {} : { model }),
     ...(connectionId === undefined || (backend === "native" && model === undefined) ? {} : { connectionId }),
     thinking: input.thinking ?? prefs.defaultThinking,
+    fastMode: supportsFastMode(backend) && input.fastMode === true,
     mode: input.mode ?? "agent",
     permission: input.permission ?? prefs.defaultPermission,
     ...(input.worktree === undefined ? {} : { worktree: input.worktree }),

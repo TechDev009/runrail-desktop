@@ -1,6 +1,8 @@
-import { Check, Columns3, Download, FolderOpen, GitBranch, Link2, Minus, Plus, Search, ShieldAlert, TriangleAlert } from "lucide-react"
+import { Check, CircleStop, Columns3, Download, FolderOpen, GitBranch, Link2, Minus, Plus, Search, ShieldAlert, TriangleAlert } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { closeDialog } from "../../app/actions"
+import { cancel } from "../../app/engines"
+import { pendingQuestionQueue, type PendingQuestionEntry } from "../../app/pendingQuestions"
 import { useCatalog, type Catalog } from "../../app/catalog"
 import { newId } from "../../app/persist"
 import { anyConnected, defaultSelection, selectionProblem, toolState, type Selection, type SelectionProblem } from "../../app/picker"
@@ -11,6 +13,7 @@ import { bytes, relativeTime, tildify } from "../../lib/format"
 import { fuzzyScore } from "../../lib/fuzzy"
 import { EXTERNAL_SOURCES, type ExternalSession } from "../../protocol/schemas"
 import { Button, CopyButton, cx, EmptyState, Kbd, Modal, Segmented, Spinner, Toggle } from "../common"
+import { QuestionForm } from "../thread/QuestionCard"
 import { ConnectDialog } from "../connections/ConnectDialog"
 import { ContinueOnDialog } from "./ContinueOnDialog"
 import { CreateProjectDialog } from "./CreateProjectDialog"
@@ -24,9 +27,22 @@ import { readCheckCommand } from "../../app/checks"
 import { RunsOnSelect } from "../RunsOnSelect"
 import { matches } from "../../lib/format"
 
-/** Hosts whichever dialog the store asks for. Only one dialog is open at a time. */
+/** Hosts the blocking question first; regular dialogs wait behind it. */
 export function DialogHost() {
   const dialog = useApp((state) => state.dialog)
+  const threads = useApp((state) => state.threads)
+  const runtime = useApp((state) => state.runtime)
+  const pendingQuestions = useMemo(() => pendingQuestionQueue(threads, runtime), [runtime, threads])
+  const activeQuestion = pendingQuestions[0]
+  return (
+    <>
+      {dialog !== undefined && <ActiveDialog dialog={dialog} />}
+      {activeQuestion !== undefined && <BlockingQuestionDialog question={activeQuestion} position={1} total={pendingQuestions.length} />}
+    </>
+  )
+}
+
+function ActiveDialog({ dialog }: { readonly dialog: Dialog }) {
   if (dialog === undefined) return null
   switch (dialog.kind) {
     case "confirm":
@@ -54,6 +70,44 @@ export function DialogHost() {
     case "report-problem":
       return <ReportDialog />
   }
+}
+
+function BlockingQuestionDialog({ question, position, total }: { readonly question: PendingQuestionEntry; readonly position: number; readonly total: number }) {
+  const [stopping, setStopping] = useState(false)
+  const stopRun = async (): Promise<void> => {
+    if (stopping) return
+    setStopping(true)
+    try {
+      await cancel(question.threadId)
+    } finally {
+      setStopping(false)
+    }
+  }
+  return (
+    <Modal
+      title={`Question for ${question.threadTitle}`}
+      onClose={() => undefined}
+      dismissible={false}
+      width={680}
+      className="question-dialog"
+      footer={
+        <>
+          <span className="modal-foot-hint">
+            {total > 1 ? `Question ${String(position)} of ${String(total)}. Other runs stay paused.` : "This run is paused until you answer."}
+          </span>
+          <Button variant="ghost" icon={<CircleStop size={14} />} loading={stopping} onClick={() => void stopRun()}>
+            Stop run
+          </Button>
+        </>
+      }
+    >
+      <div className="question-dialog-context">
+        <span className="question-dialog-state">Run paused</span>
+        <span>{total > 1 ? `${String(total)} questions are waiting across your threads.` : "Answer the question below to let the run continue."}</span>
+      </div>
+      <QuestionForm key={`${question.threadId}:${question.item.approvalId}`} item={question.item} threadId={question.threadId} primary />
+    </Modal>
+  )
 }
 
 function ConfirmDialog({ dialog }: { readonly dialog: Extract<Dialog, { kind: "confirm" }> }) {

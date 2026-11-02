@@ -5,7 +5,9 @@ import { openUrl } from "../../app/actions"
 import {
   checksBadge,
   connectGitHub,
+  feedbackAddressAction,
   fileGroups,
+  loadReviewThreads,
   loadReviews,
   loadTeams,
   mergeLine,
@@ -14,6 +16,7 @@ import {
   REVIEW_GROUPS,
   REVIEWS_POLL_MS,
   reviewBadge,
+  reviewFeedbackIsStale,
   reviewKey,
   reviewThreadsOf,
   selectReview,
@@ -28,6 +31,7 @@ import {
   type ReviewRef,
   type Tone,
 } from "../../app/reviews"
+import { send } from "../../app/engines"
 import { openThread, useApp } from "../../app/store"
 import { relativeTime, timeAgo } from "../../lib/format"
 import type { ReviewDetail, ReviewEntry } from "../../protocol/schemas"
@@ -454,6 +458,7 @@ function Summary({ detail, refOf, onOpenFile }: { readonly detail: ReviewDetail;
             </ul>
           )}
         </section>
+        <ReviewFeedback detail={detail} refOf={refOf} threads={threads} />
         <section>
           <h2>In Runrail</h2>
           {thread === undefined && reviews.length === 0 ? (
@@ -469,6 +474,59 @@ function Summary({ detail, refOf, onOpenFile }: { readonly detail: ReviewDetail;
         </section>
       </aside>
     </div>
+  )
+}
+
+function ReviewFeedback({ detail, refOf, threads }: { readonly detail: ReviewDetail; readonly refOf: ReviewRef; readonly threads: ReturnType<typeof useApp.getState>["threads"] }) {
+  const state = useReviews((value) => value.reviewThreads[reviewKey(refOf)])
+  useEffect(() => {
+    void loadReviewThreads(refOf)
+  }, [refOf.owner, refOf.repo, refOf.number, detail.headCommit])
+  const result = state?.result
+  const feedback = result?.threads.flatMap((thread) => thread.comments.map((comment) => ({ thread, comment }))) ?? []
+  const owner = threadForPullRequest(threads, detail.url)
+  return (
+    <section>
+      <h2>Review feedback</h2>
+      {state?.state === "error" && <p className="reviews-note is-error">{state.message ?? "Could not read review feedback."}</p>}
+      {(state === undefined || (state.state === "loading" && result === undefined)) && <p className="muted"><Spinner size={12} /> Reading inline comments…</p>}
+      {result !== undefined && feedback.length === 0 && <p className="muted">No inline review comments</p>}
+      {feedback.length > 0 && result !== undefined && (
+        <ul className="reviews-people">
+          {feedback.map(({ thread, comment }) => {
+            const line = thread.line ?? thread.originalLine
+            const stale = reviewFeedbackIsStale(thread, comment, detail.headCommit, result.headCommit)
+            const action = feedbackAddressAction(threads, detail.url, refOf, detail.headCommit, result, thread, comment)
+            return (
+              <li key={`${thread.id}:${comment.id}`}>
+                <div>
+                  <p className="muted">{thread.path}{line === undefined ? "" : `:${String(line)}`} · {comment.author ?? "Someone"}</p>
+                  <p style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{comment.body}</p>
+                  {stale ? (
+                    <p className="reviews-note">Stale feedback: the pull request head has moved since this comment. Refresh before addressing it.</p>
+                  ) : thread.isResolved ? (
+                    <p className="muted">Resolved on GitHub.</p>
+                  ) : detail.headCommit === undefined ? (
+                    <p className="muted">The current PR head SHA is unavailable; refresh before addressing this comment.</p>
+                  ) : owner === undefined ? (
+                    <p className="muted">No Runrail thread owns this pull request.</p>
+                  ) : line === undefined ? (
+                    <p className="muted">This feedback has no current or original line to send as context.</p>
+                  ) : action !== undefined ? (
+                    <Button size="sm" variant="secondary" icon={<MessagesSquare size={12} />} onClick={() => {
+                      openThread(action.threadId)
+                      send(action.threadId, { text: action.text })
+                    }}>
+                      Address feedback
+                    </Button>
+                  ) : null}
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
   )
 }
 

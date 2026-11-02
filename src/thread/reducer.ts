@@ -617,6 +617,9 @@ function applyEvent(draft: Draft, event: AgentEvent, fallbackRun?: TurnRun): voi
         draft.activeTurnId = event.snapshot.activeTurnId
         draft.turnStartedAt = event.at
         draft.activeRun = fallbackRun
+      } else if (event.snapshot.activeTurnId === undefined && draft.activeTurnId !== undefined) {
+        const ended = event.snapshot.status === "failed" ? "failed" : event.snapshot.status === "stopped" ? "stopped" : event.snapshot.status === "idle" || event.snapshot.status === "completed" ? "completed" : undefined
+        if (ended !== undefined) closeTurn(draft, event.at, ended)
       }
       return
     }

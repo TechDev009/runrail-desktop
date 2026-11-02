@@ -852,6 +852,7 @@ export function Modal({
   footer,
   width = 560,
   className,
+  dismissible = true,
 }: {
   readonly title: ReactNode
   readonly onClose: () => void
@@ -859,14 +860,17 @@ export function Modal({
   readonly footer?: ReactNode
   readonly width?: number
   readonly className?: string
+  readonly dismissible?: boolean
 }) {
   const panel = useRef<HTMLDivElement | null>(null)
   const backdrop = useRef<HTMLDivElement | null>(null)
   const attach = useOverlayRef(backdrop)
   // Callers pass a fresh function each render; reading it through a ref keeps focus where the person put it.
   const close = useRef(onClose)
+  const canDismiss = useRef(dismissible)
   useEffect(() => {
     close.current = onClose
+    canDismiss.current = dismissible
   })
   useEffect(() => {
     const id = Symbol("modal")
@@ -882,7 +886,7 @@ export function Modal({
       if (event.key !== "Escape") return
       event.preventDefault()
       event.stopPropagation()
-      close.current()
+      if (canDismiss.current) close.current()
     }
     document.addEventListener("keydown", key)
     return () => {
@@ -900,13 +904,15 @@ export function Modal({
     }
   }, [])
   return createPortal(
-    <div ref={attach} className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div ref={attach} className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && canDismiss.current && close.current()}>
       <div ref={panel} className={cx("modal", className)} role="dialog" aria-modal aria-label={typeof title === "string" ? title : undefined} style={{ width }}>
         <div className="modal-head">
           <div className="modal-title">{title}</div>
-          <IconButton label="Close" size="sm" className="modal-close" onClick={onClose}>
-            <X size={15} />
-          </IconButton>
+          {dismissible && (
+            <IconButton label="Close" size="sm" className="modal-close" onClick={onClose}>
+              <X size={15} />
+            </IconButton>
+          )}
         </div>
         <div className="modal-body">{children}</div>
         {footer !== undefined && <div className="modal-foot">{footer}</div>}

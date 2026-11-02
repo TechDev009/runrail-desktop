@@ -1,12 +1,11 @@
 import { MessageCircleQuestion, MessageCircleX, MessageCircleReply } from "lucide-react"
 import { memo, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react"
 import { resolveApproval } from "../../app/engines"
-import { get } from "../../app/store"
 import type { Question, QuestionOption } from "../../protocol/schemas"
 import type { ApprovalItem } from "../../thread/reducer"
-import { Button, cx, useOverlays } from "../common"
+import { Button, cx } from "../common"
 import { Markdown } from "./Markdown"
-import { approvalQuestion, approvalShortcut, reasonParts, visibleText } from "./rows"
+import { approvalQuestion, reasonParts, visibleText } from "./rows"
 
 type Answers = Readonly<Record<string, readonly string[]>>
 type Written = Readonly<Record<string, string>>
@@ -109,9 +108,21 @@ export function questionsLead(item: ApprovalItem): string | undefined {
   return reason === summary || reasonParts(reason)?.detail === summary ? undefined : visibleText(reason)
 }
 
-/** A coding tool's questions in the thread: answered here, or shown with their answers once settled. */
-export const QuestionCard = memo(function QuestionCard({ item, threadId, primary }: { readonly item: ApprovalItem; readonly threadId: string; readonly primary: boolean }) {
-  if (item.status === "pending") return <QuestionForm item={item} threadId={threadId} primary={primary} />
+/** A pending question is answered in the blocking dialog; the timeline keeps its place. */
+export const QuestionCard = memo(function QuestionCard({ item }: { readonly item: ApprovalItem }) {
+  if (item.status === "pending") {
+    const lead = questionsLead(item)
+    return (
+      <div className="row-question-waiting" role="status" aria-live="polite">
+        <MessageCircleQuestion size={14} aria-hidden />
+        <div>
+          <strong>Waiting for your answer</strong>
+          {lead !== undefined && <p>{lead}</p>}
+          <span>The run is paused while you answer in the dialog.</span>
+        </div>
+      </div>
+    )
+  }
   const answered = item.status === "approved" && (item.answers !== undefined || item.followUp === true)
   // Approved without answers, by a client that showed no questions: the tool asks in its reply.
   const label = item.followUp === true && item.status === "approved" ? "Asked for more questions" : answered ? "Answered" : item.status === "approved" ? "Asked in the reply instead" : item.withdrawn === true ? "No longer needed" : "Not answered"
@@ -152,48 +163,44 @@ export function QuestionForm({ item, threadId, primary, compact = false }: { rea
   const [picked, setPicked] = useState<Answers>({})
   const [written, setWritten] = useState<Written>(() => startingAnswers(questions))
   const [pointed, setPointed] = useState<Readonly<Record<string, string | undefined>>>({})
-  const [busy, setBusy] = useState<"send" | "skip" | "more" | undefined>()
+  const [busy, setBusy] = useState<"send" | "more" | "sent" | undefined>()
+  const [submitError, setSubmitError] = useState<string | undefined>()
   // The note for a request for more questions, while the person is writing one.
   const [more, setMore] = useState<string | undefined>()
   const answers = collectAnswers(questions, picked, written)
   const send = async (): Promise<void> => {
     if (answers === undefined || busy !== undefined) return
     setBusy("send")
-    await resolveApproval(threadId, item.approvalId, true, undefined, undefined, answers)
-    setBusy(undefined)
+    setSubmitError(undefined)
+    try {
+      const accepted = await resolveApproval(threadId, item.approvalId, true, undefined, undefined, answers)
+      if (accepted) setBusy("sent")
+      else {
+        setBusy(undefined)
+        setSubmitError("The answer was not accepted. Your entries are still here; please try again.")
+      }
+    } catch {
+      setBusy(undefined)
+      setSubmitError("The answer could not be sent. Your entries are still here; please try again.")
+    }
   }
   const askMore = async (): Promise<void> => {
     if (more === undefined || busy !== undefined) return
     setBusy("more")
+    setSubmitError(undefined)
     const note = more.trim()
-    await resolveApproval(threadId, item.approvalId, true, undefined, undefined, answersSoFar(questions, picked, written), note.length === 0 ? {} : { note })
-    setBusy(undefined)
-  }
-  const skip = async (): Promise<void> => {
-    if (busy !== undefined) return
-    setBusy("skip")
-    await resolveApproval(threadId, item.approvalId, false)
-    setBusy(undefined)
-  }
-  // The keys shown on the buttons, while nothing covers the thread; the latest answers are read when pressed.
-  const latest = useRef({ answers, send, skip })
-  latest.current = { answers, send, skip }
-  const armed = primary && busy === undefined && more === undefined
-  useEffect(() => {
-    if (!armed) return
-    const armedAt = Date.now()
-    const key = (event: KeyboardEvent): void => {
-      const target = event.target instanceof HTMLElement ? event.target : null
-      const answer = approvalShortcut({ key: event.key, metaKey: event.metaKey, ctrlKey: event.ctrlKey, altKey: event.altKey, shiftKey: event.shiftKey, repeat: event.repeat, isComposing: event.isComposing, defaultPrevented: event.defaultPrevented, target }, Date.now() - armedAt)
-      if (answer === undefined || (answer === "approve" && latest.current.answers === undefined)) return
-      const state = get()
-      if (state.dialog !== undefined || state.settings !== false || state.palette || useOverlays.getState().length > 0) return
-      event.preventDefault()
-      void (answer === "approve" ? latest.current.send() : latest.current.skip())
+    try {
+      const accepted = await resolveApproval(threadId, item.approvalId, true, undefined, undefined, answersSoFar(questions, picked, written), note.length === 0 ? {} : { note })
+      if (accepted) setBusy("sent")
+      else {
+        setBusy(undefined)
+        setSubmitError("The follow-up request was not accepted. Your entries are still here; please try again.")
+      }
+    } catch {
+      setBusy(undefined)
+      setSubmitError("The follow-up request could not be sent. Your entries are still here; please try again.")
     }
-    window.addEventListener("keydown", key)
-    return () => window.removeEventListener("keydown", key)
-  }, [armed, item.approvalId])
+  }
   const choose = (question: Question, label: string): void => {
     setPicked((current) => {
       const chosen = current[question.id] ?? []
@@ -208,7 +215,19 @@ export function QuestionForm({ item, threadId, primary, compact = false }: { rea
     if (question.multiSelect !== true && text.trim().length > 0) setPicked((current) => ({ ...current, [question.id]: [] }))
   }
   return (
-    <div className={cx("row-approval", "row-question", compact && "is-compact")} role="group" aria-label="Question from the coding tool" data-primary-approval={primary ? "true" : undefined}>
+    <div
+      className={cx("row-approval", "row-question", compact && "is-compact")}
+      role="group"
+      aria-label="Question from the coding tool"
+      data-primary-approval={primary ? "true" : undefined}
+      onKeyDown={(event) => {
+        if (event.defaultPrevented || event.nativeEvent.isComposing || !primary || busy !== undefined) return
+        if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault()
+          void send()
+        }
+      }}
+    >
       {!compact && (
         <div className="approval-head">
           <MessageCircleQuestion size={15} />
@@ -228,12 +247,14 @@ export function QuestionForm({ item, threadId, primary, compact = false }: { rea
           onWrite={(text) => write(question, text)}
           onPoint={(label) => setPointed((current) => ({ ...current, [question.id]: label }))}
           onSend={() => void send()}
-          onSkip={() => void skip()}
         />
       ))}
       {more !== undefined && <MoreNote text={more} disabled={busy !== undefined} onWrite={setMore} onSend={() => void askMore()} onCancel={() => setMore(undefined)} />}
+      {submitError !== undefined && <p className="question-submit-error" role="alert">{submitError}</p>}
       <div className="approval-actions">
-        {more === undefined ? (
+        {busy === "sent" ? (
+          <p className="question-submit-status" role="status">Answer sent. Waiting for the thread to update…</p>
+        ) : more === undefined ? (
           <>
             <Button variant="primary" size="sm" loading={busy === "send"} disabled={answers === undefined || busy !== undefined} onClick={() => void send()} {...(primary ? { kbd: "mod+enter" } : {})}>
               {questions.length > 1 ? "Send answers" : "Send answer"}
@@ -243,9 +264,6 @@ export function QuestionForm({ item, threadId, primary, compact = false }: { rea
                 Ask me more
               </Button>
             )}
-            <Button size="sm" loading={busy === "skip"} disabled={busy !== undefined} title="The coding tool goes on without an answer" onClick={() => void skip()} {...(primary ? { kbd: "mod+shift+enter" } : {})}>
-              Skip
-            </Button>
           </>
         ) : (
           <>
@@ -305,7 +323,6 @@ interface FieldProps {
   readonly onWrite: (text: string) => void
   readonly onPoint: (label: string | undefined) => void
   readonly onSend: () => void
-  readonly onSkip: () => void
 }
 
 /** One question, asked by its kind: choices with a typebox for one's own answer, free text, or a number. */
@@ -313,14 +330,12 @@ export function QuestionField(props: FieldProps) {
   const { question } = props
   const descriptionId = useId()
   const description = question.description !== undefined && question.description.length > 0 ? question.description : undefined
-  // The thread-wide keys skip fields, so a field takes Return itself; Shift+Return is a new line in a text answer.
+  // A field takes Return itself; Shift+Return stays available for multiline answers.
   const enter = (event: ReactKeyboardEvent<HTMLElement>, multiline: boolean): void => {
     if (event.key !== "Enter" || event.nativeEvent.isComposing) return
-    const mod = event.metaKey || event.ctrlKey
-    if (multiline && event.shiftKey && !mod) return
+    if (multiline && event.shiftKey) return
     event.preventDefault()
-    if (mod && event.shiftKey) props.onSkip()
-    else props.onSend()
+    props.onSend()
   }
   return (
     <fieldset className="question" aria-describedby={description === undefined ? undefined : descriptionId}>

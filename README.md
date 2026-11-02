@@ -27,6 +27,15 @@ each thread in its own worktree, every command and edit behind your approval.</p
   <img src=".github/assets/screenshot.png" alt="A Runrail thread waiting for approval to run the tests, with its plan, subagents, and edited files" width="900">
 </p>
 
+<p align="center"><b>One window for the work, and a whole office to keep track of it.</b></p>
+
+<table>
+  <tr>
+    <td align="center" width="50%"><img src=".github/assets/office-sakura.png" alt="Runrail Office in the Sakura theme, with active project rooms and pixel-art agents" width="100%"><br><sub>Office mode in Sakura: projects, agents, and threads at a glance.</sub></td>
+    <td align="center" width="50%"><img src=".github/assets/office-attention.png" alt="Runrail Office showing three approvals that need attention" width="100%"><br><sub>Needs attention: approvals waiting for you across projects.</sub></td>
+  </tr>
+</table>
+
 ---
 
 Runrail Desktop puts your coding agents in one window. Each thread runs on a local, supervised
@@ -92,18 +101,21 @@ Settings with a key or a browser sign-in.
 
 ## Privacy
 
-Runrail has no account and sends nothing to its authors. It talks only to:
+Runrail has no account, analytics, or telemetry. It contacts these services only for the features you use:
 
-- the model providers and coding tools you use, with your own sign-ins;
+- the model providers and coding tools you connect, with your own sign-ins. Prompts, selected files, and tool results go to the provider or tool that handles the thread;
 - npm, once, to download the Claude Agent SDK after you allow it (Runrail asks before Claude Code's first message);
-- GitHub, for the update check, and through your own `gh` sign-in for pull requests;
+- GitHub, for the update check, and through your own `gh` sign-in for pull requests and CI logs;
+- the optional GitHub CI relay, when you pair it. GitHub sends signed webhook payloads to the configured Worker; after verification, it stores only event type, repository, pull request number, head commit, optional workflow run details, and timestamp for 24 hours. It does not retain raw webhook payloads, check logs, review comments, or credentials;
+- the configured model provider or coding tool, when you click **Fix failing checks** or enable **Watch checks and fix failures**. Runrail fetches logs locally, adds selected excerpts to the thread, and sends them to the tool handling that thread. The excerpts remain in the local thread history. The relay never receives the logs;
 - Hugging Face, only if you download a Whisper model for local dictation;
 - your phone's push service, only if you turn on phone notifications;
 - npm, when you start a new app, to fetch that starter's creator at a fixed version.
 
-Keys and sign-ins are kept in the system keychain (on Linux without a keyring, in a file only
-your user can read). The app's own database stores which connection a thread uses, never a key
-or token. See [SECURITY.md](SECURITY.md) for the trust boundaries.
+Provider keys and the relay pairing token are kept in the system keychain (on Linux without a
+keyring, in a file only your user can read). GitHub CLI sign-in remains with `gh`. The app's
+database stores which connection a thread uses, never a provider key or relay token. See
+[SECURITY.md](SECURITY.md) for the trust boundaries.
 
 ## Nifra in Runrail
 
@@ -155,7 +167,7 @@ bun run dev
 
 `bun run dev` serves the UI on http://localhost:1420. In a plain browser it runs against a
 scripted preview engine (marked **Preview** in the sidebar), so every screen can be exercised
-without a model or credentials; the screenshot above comes from it.
+without a model or credentials; the screenshots above come from it.
 
 For the native app, build the bundled engine from the sibling checkout (`RUNRAIL_DIR` points
 elsewhere), then start Tauri:

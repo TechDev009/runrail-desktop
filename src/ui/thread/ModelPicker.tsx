@@ -1,4 +1,4 @@
-import { Check, ChevronDown, ChevronLeft, ChevronRight, Plus, RefreshCw, RotateCcw, Search, Settings2, Star, TriangleAlert } from "lucide-react"
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Plus, RefreshCw, RotateCcw, Search, Settings2, Star, TriangleAlert, Zap } from "lucide-react"
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from "react"
 import { connectModel } from "../../app/actions"
 import type { Catalog } from "../../app/catalog"
@@ -19,6 +19,7 @@ import {
   type TriggerView,
 } from "../../app/picker"
 import { useRefusedLevels } from "../../app/refusals"
+import { supportsFastMode } from "../../app/fastMode"
 import { MAX_FAVORITE_MODELS } from "../../app/persist"
 import { get, set, setPrefs, useApp } from "../../app/store"
 import type { Thinking } from "../../host/types"
@@ -41,6 +42,7 @@ export function ModelPicker({
   problem,
   onPick,
   onThinking,
+  onFastModeChange,
   busy,
   openSignal,
   side = "top",
@@ -53,6 +55,7 @@ export function ModelPicker({
   readonly problem: SelectionProblem | undefined
   readonly onPick: (selection: Selection) => void
   readonly onThinking: (thinking: Thinking) => void
+  readonly onFastModeChange?: (fastMode: boolean) => void
   readonly busy: boolean
   readonly openSignal?: number
   readonly side?: "top" | "bottom"
@@ -116,7 +119,7 @@ export function ModelPicker({
         }}
       >
         {(close) => (
-          <ModelMenu catalog={catalog} value={value} developer={developer} busy={busy} chip={chip} level={level} reasoning={reasoning} onPick={onPick} onThinking={onThinking} close={close} />
+          <ModelMenu catalog={catalog} value={value} developer={developer} busy={busy} chip={chip} level={level} reasoning={reasoning} onPick={onPick} onThinking={onThinking} onFastModeChange={onFastModeChange} close={close} />
         )}
       </Popover>
     </div>
@@ -134,6 +137,7 @@ function ModelMenu({
   reasoning,
   onPick,
   onThinking,
+  onFastModeChange,
   close,
 }: {
   readonly catalog: PickerCatalogState
@@ -145,6 +149,7 @@ function ModelMenu({
   readonly reasoning: ReasoningView
   readonly onPick: (selection: Selection) => void
   readonly onThinking: (thinking: Thinking) => void
+  readonly onFastModeChange?: (fastMode: boolean) => void
   readonly close: () => void
 }) {
   const [page, setPage] = useState<"effort" | "models">(level === undefined ? "models" : "effort")
@@ -175,6 +180,7 @@ function ModelMenu({
           developer={developer}
           busy={busy}
           onBack={level === undefined ? undefined : () => setPage("effort")}
+          onFastModeChange={onFastModeChange}
           onPick={(selection) => {
             onPick(selection)
             // Another coding tool or agent may need a new thread, so the menu steps aside for that.
@@ -190,7 +196,19 @@ function ModelMenu({
   return (
     <div ref={root} className="model-menu effort-page">
       <div className="effort-page-head">
-        <span className="effort-page-side" aria-hidden="true" />
+        <span className="effort-page-side">
+          {supportsFastMode(value.backend) && onFastModeChange !== undefined && (
+            <IconButton
+              label={value.fastMode === true ? "Turn Fast mode off" : "Turn Fast mode on"}
+              size="sm"
+              active={value.fastMode === true}
+              disabled={busy}
+              onClick={() => onFastModeChange(value.fastMode !== true)}
+            >
+              <Zap size={13} />
+            </IconButton>
+          )}
+        </span>
         <button type="button" className="effort-page-model" onClick={() => setPage("models")} aria-label={`${chip.label}. Choose another model`}>
           <span className="effort-page-level">{THINKING_NAME[level]}</span>
           <span className="effort-page-name">
@@ -347,6 +365,7 @@ export function PickerPanel({
   busy,
   onPick,
   onBack,
+  onFastModeChange,
   close,
 }: {
   readonly catalog: PickerCatalogState
@@ -356,6 +375,7 @@ export function PickerPanel({
   readonly onPick: (selection: Selection) => void
   /** Back to the effort, when the menu opened there. */
   readonly onBack?: (() => void) | undefined
+  readonly onFastModeChange?: ((fastMode: boolean) => void) | undefined
   readonly close: () => void
 }) {
   const recents = useApp((state) => state.prefs.recentModels)
@@ -421,11 +441,28 @@ export function PickerPanel({
   return (
     <div ref={root} className="picker" onKeyDown={onKeyDown}>
       <div className="picker-top">
-        {onBack !== undefined && (
+        {supportsFastMode(value.backend) && onFastModeChange !== undefined ? (
+          <>
+            <IconButton
+              label={value.fastMode === true ? "Turn Fast mode off" : "Turn Fast mode on"}
+              size="sm"
+              active={value.fastMode === true}
+              disabled={busy}
+              onClick={() => onFastModeChange(value.fastMode !== true)}
+            >
+              <Zap size={13} />
+            </IconButton>
+            {onBack !== undefined && (
+              <IconButton label="Back to effort" size="sm" onClick={onBack}>
+                <ChevronLeft size={14} />
+              </IconButton>
+            )}
+          </>
+        ) : onBack !== undefined ? (
           <IconButton label="Back to effort" size="sm" onClick={onBack}>
             <ChevronLeft size={14} />
           </IconButton>
-        )}
+        ) : null}
         {view.search ? (
           <label className="picker-search">
             <Search size={13} />

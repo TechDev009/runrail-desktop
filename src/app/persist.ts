@@ -125,6 +125,7 @@ export interface ThreadMeta {
   /** Selection used by each completed or started turn, kept so old rows survive a model switch. */
   readonly runHistory?: readonly ThreadRun[]
   readonly thinking?: Thinking
+  readonly fastMode?: boolean
   readonly mode: ThreadMode
   readonly permission: PermissionPreset
   readonly worktree?: ThreadWorktree
@@ -160,7 +161,7 @@ export interface ThreadMeta {
    * `heads` are the commits it was already asked about; `rounds` counts the fixes since
    * the checks last passed. No log or message is stored.
    */
-  readonly ciWatch?: { readonly number: number; readonly heads: readonly string[]; readonly rounds: number }
+  readonly ciWatch?: { readonly number: number; readonly heads: readonly string[]; readonly rounds: number; readonly lastCheckedAt?: number; readonly failures?: number }
   /**
    * Pull requests this thread has seen for its branch. `card` puts one in the timeline after turn
    * `turnId`, or at `at` when that turn is not loaded; PRs that existed at the first read are kept
@@ -609,6 +610,7 @@ const ThreadSchema = z.object({
     .optional()
     .catch(undefined),
   thinking: ThinkingSchema.optional(),
+  fastMode: z.boolean().default(false),
   mode: z.enum(["agent", "plan", "goal"]).catch("agent"),
   permission: Permission.catch("ask"),
   worktree: z
@@ -653,7 +655,13 @@ const ThreadSchema = z.object({
   computer: z.literal(true).optional().catch(undefined),
   resume: z.object({ at: z.number().int().positive(), again: z.boolean() }).optional().catch(undefined),
   ciWatch: z
-    .object({ number: z.number().int().positive().max(1_000_000_000), heads: z.array(z.string().regex(/^[0-9a-f]{40}$/)).max(10), rounds: z.number().int().min(0).max(100) })
+    .object({
+      number: z.number().int().positive().max(1_000_000_000),
+      heads: z.array(z.string().regex(/^[0-9a-f]{40}$/)).max(10),
+      rounds: z.number().int().min(0).max(100),
+      lastCheckedAt: z.number().finite().optional(),
+      failures: z.number().int().min(0).max(100).default(0),
+    })
     .optional()
     .catch(undefined),
   // Each damaged entry is dropped on its own; the newest twenty are kept.

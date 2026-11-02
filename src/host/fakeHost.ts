@@ -2447,6 +2447,11 @@ export function createFakeHost(scenario: PreviewScenario = {}): Host {
       if (connections.offline) throw new HostError("CONTROL_START_FAILED", "the engine could not be started")
       return system
     },
+    githubRelayStatus: async () => ({ state: "not-configured", message: "The preview host has no GitHub relay." }),
+    githubRelayPair: async () => { throw new HostError("GITHUB_RELAY_NOT_CONFIGURED", "The preview host has no GitHub relay.") },
+    githubRelayUnpair: async () => ({ state: "not-configured", message: "The preview host has no GitHub relay." }),
+    githubRelayFetchEvents: async () => [],
+    githubRelayAcknowledge: async () => undefined,
     connectionSecretSet: async (connectionId, secret, target) => {
       await delay(80)
       if (target === "mcp-client") return connections.setMcpClientSecret(connectionId)

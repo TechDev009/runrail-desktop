@@ -1,3 +1,6 @@
+import { selectAttentionItems, type AttentionViewItem } from "../../app/attentionView"
+import { useWorkflows } from "../../app/workflowRuns"
+import { AttentionBoard } from "./AttentionBoard"
 import { Bot, Columns3, Ellipsis, FlaskConical, FolderOpen, FolderPlus, GitBranch, History, Plus, SquareArrowOutUpRight } from "lucide-react"
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react"
 import { useShallow } from "zustand/react/shallow"
@@ -9,7 +12,7 @@ import { useWords } from "../../app/platformWords"
 import { ROLE_NAMES } from "../../app/setups"
 import { threadGroupKind, type ThreadGroupKind } from "../../app/threadGroups"
 import { gameOn } from "../../app/play"
-import { set, threadOnScreen, useApp } from "../../app/store"
+import { openThread, set, threadOnScreen, useApp } from "../../app/store"
 import { useWaiting } from "../../app/triage"
 import { latestPlan } from "../../thread/reducer"
 import { plural } from "../../lib/format"
@@ -34,6 +37,7 @@ const SEATS = 12
 
 const FILTERS: readonly { readonly value: OfficeFilter; readonly label: string }[] = [
   { value: "all", label: "All" },
+  { value: "attention", label: "Needs attention" },
   { value: "work", label: "Working" },
   { value: "ask", label: "Needs you" },
   { value: "fail", label: "Failed" },
@@ -70,6 +74,9 @@ export function OfficeView() {
   const peeked = usePeek((state) => state.threadId)
   const floor = useRef<HTMLDivElement | null>(null)
   const waiting = useWaiting()
+  const attentionSource = useApp(useShallow((state) => ({ threads: state.threads, runtime: state.runtime, git: state.git })))
+  const workflowRuns = useWorkflows((state) => state.runs)
+  const attention = useMemo(() => selectAttentionItems({ ...attentionSource, workflows: workflowRuns }), [attentionSource, workflowRuns])
   const now = useTicker(true, 15_000)
   const [expanded, setExpanded] = useState(false)
   // Expanding is for one visit: the next person opens beside the floor.
@@ -118,7 +125,7 @@ export function OfficeView() {
             {projects.length > 0 && (
               <div className="office-filters" role="group" aria-label="Show">
                 {FILTERS.map((option) => {
-                  const count = option.value === "all" ? total : counts[option.value]
+                  const count = option.value === "all" ? total : option.value === "attention" ? attention.length : counts[option.value]
                   return (
                     <button key={option.value} type="button" className={cx("office-filter", `is-${option.value}`)} aria-pressed={filter === option.value} onClick={() => setOfficeFilter(filter === option.value ? "all" : option.value)}>
                       {option.value !== "all" && <span className="office-filter-dot" aria-hidden />}
@@ -161,6 +168,8 @@ export function OfficeView() {
               >
                 Each project you open becomes a room, and each of its threads a person at a desk.
               </EmptyState>
+            ) : filter === "attention" ? (
+              <AttentionBoard items={attention} onOpen={openAttentionItem} />
             ) : (
               <>
                 <div className="office-rooms">
@@ -186,6 +195,16 @@ export function OfficeView() {
 
 function needYou(count: number): string {
   return `${String(count)} need${count === 1 ? "s" : ""} you`
+}
+function openAttentionItem(item: AttentionViewItem): void {
+  if (item.destination.kind === "thread") {
+    openThread(item.destination.threadId)
+    return
+  }
+  set({
+    view: { kind: "workflows", projectId: item.destination.projectId, workflowId: item.destination.workflowId, runId: item.destination.runId },
+    officeDrawer: false,
+  })
 }
 
 interface RoomFacts {

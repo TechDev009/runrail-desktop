@@ -485,28 +485,37 @@ function FilePreview({ threadId, folder, path, preview, onBack }: { readonly thr
   )
 }
 
-/**
- * Where line `line` of the file shown in `body` sits, measured from the rendered text so plain and
- * highlighted code agree; the body scrolls it into view once, when the text first shows.
- */
+/** Measures the target line from rendered spans, with a plain-text fallback until highlighting finishes. */
 function useLineBand(body: RefObject<HTMLDivElement | null>, line: number | undefined, content: string | undefined, shown: boolean): { readonly top: number; readonly height: number } | undefined {
   const [band, setBand] = useState<{ readonly top: number; readonly height: number }>()
   useLayoutEffect(() => {
     const root = body.current
-    if (line === undefined || content === undefined || !shown || root === null) {
+    if (line === undefined || !Number.isFinite(line) || content === undefined || !shown || root === null) {
       setBand(undefined)
       return
     }
-    const target = Math.min(line, content.split("\n").length)
+    const target = Math.min(Math.max(1, Math.trunc(line)), content.split("\n").length)
     let scrolled = false
+    let scrolledToRenderedLine = false
     const place = (): void => {
       const pre = root.querySelector("pre")
       if (pre === null) return
       const style = getComputedStyle(pre)
       const height = Number.parseFloat(style.lineHeight) || 20
-      const top = pre.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop + Number.parseFloat(style.paddingTop) + (target - 1) * height
-      setBand((current) => (current?.top === top && current.height === height ? current : { top, height }))
-      if (!scrolled) {
+      const lines = pre.querySelectorAll<HTMLElement>(".line")
+      const rects = Array.from(lines[target - 1]?.getClientRects() ?? [])
+      const rootTop = root.getBoundingClientRect().top
+      const first = rects[0]
+      const last = rects[rects.length - 1]
+      const top = first === undefined
+        ? pre.getBoundingClientRect().top - rootTop + root.scrollTop + (Number.parseFloat(style.paddingTop) || 0) + (target - 1) * height
+        : first.top - rootTop + root.scrollTop
+      const bandHeight = first === undefined || last === undefined ? height : Math.max(height, last.bottom - first.top)
+      setBand((current) => (current?.top === top && current.height === bandHeight ? current : { top, height: bandHeight }))
+      if (first !== undefined && !scrolledToRenderedLine) {
+        scrolledToRenderedLine = true
+        root.scrollTop = Math.max(0, top - root.clientHeight / 3)
+      } else if (first === undefined && !scrolled) {
         scrolled = true
         root.scrollTop = Math.max(0, top - root.clientHeight / 3)
       }

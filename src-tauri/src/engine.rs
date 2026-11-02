@@ -205,6 +205,8 @@ pub struct EngineStartInput {
     pub tool_connection_id: Option<String>,
     #[serde(default)]
     pub thinking: Option<String>,
+    #[serde(default)]
+    pub fast_mode: bool,
     /// The thread this one continues. The engine copies that thread's conversation in the first
     /// time it starts; the renderer names the thread, and the bridge finds its storage.
     #[serde(default)]
@@ -244,6 +246,9 @@ impl EngineStartInput {
         require_id(&self.session_id, "session id")?;
         if !matches!(self.backend.as_str(), "native" | "replay" | "pi" | "codex" | "claude-code" | "copilot" | "opencode" | "gemini" | "goose") {
             return Err(BridgeError::new("CONTROL_INVALID_INPUT", "backend is not supported"));
+        }
+        if self.fast_mode && !matches!(self.backend.as_str(), "codex" | "claude-code") {
+            return Err(BridgeError::new("CONTROL_INVALID_INPUT", "Fast mode requires Codex or Claude Code"));
         }
         if let Some(remote) = &self.remote {
             // Keys, this Mac's folders, and its browser stay here: a remote engine gets none of them.
@@ -553,6 +558,7 @@ impl Supervisor {
             connection_id: None,
             tool_connection_id: None,
             thinking: None,
+            fast_mode: false,
             continue_from: None,
             browser_tools: false,
             browser_any_site: false,
@@ -951,6 +957,9 @@ impl Supervisor {
         if let Some(thinking) = &input.thinking {
             args.extend(["--thinking".into(), thinking.clone()]);
         }
+        if matches!(input.backend.as_str(), "codex" | "claude-code") {
+            args.extend(["--harness-fast-mode".into(), if input.fast_mode { "on" } else { "off" }.into()]);
+        }
         if let Some(parent) = &input.continue_from {
             args.extend([
                 "--continue-from-dir".into(),
@@ -1305,6 +1314,9 @@ fn remote_args(input: &EngineStartInput) -> Vec<String> {
     }
     if let Some(thinking) = &input.thinking {
         args.extend(["--thinking".into(), thinking.clone()]);
+    }
+    if matches!(input.backend.as_str(), "codex" | "claude-code") {
+        args.extend(["--harness-fast-mode".into(), if input.fast_mode { "on" } else { "off" }.into()]);
     }
     args
 }
@@ -1737,6 +1749,7 @@ mod tests {
             connection_id: None,
             tool_connection_id: None,
             thinking: None,
+            fast_mode: false,
             continue_from: None,
             browser_tools: false,
             browser_any_site: false,
@@ -1786,6 +1799,7 @@ mod tests {
                 connection_id: Some("nobody".into()),
                 tool_connection_id: None,
                 thinking: None,
+                fast_mode: false,
                 continue_from: None,
                 browser_tools: false,
                 browser_any_site: false,
@@ -1816,6 +1830,7 @@ mod tests {
             connection_id: None,
             tool_connection_id: None,
             thinking: None,
+            fast_mode: false,
             continue_from: None,
             browser_tools: false,
             browser_any_site: false,
@@ -1932,6 +1947,7 @@ mod tests {
                 connection_id: None,
                 tool_connection_id: None,
                 thinking: None,
+                fast_mode: false,
                 continue_from: None,
                 browser_tools: false,
                 browser_any_site: false,
@@ -2058,6 +2074,7 @@ mod tests {
             connection_id: None,
             tool_connection_id: None,
             thinking: None,
+            fast_mode: false,
             continue_from: Some("parent".into()),
             browser_tools: false,
             browser_any_site: false,
@@ -2120,6 +2137,7 @@ mod tests {
             connection_id: None,
             tool_connection_id: None,
             thinking: Some("high".into()),
+            fast_mode: false,
             continue_from: None,
             browser_tools: false,
             browser_any_site: false,
@@ -2249,6 +2267,7 @@ mod tests {
         assert_eq!(start_error_code("CONTROL_START_FAILED", Some("BEHAVIOR_CONFIG_INVALID")), "CONTROL_START_FAILED");
         assert_eq!(start_error_code("CONTROL_START_FAILED", None), "CONTROL_START_FAILED");
         assert!(valid_method("git.pr.create"));
+        assert!(valid_method("git.pr.review.threads"));
         assert!(!valid_method("../x"));
     }
 
@@ -2292,6 +2311,7 @@ mod tests {
             connection_id: None,
             tool_connection_id: None,
             thinking: None,
+            fast_mode: false,
             continue_from: None,
             browser_tools: false,
             browser_any_site: false,
@@ -2337,6 +2357,7 @@ mod tests {
             connection_id: None,
             tool_connection_id: None,
             thinking: None,
+            fast_mode: false,
             continue_from: None,
             browser_tools: false,
             browser_any_site: false,

@@ -642,6 +642,11 @@
   padding-left: calc(var(--sp-14) + var(--sp-8));
 }
 
+.tray-question-note {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+}
+
 /* Only the row being worked on shows its buttons; a click on any row makes it that row. */
 .tray-item:not(.is-current) .tray-actions {
   display: none;
@@ -2205,6 +2210,30 @@
   color: var(--red);
 }
 
+.github-relay-settings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-16);
+  margin: var(--sp-12) 0;
+  padding: var(--sp-12);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.github-relay-copy {
+  min-width: 0;
+}
+
+.github-relay-copy h3 {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.github-relay-copy .setting-hint {
+  overflow-wrap: anywhere;
+}
 .setting-control {
   flex: none;
   display: flex;

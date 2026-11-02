@@ -5,6 +5,7 @@ import { closeWindow, installAppMenu, setOfficeInMenu } from "../../app/appMenu"
 import { activeTab, closePanelTab, cyclePanelTab, forgetPanel, openPanel, panelOf, requestLauncher, shownKind } from "../../app/panels"
 import { listenPreviewShortcuts } from "../../app/previewKeys"
 import { listShown, placeOf } from "../../app/rail"
+import { pendingQuestionQueue } from "../../app/pendingQuestions"
 import { readWaiting, REVIEWS_BADGE_MS } from "../../app/reviews"
 import { sidebarModel, steppedThread } from "../../app/sidebar"
 import { get, openThread, set, setLayout, useApp } from "../../app/store"
@@ -366,6 +367,7 @@ function runFromMenu(id: ShortcutId): void {
   if (lastKey !== undefined && lastKey.id === id && performance.now() - lastKey.at < 250) return
   // The same rule as the key handler: while a modal is up only the palette toggle and settings pass.
   const state = get()
+  if (pendingQuestionQueue(state.threads, state.runtime).length > 0) return
   const modal = state.dialog !== undefined || state.settings !== false || state.palette
   if (modal && id !== "palette" && id !== "settings") return
   if (modal && id === "palette" && (state.dialog !== undefined || state.settings !== false)) return
@@ -416,6 +418,7 @@ function useGlobalKeys(): void {
         if (!matches(event, shortcut.keys)) continue
         // Outside the side panel ⌘W is the menu's (it closes the window), or the browser's own; Linux has no such menu.
         if (shortcut.id === "close-tab" && !focusInPanel() && !linux) return
+        if (pendingQuestionQueue(state.threads, state.runtime).length > 0) return
         // While a modal is up only the palette toggle and settings close pass through.
         const modal = state.dialog !== undefined || state.settings !== false || state.palette
         if (modal && shortcut.id !== "palette" && shortcut.id !== "settings") return

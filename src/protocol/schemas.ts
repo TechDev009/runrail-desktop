@@ -954,6 +954,39 @@ export type ReviewDetail = z.infer<typeof ReviewDetailSchema>
 
 export const ReviewDiffSchema = z.looseObject({ diff: z.string(), truncated: z.boolean().catch(false), found: z.boolean().optional() })
 
+const ReviewCommitSha = z.string().regex(/^[0-9a-f]{40}$/)
+export const ReviewThreadCommentSchema = z.looseObject({
+  id: z.string().min(1).max(256),
+  body: z.string().max(20_000),
+  author: z.string().max(64).optional().catch(undefined),
+  url: z.string().max(2048).optional().catch(undefined),
+  commit: ReviewCommitSha.optional().catch(undefined),
+  originalCommit: ReviewCommitSha.optional().catch(undefined),
+  createdAt: z.number().finite().optional().catch(undefined),
+})
+export type ReviewThreadComment = z.infer<typeof ReviewThreadCommentSchema>
+
+export const ReviewThreadSchema = z.looseObject({
+  id: z.string().min(1).max(256),
+  path: z.string().min(1).max(1024),
+  line: z.number().int().positive().nullish().transform((line) => line ?? undefined),
+  originalLine: z.number().int().positive().nullish().transform((line) => line ?? undefined),
+  isResolved: z.boolean().catch(false),
+  isOutdated: z.boolean().catch(false),
+  comments: z.array(z.unknown()).max(100).transform((items) => parseList(ReviewThreadCommentSchema, items, 100)),
+})
+export type ReviewThread = z.infer<typeof ReviewThreadSchema>
+
+/** Review conversations read for exactly one PR; the head SHA binds the snapshot to its feedback. */
+export const ReviewThreadsSchema = z.looseObject({
+  owner: z.string().min(1).max(100),
+  repo: z.string().min(1).max(100),
+  number: z.number().int().positive(),
+  headCommit: ReviewCommitSha,
+  threads: z.array(z.unknown()).max(100).transform((items) => parseList(ReviewThreadSchema, items, 100)),
+})
+export type ReviewThreads = z.infer<typeof ReviewThreadsSchema>
+
 export const GIT_SERVICES = ["github", "gitlab", "bitbucket", "unknown"] as const
 export type GitService = (typeof GIT_SERVICES)[number]
 
@@ -1465,3 +1498,19 @@ export function parseList<T>(schema: z.ZodType<T>, value: unknown, max = 1_000):
   }
   return out
 }
+
+/** GitHub webhook metadata accepted by the desktop relay client; log bodies and credentials are excluded. */
+export const GithubRelayEventSchema = z.looseObject({
+  deliveryId: z.string().min(1).max(128).regex(/^[A-Za-z0-9_-]+$/),
+  event: z.enum(["check_run.completed", "workflow_run.completed", "pull_request.closed", "pull_request.synchronize"]),
+  repository: z.string().min(3).max(205).regex(/^[A-Za-z0-9_.-]+[/][A-Za-z0-9_.-]+$/),
+  prNumber: z.number().int().positive(),
+  headSha: z.string().regex(/^[a-fA-F0-9]{40,64}$/),
+  runId: z.number().int().positive().optional(),
+  attempt: z.number().int().positive().optional(),
+  conclusion: z.string().max(64).optional(),
+  occurredAt: z.string().max(40).refine((value) => Number.isFinite(Date.parse(value))),
+})
+export type GithubRelayEvent = z.infer<typeof GithubRelayEventSchema>
+
+export const GithubRelayEventsSchema = z.looseObject({ events: z.array(z.unknown()).max(100) })

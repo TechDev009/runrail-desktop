@@ -7,6 +7,7 @@ import { glassAvailable, loadState, type StateProblem } from "./persist"
 import { get, persistedSlice, set, toast, useApp, type AppState } from "./store"
 import { initKeepAwake } from "./power"
 import { initCiWatch } from "./ciFix"
+import { initCiRelay } from "./ciRelay"
 import { initLimitResume } from "./limitResume"
 import { initSelfReview } from "./selfReview"
 import { initFolderGit } from "./folderGit"
@@ -85,6 +86,7 @@ export async function boot(): Promise<void> {
   initKeepAwake()
   initLimitResume()
   initCiWatch()
+  initCiRelay()
   initSelfReview()
   initFolderGit()
   initComputerActivity()

@@ -1,0 +1,12 @@
+name = "github-relay"
+main = "src/index.ts"
+compatibility_date = "2025-04-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "RelayDurableObject"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RelayDurableObject"]

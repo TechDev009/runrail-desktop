@@ -54,7 +54,7 @@ export function ThreadBar({ threadId }: { readonly threadId: string }) {
       {project !== undefined && <RepoMark project={project} />}
       {branch !== undefined && <BranchControl threadId={threadId} label={branch.label} counts={branch.counts} worktree={branch.worktree} title={branch.title} fallback={head?.branch} button={button} onPush={() => void startPush()} />}
       {changes !== undefined && git.stats !== undefined && (
-        <button type="button" className="bar-changes" aria-label={`${changes}. Open the Review pane`} onClick={() => openPanel(threadId, "review")} title={git.stats.truncated === true ? "Counting stopped at the size limit. Open the Review pane" : "Open the Review pane"}>
+        <button type="button" className="bar-changes" aria-label={`${changes}. Open all uncommitted changes`} onClick={() => openPanel(threadId, "review")} title={git.stats.truncated === true ? "Counting stopped at the size limit. Open all uncommitted changes" : "Open all uncommitted changes"}>
           <FileDiff size={12} />
           <span className="bar-changes-add">+{git.stats.additions}</span>
           <span className="bar-changes-del">-{git.stats.deletions}</span>

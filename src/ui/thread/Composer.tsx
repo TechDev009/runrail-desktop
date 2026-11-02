@@ -20,6 +20,7 @@ import {
   setAccess,
   setMode,
   setModel,
+  setFastMode,
   setComputerUse,
   setSelection,
   startFailureText,
@@ -27,6 +28,7 @@ import {
   stopGoal,
 } from "../../app/engines"
 import { closeCoveringPanel } from "../../app/overlays"
+import { supportsFastMode } from "../../app/fastMode"
 import { hasCapability, type Contract } from "../../protocol/schemas"
 import { accessOf, effectivePermission, nextAccess, withAccess, type Access } from "../../app/access"
 import { newId, type PermissionPreset, type ThreadMode } from "../../app/persist"
@@ -375,6 +377,7 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
   const [config, setConfig] = useState<NewConfig>(() => ({
     ...draftSelection(prefs),
     thinking: prefs.defaultThinking,
+    fastMode: false,
     mode: prefs.defaultMode,
     permission: prefs.defaultPermission,
     worktree: prefs.worktreeByDefault,
@@ -400,7 +403,7 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
   const picker: PickerValue =
     thread === undefined
       ? config
-      : { backend: thread.backend, ...(thread.model === undefined ? {} : { model: thread.model }), ...(thread.connectionId === undefined ? {} : { connectionId: thread.connectionId }), ...(thread.thinking === undefined ? {} : { thinking: thread.thinking }) }
+      : { backend: thread.backend, ...(thread.model === undefined ? {} : { model: thread.model }), ...(thread.connectionId === undefined ? {} : { connectionId: thread.connectionId }), ...(thread.thinking === undefined ? {} : { thinking: thread.thinking }), fastMode: thread.fastMode === true }
   // Until the connections are read, only a missing model can be told; a removed or expired connection shows once they are.
   const connections = catalog.loading || catalog.connectionsError !== undefined ? undefined : catalog.connections
   const problem = selectionProblem(picker, connections, prefs.developer, connections === undefined ? undefined : catalog.tools)
@@ -417,7 +420,10 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
     const start = defaultSelection(catalog, get().prefs.recentModels)
     // With nothing to fall back on, a remembered model whose connection is gone is dropped: a new thread has no model, not a broken one.
     // The draft only: the saved start default changes when the person picks a model, not on its own.
-    if (start !== undefined || problem === "connection-removed") setConfig((current) => ({ ...current, backend: start?.backend ?? "native", model: start?.model, connectionId: start?.connectionId }))
+    if (start !== undefined || problem === "connection-removed") setConfig((current) => {
+      const backend = start?.backend ?? "native"
+      return { ...current, backend, model: start?.model, connectionId: start?.connectionId, fastMode: supportsFastMode(backend) && current.fastMode === true }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threadId, problem, connections, catalog.models, catalog.tools, catalog.harnesses])
   // The defaults can change under an open new thread (Settings, a removed connection). The draft follows them.
@@ -429,7 +435,7 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
     if (threadId !== undefined || sitsOnDefault(config, prefs)) return
     const start = draftSelection(prefs)
     touched.current = false
-    setConfig((current) => ({ ...current, backend: start.backend, model: start.model, connectionId: start.connectionId }))
+    setConfig((current) => ({ ...current, backend: start.backend, model: start.model, connectionId: start.connectionId, fastMode: supportsFastMode(start.backend) && current.fastMode === true }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startKey])
   useEffect(() => setConfig((current) => (current.thinking === prefs.defaultThinking ? current : { ...current, thinking: prefs.defaultThinking })), [prefs.defaultThinking])
@@ -517,7 +523,7 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
     const bound = selection.backend === "native" && kept.model !== undefined && kept.connectionId !== undefined ? { model: kept.model, connectionId: kept.connectionId } : undefined
     if (threadId === undefined) {
       touched.current = true
-      setConfig((current) => ({ ...current, backend: selection.backend, model: kept.model, connectionId: kept.connectionId }))
+      setConfig((current) => ({ ...current, backend: selection.backend, model: kept.model, connectionId: kept.connectionId, fastMode: supportsFastMode(selection.backend) && current.fastMode === true }))
       // The next new thread starts where this one did. A recorded session is never a default.
       setStartDefault(selection)
       if (bound !== undefined) remember(bound.model, bound.connectionId)
@@ -548,6 +554,10 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
     })
   }
   const chooseThinking = (thinking: Thinking): void => (threadId === undefined ? setConfig((current) => ({ ...current, thinking })) : setModel(threadId, undefined, thinking))
+  const chooseFastMode = (fastMode: boolean): void => {
+    if (threadId === undefined) setConfig((current) => (supportsFastMode(current.backend) ? { ...current, fastMode } : current))
+    else setFastMode(threadId, fastMode)
+  }
 
   const workspace = threadId === undefined ? project?.path : workspaceOf(threadId)
 
@@ -747,6 +757,7 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
           backend: config.backend,
           ...(config.model === undefined ? {} : { model: config.model, ...(config.connectionId === undefined ? {} : { connectionId: config.connectionId }) }),
           ...(config.thinking === undefined ? {} : { thinking: config.thinking }),
+          ...(config.fastMode === true ? { fastMode: true } : {}),
           mode: config.mode,
           permission: config.permission,
         }
@@ -887,7 +898,12 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
   const onDrop = (event: DragEvent<HTMLDivElement>): void => {
     event.preventDefault()
     setDragging(false)
-    const dropped = Array.from(event.dataTransfer.files)
+    const files = Array.from(event.dataTransfer.files)
+    const dropped = files.length > 0 ? files : Array.from(event.dataTransfer.items).flatMap((item) => {
+      if (item.kind !== "file") return []
+      const file = item.getAsFile()
+      return file === null ? [] : [file]
+    })
     if (dropped.length > 0) void addFiles(dropped)
   }
 
@@ -912,7 +928,7 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
         <div
           className={cx("composer", dragging && "is-dragging", running && "is-busy")}
           onDragOver={(event) => {
-            if (event.dataTransfer.types.includes("Files")) {
+            if (Array.from(event.dataTransfer.types).includes("Files") || Array.from(event.dataTransfer.items).some((item) => item.kind === "file")) {
               event.preventDefault()
               setDragging(true)
             }
@@ -1026,7 +1042,7 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
             </div>
             <div className="composer-send">
               {threadId !== undefined && <ContextRing threadId={threadId} backend={thread?.backend} model={thread?.model} usage={runtime.timeline.context} fallbackWindow={listedWindow} compaction={!canCompact ? undefined : runtime.compacting === true ? "compacting" : busy ? "busy" : "ready"} />}
-              <ModelPicker catalog={catalog} value={picker} problem={problem} busy={busy} openSignal={modelSignal} onPick={pickModel} onThinking={chooseThinking} />
+              <ModelPicker catalog={catalog} value={picker} problem={problem} busy={busy} openSignal={modelSignal} onPick={pickModel} onThinking={chooseThinking} onFastModeChange={chooseFastMode} />
               <MicButton draftKey={draftKey} {...(threadId === undefined ? {} : { threadId })} busy={busy} onSend={() => void submit("send", true)} onFocus={() => inputRef.current?.focus()} />
               {running && !empty && canSteer && (
                 <Button size="sm" variant="ghost" onClick={() => void submit("steer")} kbd={steerKey} title="Send now and redirect the current turn">

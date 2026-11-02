@@ -4,7 +4,7 @@ import { get, openThread, set, setPrefs } from "./store"
 
 /** Moving between the office floor and the thread list, and what the floor shows. */
 
-export type OfficeFilter = "all" | PersonTone
+export type OfficeFilter = "all" | PersonTone | "attention"
 
 export const useOfficeFilter = create<{ readonly filter: OfficeFilter }>()(() => ({ filter: "all" }))
 

@@ -284,16 +284,11 @@ function ApprovalDetail({ item }: { readonly item: WaitingItem }) {
 function Actions({ item, selected, busy, run }: { readonly item: WaitingItem; readonly selected: boolean; readonly busy: boolean; readonly run: (action: TriageAction) => void }) {
   // Only the current row's buttons are in the tab order; the arrows move between rows.
   const tab = selected ? 0 : -1
-  // A question is answered in its thread, where its choices show.
+  // Questions can only be resolved from the blocking dialog, never from a tray shortcut.
   if (item.kind === "approval" && item.approval?.questions !== undefined)
     return (
       <div className="tray-actions">
-        <Button variant="primary" size="sm" tabIndex={tab} onClick={() => run({ kind: "open" })} {...(selected ? { kbd: "enter" } : {})}>
-          Answer
-        </Button>
-        <Button size="sm" tabIndex={tab} disabled={busy} title="The coding tool goes on without an answer" onClick={() => run({ kind: "deny" })} {...(selected ? { kbd: "d" } : {})}>
-          Skip
-        </Button>
+        <span className="tray-question-note">Answer in the open question dialog.</span>
       </div>
     )
   if (item.kind === "approval") {

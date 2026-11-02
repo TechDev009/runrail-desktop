@@ -1,7 +1,7 @@
 import { getHost } from "../host"
 import type { StreamFrame } from "../host/types"
 import { LiveFrameSchema, ThreadsTaskSchema, parseOr, type ThreadsTask } from "../protocol/schemas"
-import { appendNotice, isBusy } from "../thread/reducer"
+import { appendNotice, isBusy, pendingApprovals } from "../thread/reducer"
 import { cleanTitle, messageFrom, messageFromThread, threadDigest } from "../thread/threadContext"
 import { ACCESS_LABELS, accessOf, effectivePermission, type Access } from "./access"
 import type { ThreadMeta } from "./persist"
@@ -95,9 +95,14 @@ export function reachable(from: ThreadMeta): ThreadMeta[] {
 }
 
 function stateOf(thread: ThreadMeta): string {
-  if (thread.lastStatus === "waiting") return "waiting on the person"
   const runtime = get().runtime[thread.id]
-  if (thread.lastStatus === "running" || (runtime !== undefined && isBusy(runtime.timeline))) return "working"
+  if (runtime === undefined) {
+    if (thread.lastStatus === "waiting") return "waiting on the person"
+    if (thread.lastStatus === "running") return "working"
+    return "idle"
+  }
+  if (runtime !== undefined && pendingApprovals(runtime.timeline).length > 0) return "waiting on the person"
+  if (runtime !== undefined && (isBusy(runtime.timeline) || runtime.engine === "starting" || runtime.compacting === true || (runtime.queue.length > 0 && !runtime.queuePaused))) return "working"
   return "idle"
 }
 

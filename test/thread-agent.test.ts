@@ -96,14 +96,22 @@ describe("thread requests", () => {
   test("a list shows this project's other threads, newest first, and claims the request once", async () => {
     const sender = thread("Build the parser")
     const tests = thread("Tests")
+    const waiting = thread("Waiting", "p1", { lastStatus: "waiting" })
     thread("Old", "p1", { archived: true })
     thread("Landing page", "p2")
-    patchThread(tests.id, { updatedAt: Date.now() + 1_000, lastStatus: "waiting" })
+    patchRuntime(tests.id, (current) => ({ timeline: loadHistory(current.timeline, [{ id: "user-1", seq: 0, at: 1, turnId: "turn-1", kind: "user", text: "run tests" }, { id: "call-1", seq: 1, at: 2, turnId: "turn-1", kind: "tool", callId: "call-1", name: "run_command", presentation: { kind: "shell", title: "bun test", command: "bun test" }, status: "running" }, { id: "approval-1", seq: 2, at: 3, turnId: "turn-1", kind: "approval", approvalId: "approval-1", action: "bun test", capability: "shell", status: "pending" }], false, true) }))
+    patchThread(tests.id, { updatedAt: Date.now() + 1_000 })
+    const runtime = { ...get().runtime }
+    delete runtime[waiting.id]
+    set({ runtime })
     const listed = await answer(sender.id, "list")
     expect(listed.ok).toBe(true)
     const lines = listed.result!.text.split("\n")
     expect(lines[0]).toBe("id\ttitle\tproject\tstate")
-    expect(lines.slice(1)).toEqual([`${tests.id}\tTests\tapp\twaiting on the person`])
+    expect(lines.slice(1)).toEqual([
+      `${tests.id}\tTests\tapp\twaiting on the person`,
+      `${waiting.id}\tWaiting\tapp\twaiting on the person`,
+    ])
     // The replayed frame found nothing more to claim.
     expect(answers).toHaveLength(1)
 

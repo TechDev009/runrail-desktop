@@ -2,11 +2,22 @@ import { HostError } from "./types"
 
 /**
  * The preview's Reviews inbox: made-up pull requests in made-up repositories, answered as the
- * engine's `git.pr.search`, `git.pr.teams`, `git.pr.view`, and `git.pr.diff` would. A posted review
- * or a merge goes nowhere: it is kept in memory until the page reloads.
+ * engine's `git.pr.search`, `git.pr.teams`, `git.pr.view`, `git.pr.diff`, and
+ * `git.pr.review.threads` would. A posted review or a merge goes nowhere: it is kept in memory
+ * until the page reloads.
  */
 
 const HOUR = 3_600_000
+const FAKE_HEAD = "0123456789abcdef0123456789abcdef01234567"
+const FAKE_FEEDBACK = {
+  id: "PRRT_preview_88_1",
+  path: "src/report/ShiftReport.tsx",
+  line: 27,
+  originalLine: 27,
+  isResolved: false,
+  isOutdated: false,
+  comments: [{ id: "PRRC_preview_88_1", body: "Could this include the person who completed each item?", author: "reviewer-maya", url: "https://github.com/example-org/web/pull/88#discussion_r1", commit: FAKE_HEAD, originalCommit: FAKE_HEAD, createdAt: Date.now() - HOUR }],
+}
 
 interface FakePull {
   readonly group: "review-requested" | "authored" | "team"
@@ -41,7 +52,7 @@ A short description the author wrote, shown as they wrote it.
 
 The checks on the head commit are listed on the right.`
 
-export const REVIEW_METHODS: ReadonlySet<string> = new Set(["git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.post", "git.pr.merge"])
+export const REVIEW_METHODS: ReadonlySet<string> = new Set(["git.pr.search", "git.pr.teams", "git.pr.view", "git.pr.diff", "git.pr.review.threads", "git.pr.review.post", "git.pr.merge"])
 
 const merged = new Set<string>()
 const posted = new Map<string, number>()
@@ -102,7 +113,7 @@ export function reviewsRpc(method: string, params: Record<string, unknown>, conn
         updatedAt: now - pull.hoursAgo * HOUR,
         base: "main",
         head: pull.title.toLowerCase().replace(/[^a-z]+/g, "-").slice(0, 32),
-        headCommit: "0123456789abcdef0123456789abcdef01234567",
+        headCommit: FAKE_HEAD,
         crossRepository: false,
         mergeable: pull.checks === "failed" ? "conflicts" : "yes",
         mergeState: pull.draft === true ? "draft" : pull.checks === "pending" ? "unstable" : pull.review === "approved" ? "clean" : "blocked",
@@ -123,6 +134,16 @@ export function reviewsRpc(method: string, params: Record<string, unknown>, conn
     case "git.pr.diff": {
       const pull = find(params)
       return { diff: pull.files.map(patchFor).join(""), truncated: false }
+    }
+    case "git.pr.review.threads": {
+      const pull = find(params)
+      return {
+        owner: pull.owner,
+        repo: pull.repo,
+        number: pull.number,
+        headCommit: FAKE_HEAD,
+        threads: pull.number === 88 && pull.owner === "example-org" && pull.repo === "web" ? [FAKE_FEEDBACK] : [],
+      }
     }
     case "git.pr.review.post": {
       confirmed(params)

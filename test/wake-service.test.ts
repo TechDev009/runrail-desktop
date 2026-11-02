@@ -59,7 +59,7 @@ async function until(check: () => boolean): Promise<void> {
 beforeEach(() => use(false))
 
 test("only work under way keeps a woken launch; a schedule to come and hourly sources do not", () => {
-  expect(wokenReasons(["turn", "workflow-run", "schedule", "memory-sync", "limit-wait"], false)).toEqual(["turn", "workflow-run", "limit-wait"])
+  expect(wokenReasons(["turn", "workflow-run", "schedule", "memory-sync", "limit-wait", "ci-watch"], false)).toEqual(["turn", "workflow-run", "limit-wait", "ci-watch"])
   expect(wokenReasons(["schedule", "memory-sync"], false)).toEqual([])
   expect(wokenReasons(["schedule"], true)).toEqual(["memory-sync"])
 })

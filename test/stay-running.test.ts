@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test"
 import { emptyRuntime, type ThreadRuntime } from "../src/app/store"
-import { stayLines, stayReasons, when, type StayInput } from "../src/app/stayRunning"
+import { ciWatchSummary, stayLines, stayReasons, when, type StayInput } from "../src/app/stayRunning"
 import { slept } from "../src/app/workflowRuns"
 import { emptyTimeline } from "../src/thread/reducer"
 
-const idle: StayInput = { runtime: {}, workflowRuns: [], setupRuns: [], evalRuns: [], sources: false }
+const idle: StayInput = { runtime: {}, workflowRuns: [], setupRuns: [], evalRuns: [], sources: false, ciWatchCount: 0, ciWatchNumbers: [] }
 
 function thread(status: ThreadRuntime["timeline"]["status"], queued = 0): ThreadRuntime {
   return {
@@ -29,6 +29,15 @@ test("each kind of pending work keeps the app in the menu bar", () => {
   expect(stayReasons({ ...idle, evalRuns: [{ state: "running" }] })).toEqual(["eval-run"])
   expect(stayReasons({ ...idle, upcoming: { armed: 2 } })).toEqual(["schedule"])
   expect(stayReasons({ ...idle, sources: true })).toEqual(["memory-sync"])
+})
+
+test("active CI watches hold the app and show watched PR numbers; archived and disabled watches do not", () => {
+  const watch = { number: 128, heads: [], rounds: 0 }
+  const summary = ciWatchSummary([{ ciWatch: watch }, { archived: true, ciWatch: { ...watch, number: 129 } }, { archived: false }])
+  expect(summary).toEqual({ ciWatchCount: 1, ciWatchNumbers: [128] })
+  expect(stayReasons({ ...idle, ...summary })).toEqual(["ci-watch"])
+  expect(stayLines({ ...idle, ...summary }, now)).toEqual(["1 CI watch · PR #128"])
+  expect(ciWatchSummary([{ archived: true, ciWatch: watch }, { archived: false }])).toEqual({ ciWatchCount: 0, ciWatchNumbers: [] })
 })
 
 const now = new Date(2026, 9, 9, 10, 0).getTime()

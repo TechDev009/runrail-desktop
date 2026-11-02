@@ -1,18 +1,20 @@
 import { FitAddon } from "@xterm/addon-fit"
 import { WebLinksAddon } from "@xterm/addon-web-links"
 import { Terminal, type ILinkHandler } from "@xterm/xterm"
-import { RotateCcw, SquareTerminal } from "lucide-react"
+import { RotateCcw, SquareTerminal, X } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { create } from "zustand"
 import { openUrl } from "../../app/actions"
 import { threadRpc } from "../../app/engines"
-import { newPanelTab } from "../../app/panels"
+import { newPanelTab, panelOf } from "../../app/panels"
+import { newId, PANEL_LIMITS } from "../../app/persist"
 import { get, set, useApp } from "../../app/store"
 import { appKeyInTerminal } from "../../app/windowKeys"
 import { isUnsupported, toHostError } from "../../host"
-import { Button, cx, EmptyState, Spinner } from "../common"
+import { Button, cx, EmptyState, IconButton, Spinner } from "../common"
 import { dropTermMeta, patchTermMeta, useTermMeta } from "./terminalMeta"
 import { registerTerminalClosers } from "./terminalRegistry"
+import { forgetInlineRun, forgetInlineRunsForThread, rememberInlineRun, useInlineRuns } from "./inlineRuns"
 
 /**
  * Terminal tabs: shells owned by the engine (never the renderer), shown through xterm. The xterm
@@ -120,8 +122,55 @@ export function terminalSupport(threadId: string): "unknown" | "yes" | "no" {
   return useSupport.getState()[threadId] ?? "unknown"
 }
 
-/** A line typed into a new tab's shell once it starts, by `typeInNewTerminal`. */
-const firstLines = new Map<string, string>()
+interface InitialTerminalInput {
+  readonly text: string
+  readonly reportExit: boolean
+}
+
+/** Input typed after a new shell starts. Inline Run inputs also print their final exit status. */
+const firstLines = new Map<string, InitialTerminalInput>()
+
+export interface ThreadTerminalLaunch {
+  readonly threadId?: string
+  readonly terminalId?: string
+  readonly error?: string
+}
+
+/** Preserve the code block as one shell-evaluated action, then report its resulting status. */
+export function commandWithExitStatus(command: string): string {
+  const quoted = `'${command.split("'").join("'\\''")}'`
+  return `eval ${quoted}; __runrail_exit=$?; printf '\\n[Runrail exit status: %s]\\n' "$__runrail_exit"`
+}
+
+/** Creates a shell and submits its initial command only after terminal.create succeeds. */
+export async function createTerminalAndSubmit(
+  threadId: string,
+  id: string,
+  cols: number,
+  rows: number,
+  input: string | undefined,
+  rpc: typeof threadRpc = threadRpc,
+): Promise<void> {
+  await rpc(threadId, "terminal.create", { sessionId: id, cols, rows })
+  if (input !== undefined) await rpc(threadId, "terminal.write", { sessionId: id, data: `${input}\r` })
+}
+
+/** Opens a non-tab terminal for an assistant Run button, scoped to the thread that owns the reply. */
+export function runInThreadTerminal(threadId: string, command: string, runKey?: string): ThreadTerminalLaunch {
+  const thread = get().threads.find((item) => item.id === threadId)
+  if (thread === undefined) return { error: "This thread is no longer available." }
+  if (thread.archived === true) return { error: "Unarchive this thread before running a command." }
+  if (terminalSupport(threadId) === "no") return { error: "This engine does not support an in-thread terminal." }
+  const existing = runKey === undefined ? undefined : useInlineRuns.getState()[runKey]
+  if (existing?.threadId === threadId) return existing
+  const terminalsInTabs = panelOf(threadId).tabs.filter((tab) => tab.kind === "terminal").length
+  const inlineTerminals = Object.values(useInlineRuns.getState()).filter((run) => run.threadId === threadId).length
+  if (terminalsInTabs + inlineTerminals >= PANEL_LIMITS.terminal) return { error: "Close a terminal in this thread before running another code block." }
+  const terminalId = newId("inline-terminal")
+  firstLines.set(terminalId, { text: command, reportExit: true })
+  if (runKey !== undefined) rememberInlineRun(runKey, { threadId, terminalId })
+  return { threadId, terminalId }
+}
 
 /**
  * Opens a terminal tab in the thread on screen, brings it into view, and types `line` into its
@@ -132,7 +181,7 @@ export function typeInNewTerminal(line: string): boolean {
   if (threadId === undefined || !get().threads.some((thread) => thread.id === threadId)) return false
   const id = newPanelTab(threadId, "terminal")
   if (id === undefined) return false
-  firstLines.set(id, line)
+  firstLines.set(id, { text: line, reportExit: false })
   set({ view: { kind: "thread" }, dialog: undefined, settings: false })
   return true
 }
@@ -142,11 +191,11 @@ async function start(threadId: string, id: string): Promise<void> {
   if (session === undefined) return
   patchTermMeta(id, { status: "starting", error: undefined })
   try {
-    await threadRpc(threadId, "terminal.create", { sessionId: id, cols: session.cols, rows: session.rows })
+    const initial = firstLines.get(id)
+    const input = initial === undefined ? undefined : initial.reportExit ? commandWithExitStatus(initial.text) : initial.text
+    await createTerminalAndSubmit(threadId, id, session.cols, session.rows, input)
     patchTermMeta(id, { status: "running" })
-    const line = firstLines.get(id)
     firstLines.delete(id)
-    if (line !== undefined) session.writes = session.writes.then(() => threadRpc(threadId, "terminal.write", { sessionId: id, data: `${line}\r` }).catch(() => undefined))
   } catch (error) {
     patchTermMeta(id, { status: "failed", error: toHostError(error).message })
   }
@@ -202,36 +251,62 @@ function closeOne(threadId: string, id: string): void {
   session?.term.dispose()
   session?.element.remove()
   live.delete(id)
+  firstLines.delete(id)
   dropTermMeta(id)
 }
 
 registerTerminalClosers({
   thread: (threadId) => {
     for (const [id, session] of [...live]) if (session.threadId === threadId) closeOne(threadId, id)
+    for (const run of Object.values(useInlineRuns.getState())) if (run.threadId === threadId) closeOne(threadId, run.terminalId)
+    forgetInlineRunsForThread(threadId)
   },
   one: closeOne,
 })
 
-// One poll loop for the visible tab. Fast while output flows or right after input, slower when idle.
-let pollTimer: ReturnType<typeof setTimeout> | undefined
-let pollTarget: string | undefined
-let idleRounds = 0
+// One poll loop per visible terminal. Inline Run terminals may coexist with inspector tabs.
+interface TerminalPollLoop {
+  timer?: ReturnType<typeof setTimeout>
+  idleRounds: number
+  reading: boolean
+  wakeRequested: boolean
+}
+
+const pollLoops = new Map<string, TerminalPollLoop>()
+
+function schedulePoll(id: string, delay: number): void {
+  const loop = pollLoops.get(id)
+  if (loop === undefined || loop.timer !== undefined || loop.reading) return
+  loop.timer = setTimeout(() => void poll(id), delay)
+}
 
 function wake(id: string): void {
-  if (pollTarget !== id) return
-  idleRounds = 0
-  if (pollTimer !== undefined) clearTimeout(pollTimer)
-  pollTimer = setTimeout(() => void poll(id), 16)
+  const loop = pollLoops.get(id)
+  if (loop === undefined) return
+  loop.idleRounds = 0
+  if (loop.reading) {
+    loop.wakeRequested = true
+    return
+  }
+  if (loop.timer !== undefined) clearTimeout(loop.timer)
+  loop.timer = undefined
+  schedulePoll(id, 16)
 }
 
 async function poll(id: string): Promise<void> {
-  pollTimer = undefined
+  const loop = pollLoops.get(id)
+  if (loop === undefined || loop.reading) return
+  loop.timer = undefined
   const session = live.get(id)
-  if (session === undefined || pollTarget !== id) return
-  if (useTermMeta.getState()[id]?.status !== "running") {
-    pollTimer = setTimeout(() => void poll(id), 200)
+  if (session === undefined) {
+    setPollTarget(id, false)
     return
   }
+  if (useTermMeta.getState()[id]?.status !== "running") {
+    schedulePoll(id, 200)
+    return
+  }
+  loop.reading = true
   try {
     const result = (await threadRpc(session.threadId, "terminal.read", { sessionId: id, afterSeq: session.lastSeq, maxBytes: 256 * 1_024 })) as { chunks?: unknown; closed?: unknown }
     const chunks = Array.isArray(result.chunks) ? (result.chunks as { seq?: unknown; data?: unknown }[]) : []
@@ -240,7 +315,7 @@ async function poll(id: string): Promise<void> {
       session.term.write(chunk.data)
       session.lastSeq = chunk.seq
     }
-    idleRounds = chunks.length > 0 ? 0 : idleRounds + 1
+    loop.idleRounds = chunks.length > 0 ? 0 : loop.idleRounds + 1
     if (result.closed === true) {
       patchTermMeta(id, { status: "closed" })
       session.term.write("\r\n\x1b[2m[process exited]\x1b[0m\r\n")
@@ -248,17 +323,27 @@ async function poll(id: string): Promise<void> {
   } catch (error) {
     const code = toHostError(error).code
     if (code === "CONTROL_TERMINAL_NOT_FOUND" || code === "CONTROL_NOT_FOUND") patchTermMeta(id, { status: "closed" })
-    idleRounds += 4
+    loop.idleRounds += 4
+  } finally {
+    loop.reading = false
+    if (pollLoops.get(id) === loop) {
+      const delay = loop.wakeRequested ? 0 : loop.idleRounds < 10 ? 60 : loop.idleRounds < 40 ? 150 : 400
+      loop.wakeRequested = false
+      schedulePoll(id, delay)
+    }
   }
-  if (pollTarget === id) pollTimer = setTimeout(() => void poll(id), idleRounds < 10 ? 60 : idleRounds < 40 ? 150 : 400)
 }
 
-function setPollTarget(id: string | undefined): void {
-  pollTarget = id
-  if (pollTimer !== undefined) clearTimeout(pollTimer)
-  pollTimer = undefined
-  idleRounds = 0
-  if (id !== undefined) pollTimer = setTimeout(() => void poll(id), 0)
+function setPollTarget(id: string, visible: boolean): void {
+  if (visible) {
+    if (pollLoops.has(id)) return
+    pollLoops.set(id, { idleRounds: 0, reading: false, wakeRequested: false })
+    schedulePoll(id, 0)
+    return
+  }
+  const loop = pollLoops.get(id)
+  if (loop?.timer !== undefined) clearTimeout(loop.timer)
+  pollLoops.delete(id)
 }
 
 /** One terminal tab: its shell, shown through xterm. */
@@ -298,11 +383,11 @@ export function TerminalView({ threadId, terminalId }: { readonly threadId: stri
     const observer = new ResizeObserver(refit)
     observer.observe(container)
     session.term.focus()
-    setPollTarget(terminalId)
+    setPollTarget(terminalId, true)
     return () => {
       observer.disconnect()
       if (resizeTimer !== undefined) clearTimeout(resizeTimer)
-      setPollTarget(undefined)
+      setPollTarget(terminalId, false)
       if (session.element.parentElement === container) container.removeChild(session.element)
     }
   }, [terminalId, threadId, support])
@@ -346,5 +431,20 @@ export function TerminalView({ threadId, terminalId }: { readonly threadId: stri
         )}
       </div>
     </div>
+  )
+}
+
+/** A shell rendered inside the assistant message that launched it, never in the inspector tabs. */
+export function InlineTerminalView({ threadId, terminalId, runKey }: { readonly threadId: string; readonly terminalId: string; readonly runKey: string }) {
+  return (
+    <section className="assistant-run-terminal" aria-label="In-thread terminal">
+      <div className="assistant-run-terminal-head">
+        <span><SquareTerminal size={13} aria-hidden="true" /> Terminal</span>
+        <IconButton size="sm" label="Close terminal" onClick={() => { closeOne(threadId, terminalId); forgetInlineRun(runKey) }}>
+          <X size={13} />
+        </IconButton>
+      </div>
+      <TerminalView threadId={threadId} terminalId={terminalId} />
+    </section>
   )
 }

@@ -23,8 +23,10 @@ describe("settings search", () => {
     expect(searchSettings("permissions").map((entry) => entry.id)).toContain("default-permissions")
   })
 
-  test("git words land on Projects, where each project's git host is; there is no Git hosts page", () => {
-    for (const word of ["github", "gitlab", "bitbucket", "remote origin", "git host", "gh cli"]) expect(searchSettings(word)[0]?.id).toBe("project-git")
+  test("GitHub searches lead to the relevant project setting", () => {
+    for (const word of ["gitlab", "bitbucket", "remote origin", "git host", "gh cli"]) expect(searchSettings(word)[0]?.id).toBe("project-git")
+    expect(searchSettings("github")[0]?.id).toBe("github-event-relay")
+    expect(searchSettings("github cli")[0]?.id).toBe("project-git")
     // A remote on its own is also a machine a project lives on.
     expect(searchSettings("remote machine")[0]?.id).toBe("remote-machines")
     expect(Object.keys(SECTION_LABELS)).not.toContain("githosts")

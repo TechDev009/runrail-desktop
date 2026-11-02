@@ -34,9 +34,23 @@ jobs:
         env:
           TAG: ${{ github.ref_name }}
           UPDATER_PUBKEY: ${{ vars.RUNRAIL_UPDATER_PUBKEY }}
+          GITHUB_RELAY_URL: ${{ vars.RUNRAIL_GITHUB_RELAY_URL }}
+          GITHUB_APP_SLUG: ${{ vars.RUNRAIL_GITHUB_APP_SLUG }}
         run: |
           if [ -z "$UPDATER_PUBKEY" ]; then
             echo "::error::a release needs the RUNRAIL_UPDATER_PUBKEY variable and the updater secrets (docs/RELEASE.md), or its installs never update"
+            exit 1
+          fi
+          if [ -z "$GITHUB_RELAY_URL" ] || [ -z "$GITHUB_APP_SLUG" ]; then
+            echo "::error::a release needs RUNRAIL_GITHUB_RELAY_URL and RUNRAIL_GITHUB_APP_SLUG repository variables; see services/github-relay/README.md"
+            exit 1
+          fi
+          if ! bun -e 'try { const url = new URL(process.env.GITHUB_RELAY_URL); if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.pathname !== "/" || url.search || url.hash) process.exit(1) } catch { process.exit(1) }'; then
+            echo "::error::RUNRAIL_GITHUB_RELAY_URL must be an HTTPS Worker origin with no path, credentials, query, or fragment"
+            exit 1
+          fi
+          if [[ ! "$GITHUB_APP_SLUG" =~ ^[A-Za-z0-9-]{1,100}$ ]]; then
+            echo "::error::RUNRAIL_GITHUB_APP_SLUG is not a valid GitHub App slug"
             exit 1
           fi
           cargo="$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -n 1)"
@@ -94,6 +108,8 @@ jobs:
       # pull requests. Clients read the feed from the latest published release.
       RUNRAIL_UPDATER_PUBKEY: ${{ github.event_name != 'pull_request' && vars.RUNRAIL_UPDATER_PUBKEY || '' }}
       RUNRAIL_UPDATE_URL: ${{ vars.RUNRAIL_UPDATE_URL || format('https://github.com/{0}/releases/latest/download/latest.json', github.repository) }}
+      RUNRAIL_GITHUB_RELAY_URL: ${{ vars.RUNRAIL_GITHUB_RELAY_URL || '' }}
+      RUNRAIL_GITHUB_APP_SLUG: ${{ vars.RUNRAIL_GITHUB_APP_SLUG || '' }}
     steps:
       # Side by side, so the sidecar script finds the engine at ../runrail.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0

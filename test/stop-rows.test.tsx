@@ -24,7 +24,7 @@ describe("a turn the user stopped", () => {
     const html = [
       renderToStaticMarkup(<ToolRow item={tool} />),
       renderToStaticMarkup(<ApprovalCard item={approval} threadId="t" gate={tool} primary={false} />),
-      renderToStaticMarkup(<TurnEndRow item={end} />),
+      renderToStaticMarkup(<TurnEndRow item={end} threadId="t" />),
     ].join("\n")
     // The question the stop cut short was never answered: not "Denied", not a second "Stopped".
     expect(html).toContain("Not answered")

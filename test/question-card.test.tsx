@@ -1,10 +1,11 @@
 import { describe, expect, test } from "bun:test"
 import { renderToStaticMarkup } from "react-dom/server"
 import { triageKey, type TriageKey, type WaitingItem } from "../src/app/attention"
+import { pendingQuestionQueue } from "../src/app/pendingQuestions"
 import { createFakeHost } from "../src/host/fakeHost"
 import type { StreamFrame } from "../src/host/types"
 import { QuestionSchema, type Question } from "../src/protocol/schemas"
-import { applyFrames, emptyTimeline, loadHistory, type ApprovalItem } from "../src/thread/reducer"
+import { applyFrames, emptyTimeline, loadHistory, type ApprovalItem, type Timeline } from "../src/thread/reducer"
 import { answersSoFar, collectAnswers, numberAnswer, optionLabel, QuestionCard, QuestionField, QuestionForm, questionsLead } from "../src/ui/thread/QuestionCard"
 import { ApprovalCard, approvalDetail, approvalQuestion } from "../src/ui/thread/rows"
 
@@ -20,14 +21,18 @@ const questions = [
   { id: "token", question: "Paste the token", options: [], other: true, secret: true },
 ]
 
-function asked(extra: () => readonly StreamFrame[] = () => [], fields: Record<string, unknown> = { questions }): ApprovalItem {
-  const timeline = applyFrames(emptyTimeline(), [
+function askedTimeline(extra: () => readonly StreamFrame[] = () => [], fields: Record<string, unknown> = { questions }): Timeline {
+  return applyFrames(emptyTimeline(), [
     event("turn.started", { turnId: "t1", prompt: "plan" }),
     event("tool.started", { turnId: "t1", callId: "c1", name: "AskUserQuestion", presentation: { kind: "other", title: "Ask: Which library?" } }),
     event("approval.required", { turnId: "t1", approvalId: "ap1", action: "question", capability: "user.input", reason: "Which library? (and 2 more)", ...fields }),
     // Built after the question, so each frame takes a later seq.
     ...extra(),
   ])
+}
+
+function asked(extra: () => readonly StreamFrame[] = () => [], fields: Record<string, unknown> = { questions }): ApprovalItem {
+  const timeline = askedTimeline(extra, fields)
   return timeline.items.find((item): item is ApprovalItem => item.kind === "approval")!
 }
 
@@ -37,15 +42,34 @@ describe("a coding tool's question", () => {
     expect(item).toMatchObject({ status: "pending", questions })
     expect(approvalQuestion(item)).toBe("Which library? (and 2 more)")
     expect(approvalDetail(item, undefined)).toBeUndefined()
-    const html = renderToStaticMarkup(<QuestionCard item={item} threadId="t" primary={false} />)
-    expect(html).toContain("3 questions for you")
-    expect(html).toContain("Luxon")
-    expect(html).toContain("Zones")
-    expect(html).toContain('role="radiogroup"')
-    expect(html).toContain('role="checkbox"')
-    expect(html).toContain('type="password"')
-    expect(html).toContain("Send answers")
-    expect(html).toContain("Skip")
+    const html = renderToStaticMarkup(<QuestionCard item={item} />)
+    expect(html).toContain("Waiting for your answer")
+    expect(html).toContain("paused")
+    expect(html).toContain("The run is paused while you answer in the dialog")
+    expect(html).not.toContain("Luxon")
+    expect(html).not.toContain("radiogroup")
+    expect(html).not.toContain("Skip")
+  })
+
+  test("queues waiting questions across threads by arrival and ignores failed engines", () => {
+    const earlier = askedTimeline()
+    const later = askedTimeline()
+    const failed = askedTimeline()
+    const queue = pendingQuestionQueue(
+      [
+        { id: "later", title: "Later run" },
+        { id: "earlier", title: "Earlier run" },
+        { id: "failed", title: "Failed run" },
+        { id: "archived", title: "Archived run", archived: true },
+      ],
+      {
+        later: { engine: "ready", timeline: later },
+        earlier: { engine: "ready", timeline: earlier },
+        failed: { engine: "failed", timeline: failed },
+        archived: { engine: "ready", timeline: later },
+      },
+    )
+    expect(queue.map((entry) => entry.threadId)).toEqual(["earlier", "later"])
   })
 
   test("malformed questions leave a plain approval rather than dropping it", () => {
@@ -58,7 +82,7 @@ describe("a coding tool's question", () => {
   test("once answered it shows the answers; a secret one is never shown", () => {
     const item = asked(() => [event("approval.resolved", { turnId: "t1", approvalId: "ap1", approved: true, answers: { q1: ["Luxon"], q2: ["Tests", "Lint"] } })])
     expect(item).toMatchObject({ status: "approved", answers: { q1: ["Luxon"], q2: ["Tests", "Lint"] } })
-    const html = renderToStaticMarkup(<QuestionCard item={item} threadId="t" primary={false} />)
+    const html = renderToStaticMarkup(<QuestionCard item={item} />)
     expect(html).toContain("Answered")
     expect(html).toContain("Tests, Lint")
     expect(html).toContain("Answered (kept secret)")
@@ -66,9 +90,9 @@ describe("a coding tool's question", () => {
 
   test("skipped, or approved by a client that showed no questions, it says so", () => {
     const skipped = asked(() => [event("approval.resolved", { turnId: "t1", approvalId: "ap1", approved: false })])
-    expect(renderToStaticMarkup(<QuestionCard item={skipped} threadId="t" primary={false} />)).toContain("Not answered")
+    expect(renderToStaticMarkup(<QuestionCard item={skipped} />)).toContain("Not answered")
     const inReply = asked(() => [event("approval.resolved", { turnId: "t1", approvalId: "ap1", approved: true })])
-    expect(renderToStaticMarkup(<QuestionCard item={inReply} threadId="t" primary={false} />)).toContain("Asked in the reply instead")
+    expect(renderToStaticMarkup(<QuestionCard item={inReply} />)).toContain("Asked in the reply instead")
   })
 
   test("every question needs an answer: a choice, or one's own words", () => {
@@ -78,12 +102,12 @@ describe("a coding tool's question", () => {
     expect(collectAnswers(questions, { q1: ["Luxon"], q2: ["Tests"] }, { q1: "Temporal", q2: "Format", token: "x" })).toEqual({ q1: ["Temporal"], q2: ["Tests", "Format"], token: ["x"] })
   })
 
-  test("in the tray, Return opens it to be answered and D skips it; it is never approved blind", () => {
+  test("in the tray, Return opens the thread and D cannot dismiss a question", () => {
     const press = (key: string): TriageKey => ({ key, shiftKey: false, metaKey: false, ctrlKey: false, altKey: false })
     const waiting: WaitingItem = { key: "approval:ap1", kind: "approval", threadId: "t", projectId: "p", title: "T", since: 0, approval: asked() }
     expect(triageKey(press("Enter"), waiting, true)).toEqual({ kind: "open" })
     expect(triageKey(press("a"), waiting, true)).toBeUndefined()
-    expect(triageKey(press("d"), waiting, true)).toEqual({ kind: "deny" })
+    expect(triageKey(press("d"), waiting, true)).toBeUndefined()
   })
 })
 
@@ -96,9 +120,9 @@ describe("an MCP server's form", () => {
   test("shows the server's message above its fields, and keeps it once answered", () => {
     const item = asked(() => [], { questions: fields, reason: "github: Open the pull request?" })
     expect(questionsLead(item)).toBe("github: Open the pull request?")
-    expect(renderToStaticMarkup(<QuestionCard item={item} threadId="t" primary={false} />)).toContain("github: Open the pull request?")
+    expect(renderToStaticMarkup(<QuestionForm item={item} threadId="t" primary={false} />)).toContain("github: Open the pull request?")
     const answered = asked(() => [event("approval.resolved", { turnId: "t1", approvalId: "ap1", approved: true, answers: { q1: ["Next"], q2: ["ada"] } })], { questions: fields, reason: "github: Open the pull request?" })
-    expect(renderToStaticMarkup(<QuestionCard item={answered} threadId="t" primary={false} />)).toContain("github: Open the pull request?")
+    expect(renderToStaticMarkup(<QuestionCard item={answered} />)).toContain("github: Open the pull request?")
   })
 
   test("a reason that only repeats the questions is not shown twice; one naming who asked is", () => {
@@ -165,7 +189,7 @@ describe("every kind of question a coding tool or an MCP form asks", () => {
     // An unknown kind is asked as a choice, which with nothing to choose is a typebox.
     const later = { id: "q", question: "When?", kind: "date", options: [] }
     expect(QuestionSchema.parse(later)).toEqual({ id: "q", question: "When?", options: [] })
-    expect(renderToStaticMarkup(<QuestionCard item={asked(() => [], { questions: [later] })} threadId="t" primary={false} />)).toContain('class="question-other"')
+    expect(renderToStaticMarkup(<QuestionForm item={asked(() => [], { questions: [later] })} threadId="t" primary={false} />)).toContain('class="question-other"')
   })
 
   test("the preview host's question set shows each kind, and its answers read back as shown", async () => {
@@ -181,7 +205,7 @@ describe("every kind of question a coding tool or an MCP form asks", () => {
     const asked = item.questions ?? []
     expect(asked.map((one) => one.kind ?? (one.multiSelect === true ? "multi" : "choice"))).toEqual(["choice", "multi", "text", "number", "choice", "choice"])
 
-    const html = renderToStaticMarkup(<QuestionForm item={item} threadId="t" primary={false} />)
+    const html = renderToStaticMarkup(<QuestionForm item={item} threadId="t" primary />)
     expect(html).toContain('<span class="question-badge">Recommended</span>')
     expect(html).toContain('<span class="question-option-label">date-fns</span>')
     expect(html).toContain('<span class="question-option-label">Keep a wrapper</span>')
@@ -209,7 +233,7 @@ describe("every kind of question a coding tool or an MCP form asks", () => {
 
     const library = asked[0]!
     const field = (chosen: readonly string[], pointed?: string): string =>
-      renderToStaticMarkup(<QuestionField question={library} chosen={chosen} text="" pointed={pointed} disabled={false} onChoose={ignore} onWrite={ignore} onPoint={ignore} onSend={ignore} onSkip={ignore} />)
+      renderToStaticMarkup(<QuestionField question={library} chosen={chosen} text="" pointed={pointed} disabled={false} onChoose={ignore} onWrite={ignore} onPoint={ignore} onSend={ignore} />)
     expect(field([])).not.toContain("DateTime")
     const picked = field(["Luxon"])
     expect(picked).toContain('class="question-preview"')
@@ -227,7 +251,7 @@ describe("every kind of question a coding tool or an MCP form asks", () => {
     const answered = question()!
     expect(answered.status).toBe("approved")
     expect(answered.answers).not.toHaveProperty("q6")
-    const done = renderToStaticMarkup(<QuestionCard item={answered} threadId="t" primary={false} />)
+    const done = renderToStaticMarkup(<QuestionCard item={answered} />)
     expect(done).toContain(">date-fns</dd>")
     expect(done).toContain(">8 slides</dd>")
     expect(done).toContain(">Keep a wrapper</dd>")
@@ -265,7 +289,7 @@ describe("asking the coding tool for more questions", () => {
     const resolved = { approved: true, answers: { q1: ["Luxon"] }, followUp: true, note: "Ask about time zones too" }
     const item = asked(() => [event("approval.resolved", { turnId: "t1", approvalId: "ap1", ...resolved })], { questions, takesFollowUp: true })
     expect(item).toMatchObject({ status: "approved", followUp: true, note: "Ask about time zones too", answers: { q1: ["Luxon"] } })
-    const html = renderToStaticMarkup(<QuestionCard item={item} threadId="t" primary={false} />)
+    const html = renderToStaticMarkup(<QuestionCard item={item} />)
     expect(html).toContain("Asked for more questions")
     expect(html).toContain("Your note: Ask about time zones too")
     expect(html).toContain("Not shown (secret)")

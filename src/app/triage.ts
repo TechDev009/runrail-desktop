@@ -71,6 +71,7 @@ export async function approve(item: WaitingItem, session = false): Promise<void>
 
 export async function deny(item: WaitingItem, feedback?: string): Promise<void> {
   if (item.approval === undefined) return
+  if (isQuestion(item.approval)) return
   const reason = feedback?.trim()
   await resolveApproval(item.threadId, item.approval.approvalId, false, reason === undefined || reason.length === 0 ? undefined : reason)
 }

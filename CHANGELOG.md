@@ -4,6 +4,21 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+- Office mode now has a Sakura theme and a Needs attention board for approvals
+  and questions across projects.
+- Pull request review adds an inbox and thread-aware review feedback. CI checks
+  can be watched, with bounded log excerpts available to the agent handling the
+  thread. An optional GitHub App relay forwards minimized event metadata to
+  paired desktops; the relay does not store logs or raw webhook payloads.
+- Threads can use inline terminal runs, clearer question and review cards, and
+  fast mode for supported coding tools.
+
+### Security
+
+- CI logs and GitHub review text are marked as untrusted data in agent prompts.
+  CI excerpts are fetched locally and remain in local thread history; only
+  selected excerpts go to the tool handling that thread.
+
 ## [0.2.0] - 2026-10-30
 
 Setup runs that resume, recall by meaning, sign-in to remote MCP servers, and

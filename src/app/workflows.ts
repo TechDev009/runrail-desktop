@@ -185,6 +185,7 @@ export function continueInNewThread(threadId: string, selection: Selection): Thr
     backend: selection.backend,
     ...carried(selection),
     ...(thread.thinking === undefined ? {} : { thinking: thread.thinking }),
+    ...(thread.fastMode === true ? { fastMode: true } : {}),
     mode: thread.mode,
     permission: thread.permission,
     title: `${base.slice(0, MAX_TITLE - CONTINUED.length)}${CONTINUED}`,

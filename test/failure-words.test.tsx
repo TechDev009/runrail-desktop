@@ -27,12 +27,12 @@ describe("a failure says why, in words for the person", () => {
     const timeline = applyFrames(emptyTimeline(), [event("turn.started", { turnId: "t1", prompt: "go" }), event("session.stopped", { reason: "timeout" })])
     const end = timeline.items.find((item): item is TurnEndItem => item.kind === "turn-end")!
     expect(end).toMatchObject({ status: "stopped", stopCause: "timeout" })
-    expect(renderToStaticMarkup(<TurnEndRow item={end} />)).toContain("Stopped after 2s: ran out of time")
+    expect(renderToStaticMarkup(<TurnEndRow item={end} threadId="t" />)).toContain("Stopped after 2s: ran out of time")
   })
 
   test("a completed turn names the model that handled it", () => {
     const html = renderToStaticMarkup(
-      <TurnEndRow item={{ kind: "turn-end", key: "end", turnId: "t1", status: "completed", startedAt: 0, endedAt: 1_000, backend: "codex", model: "gpt-5.5" }} />,
+      <TurnEndRow threadId="t" item={{ kind: "turn-end", key: "end", turnId: "t1", status: "completed", startedAt: 0, endedAt: 1_000, backend: "codex", model: "gpt-5.5" }} />,
     )
     expect(html).toContain("GPT-5.5 via Codex")
   })
@@ -57,7 +57,7 @@ describe("a failure says why, in words for the person", () => {
     ])
     const [command, question, denied] = timeline.items.filter((item): item is ApprovalItem => item.kind === "approval")
     expect(renderToStaticMarkup(<ApprovalCard item={command!} threadId="t" primary={false} />)).toContain("Withdrawn")
-    expect(renderToStaticMarkup(<QuestionCard item={question!} threadId="t" primary={false} />)).toContain("No longer needed")
+    expect(renderToStaticMarkup(<QuestionCard item={question!} />)).toContain("No longer needed")
     expect(renderToStaticMarkup(<ApprovalCard item={denied!} threadId="t" primary={false} />)).toContain("Denied")
   })
 })

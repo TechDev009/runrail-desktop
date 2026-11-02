@@ -114,6 +114,7 @@ function index(words: PlatformWords): readonly SettingEntry[] {
     { id: "phone-access", section: "general", label: "Phone access", keywords: "phone mobile iphone android tailscale tailnet pair remote away" },
     { id: "remote-machines", section: "projects", label: "Remote machines", keywords: "ssh remote server machine host linux box cloud vm engine" },
     { id: "project-git", section: "projects", label: "Git host and GitHub CLI", keywords: "git hosts github gitlab bitbucket gh cli pull request remote origin server enterprise connect service" },
+    { id: "github-event-relay", section: "projects", label: "GitHub CI event relay", keywords: "github actions webhook checks events offline app installation connect disconnect" },
     { id: "import-sessions", section: "import", label: "Import sessions", keywords: "claude code codex pi transcript history continue" },
     { id: "import-providers", section: "import", label: "Providers from other tools", keywords: "import providers codex pi opencode config models connections" },
     { id: "import-from-tools", section: "import", label: "Skills, MCP servers, and subagents from other tools", keywords: "import claude code codex cursor gemini opencode pi skills mcp agents" },

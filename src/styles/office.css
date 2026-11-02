@@ -128,6 +128,9 @@
 .office-filter.is-done .office-filter-dot {
   background: var(--green);
 }
+.office-filter.is-attention .office-filter-dot {
+  background: var(--amber);
+}
 
 .office-filter-count {
   font-size: var(--fs-xs);
@@ -139,6 +142,127 @@
   .office-summary {
     display: none;
   }
+}
+
+.office-attention {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-14);
+  width: 100%;
+}
+
+.office-attention-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-12);
+}
+
+.office-attention-header h2,
+.office-attention-empty h3 {
+  margin: 0;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+}
+
+.office-attention-header p,
+.office-attention-empty p {
+  margin: var(--sp-4) 0 0;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+}
+
+.office-attention-count {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.office-attention-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: var(--sp-10);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.office-attention-item {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.office-attention-open {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-6);
+  min-width: 0;
+  padding: var(--sp-14);
+  text-align: left;
+}
+
+.office-attention-open:hover {
+  background: var(--surface-hover);
+}
+
+.office-attention-kind {
+  color: var(--amber);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.office-attention-kind.is-review {
+  color: var(--red);
+}
+
+.office-attention-title {
+  max-width: 100%;
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.office-attention-next {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+}
+
+.office-attention-pr {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-4);
+  align-self: center;
+  margin: 0 var(--sp-12);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
+.office-attention-pr:hover {
+  color: var(--accent);
+}
+
+.office-attention-empty {
+  padding: var(--sp-24);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg);
+  color: var(--text-2);
+  text-align: center;
 }
 
 .office-rooms {

@@ -91,6 +91,7 @@ export async function continueOn(threadId: string, targetId: string, plan: Extra
       title: thread.title,
       ...(thread.model === undefined ? {} : { model: thread.model }),
       ...(thread.thinking === undefined ? {} : { thinking: thread.thinking }),
+      ...(thread.fastMode === true ? { fastMode: true } : {}),
       // A connection lives on this Mac; on a remote machine the thread runs on what is signed in there.
       ...(target.remote === undefined && thread.connectionId !== undefined ? { connectionId: thread.connectionId } : {}),
     },

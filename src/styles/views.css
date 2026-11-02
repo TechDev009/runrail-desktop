@@ -573,6 +573,12 @@
   gap: var(--sp-6);
 }
 
+.candidate-approval-waiting {
+  margin: 0;
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+}
+
 /* The run's last answer as it reads in the thread, cut to a few lines; the thread has the rest. */
 .candidate-answer {
   padding: var(--sp-10) var(--sp-12);

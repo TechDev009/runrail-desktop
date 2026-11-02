@@ -16,6 +16,24 @@ const EMPTY: PanelState = { tabs: [] }
 /** Set when something asked for the panel's launcher (⌘T); the panel opens it and clears this. */
 export const useLauncherRequest = create<{ readonly pending: boolean }>()(() => ({ pending: false }))
 
+type ReviewScopeRequest =
+  | { readonly threadId: string; readonly scope: "all"; readonly requestId: number }
+  | { readonly threadId: string; readonly scope: "turn"; readonly turnId: string; readonly requestId: number }
+type ReviewScopeRequestInput =
+  | { readonly threadId: string; readonly scope: "all" }
+  | { readonly threadId: string; readonly scope: "turn"; readonly turnId: string }
+
+export const useReviewScopeRequest = create<{ readonly request?: ReviewScopeRequest }>()(() => ({}))
+let reviewScopeRequestId = 0
+
+function requestReviewScope(request: ReviewScopeRequestInput): void {
+  const requestId = ++reviewScopeRequestId
+  const next: ReviewScopeRequest = request.scope === "turn"
+    ? { threadId: request.threadId, scope: "turn", turnId: request.turnId, requestId }
+    : { threadId: request.threadId, scope: "all", requestId }
+  useReviewScopeRequest.setState({ request: next })
+}
+
 export function panelOf(threadId: string | undefined): PanelState {
   return threadId === undefined ? EMPTY : get().layout.panels[threadId] ?? EMPTY
 }
@@ -95,6 +113,11 @@ function ended(threadId: string, tab: PanelTab): void {
  * on screen hides the panel, as the header buttons and shortcuts do.
  */
 export function openPanel(threadId: string, kind: PanelKind, options: { readonly toggle?: boolean } = {}): void {
+  if (kind === "review" && get().threads.some((thread) => thread.id === threadId)) requestReviewScope({ threadId, scope: "all" })
+  showPanel(threadId, kind, options)
+}
+
+function showPanel(threadId: string, kind: PanelKind, options: { readonly toggle?: boolean } = {}): void {
   const panel = panelOf(threadId)
   const shown = activeTab(panel)
   if (options.toggle === true && get().layout.inspectorOpen && shown?.kind === kind) {
@@ -140,6 +163,13 @@ export function requestLauncher(threadId: string): void {
 export function openPanelHere(kind: PanelKind, options: { readonly toggle?: boolean } = {}): void {
   const threadId = get().layout.activeThreadId
   if (threadId !== undefined && get().threads.some((thread) => thread.id === threadId)) openPanel(threadId, kind, options)
+}
+
+/** Opens review on the exact turn selected in the timeline. */
+export function openTurnReview(threadId: string, turnId: string): void {
+  if (!get().threads.some((thread) => thread.id === threadId)) return
+  requestReviewScope({ threadId, scope: "turn", turnId })
+  showPanel(threadId, "review")
 }
 
 /** The kind of tab a thread's panel shows, when the panel is open. For store selectors. */

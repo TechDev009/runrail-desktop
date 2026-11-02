@@ -1,4 +1,4 @@
-import { ArrowLeft, AudioLines, Bot, Cable, Check, CircleAlert, Cpu, Download, FileText, FolderOpen, History, Keyboard, Mic, Minus, Plus, RotateCcw, Search, Settings2, ShieldCheck, Sparkles, SquareTerminal, Trash, Wrench, X } from "lucide-react"
+import { ArrowLeft, AudioLines, Bot, Cable, Check, CircleAlert, Cpu, Download, FileText, FolderOpen, GitPullRequest, History, Keyboard, Mic, Minus, Plus, RotateCcw, Search, Settings2, ShieldCheck, Sparkles, SquareTerminal, Trash, Wrench, X } from "lucide-react"
 import { Fragment, useEffect, useRef, useState, type ReactNode } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { confirmAction, EDITOR_LABELS, openDialog, openUrl, pickProject, reveal, useEditors } from "../../app/actions"
@@ -18,7 +18,7 @@ import { setStartDefault } from "../../app/connectionSettings"
 import { get, runtimeOf, set, setPrefs, startSelection, toast, useApp, type SettingsSection } from "../../app/store"
 import { OTHER_TOOL_LABELS, useImportRevision, withImported } from "../../app/otherTools"
 import { checkForUpdates, installUpdate, useUpdates } from "../../app/updates"
-import { BACKENDS, getHost, toHostError, type BackendId, type EditorId, type EngineInfo, type FoundInstructions, type LoginItemStatus, type ModelProgress, type ProjectInstructions, type Thinking, type VoiceDevice, type VoiceModel, type WakeServiceStatus } from "../../host"
+import { BACKENDS, getHost, toHostError, type BackendId, type EditorId, type EngineInfo, type FoundInstructions, type GithubRelayStatus, type LoginItemStatus, type ModelProgress, type ProjectInstructions, type Thinking, type VoiceDevice, type VoiceModel, type WakeServiceStatus } from "../../host"
 import { compactPath, plural, relativeTime } from "../../lib/format"
 import type { CapabilityState, Contract } from "../../protocol/schemas"
 import { Button, cx, CopyButton, IconButton, Kbd, Menu, Segmented, Select, Spinner, Toggle } from "../common"
@@ -1398,6 +1398,66 @@ function Subagents() {
   )
 }
 
+function GithubEventRelaySettings() {
+  const [status, setStatus] = useState<GithubRelayStatus>()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string>()
+  const reload = (): void => {
+    void getHost().githubRelayStatus().then(setStatus).catch((value: unknown) => setError(toHostError(value).message))
+  }
+  useEffect(reload, [])
+  const pair = async (): Promise<void> => {
+    setBusy(true)
+    setError(undefined)
+    try {
+      const next = await getHost().githubRelayPair()
+      setStatus(next)
+      if (next.state === "paired") toast("success", "GitHub CI event relay connected")
+      else if (next.message !== undefined) setError(next.message)
+    } catch (value) {
+      setError(toHostError(value).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+  const unpair = async (): Promise<void> => {
+    setBusy(true)
+    setError(undefined)
+    try {
+      const next = await getHost().githubRelayUnpair()
+      setStatus(next)
+      if (next.message !== undefined) setError(next.message)
+      else toast("info", "GitHub event relay disconnected; local CI polling continues")
+    } catch (value) {
+      setError(toHostError(value).message)
+      reload()
+    } finally {
+      setBusy(false)
+    }
+  }
+  const detail = status?.state === "paired"
+    ? `Connected to installation ${status.installationId}. The relay keeps only CI event metadata. When you click Fix or enable Watch, selected log excerpts are added to the thread and sent to its connected model provider or coding tool; they remain in local thread history. GitHub credentials stay on this computer.`
+    : status?.state === "unpaired"
+      ? "Optional. Receive CI event notices while Runrail is closed; local polling remains the fallback."
+      : status?.message ?? "Checking GitHub event relay configuration…"
+  return (
+    <section className="github-relay-settings" data-setting="github-event-relay" aria-label="GitHub CI event relay">
+      <div className="github-relay-copy">
+        <h3><GitPullRequest size={14} /> GitHub CI event relay</h3>
+        <p className="setting-hint">{detail}</p>
+        {error !== undefined && <p className="setting-hint is-error" role="alert">{error}</p>}
+      </div>
+      {status?.state === "paired" ? (
+        <Button size="sm" variant="ghost" disabled={busy} loading={busy} onClick={() => void unpair()}>Disconnect</Button>
+      ) : (
+        <Button size="sm" variant="secondary" disabled={busy || status?.state === "not-configured"} loading={busy} onClick={() => void pair()}>
+          Connect GitHub App
+        </Button>
+      )}
+    </section>
+  )
+}
+
 function Projects() {
   const words = useWords()
   const projects = useApp((state) => state.projects)
@@ -1417,6 +1477,7 @@ function Projects() {
           Add project
         </Button>
       </div>
+      <GithubEventRelaySettings />
       <p className="setting-hint" data-setting="project-git">
         Each project shows the git host its folder is on. Confirm a host Runrail only guessed, and choose whether pull requests on GitHub use your own GitHub CLI sign-in.
       </p>

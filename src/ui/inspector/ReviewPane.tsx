@@ -25,15 +25,16 @@ import { mergeDiff, PARTIAL_LIMIT } from "../../app/diffRefresh"
 import { refreshGit, send, steer, threadRpc } from "../../app/engines"
 import { openFileMenu } from "../../app/fileMenu"
 import { previewWorkspaceFile } from "../../app/filePreview"
-import { folderKey, folderRpc, NOT_A_REPOSITORY, patchFolderGit, refreshFolderGit, useFolderGit, useShownFolder, type FolderGitView } from "../../app/folderGit"
+import { folderKey, folderRpc, NOT_A_REPOSITORY, patchFolderGit, refreshFolderGit, showFolder, useFolderGit, useShownFolder, type FolderGitView } from "../../app/folderGit"
+import { useReviewScopeRequest } from "../../app/panels"
 import type { WorktreeBase } from "../../app/persist"
 import { noteCommit, recordGame } from "../../app/play"
 import { get, patchGit, runtimeOf, setPrefs, toast, useApp } from "../../app/store"
 import { toHostError } from "../../host"
 import { basename, dirname, plural, relativeTime } from "../../lib/format"
 import { GitBranchesSchema, GitCommitSchema, GitDiffSchema, GitPushPreviewSchema, GitStatusSchema, hasCapability, parseOr, type GitBranches, type GitCommit, type GitDiff, type GitDiffFile, type GitEntry, type GitPushPreview, type GitStatus } from "../../protocol/schemas"
-import { isBusy } from "../../thread/reducer"
-import { Button, cx, EmptyState, IconButton, Modal, Segmented, Spinner, Toggle } from "../common"
+import { isBusy, type TurnEndItem } from "../../thread/reducer"
+import { Button, cx, EmptyState, IconButton, Menu, Modal, Segmented, Spinner, Toggle, type MenuEntry } from "../common"
 import { addComments, useReviewMemory, type LineComment } from "../../app/reviewMemory"
 import { dismissSelfReview, openSelfReview, reviewMyChanges, useSelfReviews } from "../../app/selfReview"
 import { DIFF_LAYOUTS, layoutFor, patchHeight, patchShape, PatchView, type PatchShape } from "../diff/DiffView"
@@ -49,7 +50,7 @@ import { notePullRequestCreated, refreshPullRequests } from "../../app/gitBar"
  * pull request without leaving the app. Comments and "viewed" marks live in memory only.
  */
 
-type Scope = "head" | "unstaged" | "staged"
+type Scope = "head" | "unstaged" | "staged" | "turn"
 
 
 const AUTO_EXPAND_FILES = 12
@@ -97,11 +98,23 @@ type Rpc = (method: string, params?: Record<string, unknown>) => Promise<unknown
 
 export function ReviewPane({ threadId }: { readonly threadId: string }) {
   const folder = useShownFolder(threadId)
+  const request = useReviewScopeRequest((state) => state.request?.threadId === threadId ? state.request : undefined)
+  useEffect(() => {
+    if (folder !== undefined && request !== undefined) showFolder(threadId, undefined)
+  }, [folder, request?.requestId, threadId])
   return <ReviewChanges key={folder ?? ""} threadId={threadId} {...(folder === undefined ? {} : { folder })} />
 }
 
 /** The changes in the thread's checkout or a related folder; pushes, pull requests and the second-pass review are the checkout's only. */
 function ReviewChanges({ threadId, folder }: { readonly threadId: string; readonly folder?: string }) {
+  const runtime = useApp((state) => state.runtime[threadId])
+  const reviewScopeRequest = useReviewScopeRequest((state) => state.request?.threadId === threadId ? state.request : undefined)
+  const latestTurn = [...(runtime?.timeline.items.filter((item): item is TurnEndItem => item.kind === "turn-end") ?? [])]
+    .reverse()
+    .find((item) => (runtime?.changes[item.turnId]?.files ?? 0) > 0)
+  const [selectedTurnId, setSelectedTurnId] = useState<string | undefined>()
+  const activeTurnId = selectedTurnId ?? latestTurn?.turnId
+  const turnChanges = activeTurnId === undefined ? undefined : runtime?.changes[activeTurnId]
   const thread = useThread(threadId)
   const project = useProject(thread?.projectId)
   const ownGit = useGit(threadId)
@@ -115,6 +128,7 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
   const diffView = useApp((state) => state.prefs.diffView)
   const [scope, setScope] = useState<Scope>("head")
   const [diff, setDiff] = useState<GitDiff | undefined>()
+  const [diffKey, setDiffKey] = useState<string | undefined>()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | undefined>()
   const [expanded, setExpanded] = useState<Readonly<Record<string, boolean>>>({})
@@ -137,15 +151,35 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
   // Pull requests need a GitHub connector in the engine; without one the engine refuses the call.
   const pullsReady = useApp((state) => hasCapability(state.runtime[threadId]?.contract, "git.pr"))
 
+  useEffect(() => {
+    if (folder !== undefined || reviewScopeRequest === undefined) return
+    setSelectedTurnId(reviewScopeRequest.scope === "turn" ? reviewScopeRequest.turnId : undefined)
+    setScope(reviewScopeRequest.scope === "turn" ? "turn" : "head")
+    useReviewScopeRequest.setState((state) => state.request?.requestId === reviewScopeRequest.requestId ? { request: undefined } : state)
+  }, [folder, reviewScopeRequest])
+
   // A stage, unstage or discard reads only the files it touched; while a whole read is on its way, that read covers them.
   const load = useCallback(async (paths?: readonly string[]): Promise<void> => {
     const id = ++request.current
     const base = shown.current
-    const partial = paths !== undefined && paths.length <= PARTIAL_LIMIT && base !== undefined && !fullRead.current
+    const targetKey = scope === "turn" ? `turn:${activeTurnId ?? ""}` : scope
+    const turnPaths = scope === "turn" ? turnChanges?.paths : undefined
+    if (scope === "turn" && (turnPaths === undefined || turnPaths.length === 0)) {
+      shown.current = undefined
+      setDiff(undefined)
+      setDiffKey(targetKey)
+      setError(undefined)
+      setLoading(false)
+      fullRead.current = false
+      return
+    }
+    const partial = scope !== "turn" && paths !== undefined && paths.length <= PARTIAL_LIMIT && base !== undefined && !fullRead.current
     if (!partial) fullRead.current = true
     setLoading(true)
     try {
-      const value = await rpc("git.diff", { scope, contextLines: 3, maxFiles: 500, maxBytes: 8 * 1_024 * 1_024, includeUntracked: scope !== "staged", ...(partial ? { paths } : {}) })
+      const diffScope = scope === "turn" ? "head" : scope
+      const diffPaths = scope === "turn" ? turnPaths : partial ? paths : undefined
+      const value = await rpc("git.diff", { scope: diffScope, contextLines: 3, maxFiles: 500, maxBytes: 8 * 1_024 * 1_024, includeUntracked: diffScope !== "staged", ...(diffPaths === undefined ? {} : { paths: diffPaths }) })
       if (id !== request.current) return
       const parsed = parseOr(GitDiffSchema, value)
       const next = partial && parsed !== undefined ? mergeDiff(base, paths, parsed) : parsed
@@ -155,6 +189,7 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
       }
       shown.current = next
       setDiff(next)
+      setDiffKey(targetKey)
       setError(next === undefined ? "The engine returned a diff this app cannot read." : undefined)
     } catch (failure) {
       if (id === request.current) setError(toHostError(failure).message)
@@ -164,7 +199,7 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
         fullRead.current = false
       }
     }
-  }, [rpc, scope])
+  }, [rpc, scope, turnChanges?.paths, activeTurnId])
 
   // A related folder's status is read when it is shown; the thread's own is kept fresh by the engine's events.
   useEffect(() => {
@@ -185,8 +220,9 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
   useEffect(() => {
     shown.current = undefined
     setDiff(undefined)
+    setDiffKey(undefined)
     setError(undefined)
-  }, [threadId, scope])
+  }, [threadId, scope, activeTurnId])
 
   useEffect(() => {
     if (git.error === NOT_A_REPOSITORY) return
@@ -280,7 +316,9 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
     focusComposer()
   }
 
-  const files = diff?.files ?? NO_FILES
+  const diffScopeKey = scope === "turn" ? `turn:${activeTurnId ?? ""}` : scope
+  const shownDiff = diffKey === diffScopeKey ? diff : undefined
+  const files = shownDiff?.files ?? NO_FILES
   const shapes = useMemo(() => new Map(files.map((file) => [file.path, patchShape(file.patch)])), [files])
   const autoOpen = files.length <= AUTO_EXPAND_FILES
   const isOpen = (file: GitDiffFile): boolean => expanded[file.path] ?? (autoOpen && !viewed.includes(file.path) && (shapes.get(file.path)?.lines ?? 0) <= AUTO_EXPAND_LINES)
@@ -318,10 +356,23 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
       </EmptyState>
     )
 
-  const totals = diff?.totals
+  const totals = shownDiff?.totals
   const unstagedPaths = files.filter((file) => entries.get(file.path)?.unstaged === true || entries.get(file.path)?.untracked === true).map((file) => file.path)
   const stagedPaths = files.filter((file) => entries.get(file.path)?.staged === true).map((file) => file.path)
   const conflicted = status?.counts.conflicted ?? 0
+  const latestTurnChanges = latestTurn === undefined ? undefined : runtime?.changes[latestTurn.turnId]
+  const selectedOlderTurn = folder === undefined && selectedTurnId !== undefined && selectedTurnId !== latestTurn?.turnId
+  const scopeLabel = scope === "head" ? "All Changes" : scope === "turn" ? (selectedOlderTurn ? "Selected Turn" : "Last Turn") : scope === "unstaged" ? "Unstaged Changes" : "Staged Changes"
+  const turnScopeItems: MenuEntry[] = []
+  if (selectedOlderTurn) turnScopeItems.push({ id: "selected-turn", label: "Selected Turn", icon: <FileDiff size={13} />, hint: <span className="menu-hint-text">{turnChanges?.files ?? 0}</span>, description: "The turn selected in the timeline", checked: scope === "turn", onSelect: () => setScope("turn") })
+  if (folder === undefined && latestTurn !== undefined) turnScopeItems.push({ id: "last-turn", label: "Last Turn", icon: <FileDiff size={13} />, hint: <span className="menu-hint-text">{latestTurnChanges?.files ?? 0}</span>, description: "Files changed in the most recent turn", checked: scope === "turn" && !selectedOlderTurn, onSelect: () => { setSelectedTurnId(undefined); setScope("turn") } })
+  const scopeItems: readonly MenuEntry[] = [
+    { id: "all", label: "All Changes", icon: <FileDiff size={13} />, hint: <span className="menu-hint-text">{entries.size}</span>, description: "All uncommitted changes", checked: scope === "head", onSelect: () => setScope("head") },
+    ...turnScopeItems,
+    { id: "scope-separator", separator: true },
+    { id: "unstaged", label: "Unstaged Changes", hint: <span className="menu-hint-text">{scopeCount(entries, "unstaged")}</span>, checked: scope === "unstaged", onSelect: () => setScope("unstaged") },
+    { id: "staged", label: "Staged Changes", hint: <span className="menu-hint-text">{scopeCount(entries, "staged")}</span>, checked: scope === "staged", onSelect: () => setScope("staged") },
+  ]
 
   const renderFile = (file: GitDiffFile): ReactNode => {
     const entry = entries.get(file.path)
@@ -361,25 +412,29 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
                 <FileText size={12} />
               </IconButton>
             )}
-            <IconButton label="Discard changes" size="sm" disabled={busy} onClick={() => discard([file.path])}>
-              <Undo2 size={12} />
-            </IconButton>
+            {scope !== "turn" && (
+              <IconButton label="Discard changes" size="sm" disabled={busy} onClick={() => discard([file.path])}>
+                <Undo2 size={12} />
+              </IconButton>
+            )}
             <label className="viewed-toggle" title="Mark as viewed">
               <input type="checkbox" checked={seen} onChange={() => toggleViewed(file.path)} />
               Viewed
             </label>
-            <button
-              type="button"
-              className={cx("stage-box", fullyStaged && "is-checked", partial && "is-partial")}
-              role="checkbox"
-              aria-checked={partial ? "mixed" : fullyStaged}
-              aria-label={fullyStaged ? "Unstage file" : "Stage file"}
-              title={fullyStaged ? "Staged. Click to unstage." : partial ? "Partly staged. Click to stage all." : "Click to stage"}
-              disabled={busy}
-              onClick={() => void mutate(fullyStaged ? "git.unstage" : "git.stage", [file.path])}
-            >
-              {busy ? <Spinner size={10} /> : fullyStaged ? <Check size={11} /> : partial ? <Minus size={11} /> : null}
-            </button>
+            {scope !== "turn" && (
+              <button
+                type="button"
+                className={cx("stage-box", fullyStaged && "is-checked", partial && "is-partial")}
+                role="checkbox"
+                aria-checked={partial ? "mixed" : fullyStaged}
+                aria-label={fullyStaged ? "Unstage file" : "Stage file"}
+                title={fullyStaged ? "Staged. Click to unstage." : partial ? "Partly staged. Click to stage all." : "Click to stage"}
+                disabled={busy}
+                onClick={() => void mutate(fullyStaged ? "git.unstage" : "git.stage", [file.path])}
+              >
+                {busy ? <Spinner size={10} /> : fullyStaged ? <Check size={11} /> : partial ? <Minus size={11} /> : null}
+              </button>
+            )}
           </div>
         </div>
         {open && (
@@ -420,18 +475,16 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
 
   return (
     <div className="review">
-      <FolderSwitch threadId={threadId} />
+      {scope !== "turn" && <FolderSwitch threadId={threadId} />}
       <div className="pane-toolbar">
-        <Segmented
-          size="sm"
-          label="Diff scope"
-          value={scope}
-          onChange={setScope}
-          options={[
-            { value: "head", label: "All", title: "Everything since the last commit", ...(status === undefined ? {} : { count: entries.size }) },
-            { value: "unstaged", label: "Unstaged", ...(status === undefined ? {} : { count: scopeCount(entries, "unstaged") }) },
-            { value: "staged", label: "Staged", ...(status === undefined ? {} : { count: scopeCount(entries, "staged") }) },
-          ]}
+        <Menu
+          width={240}
+          items={scopeItems}
+          trigger={({ toggle, ref, open }) => (
+            <Button ref={ref} size="sm" variant="secondary" className={cx("review-scope-trigger", open && "is-active")} icon={<FileDiff size={13} />} onClick={toggle} aria-haspopup="menu" aria-expanded={open}>
+              {scopeLabel} <ChevronDown size={12} aria-hidden />
+            </Button>
+          )}
         />
         <div className="pane-toolbar-spacer" />
         <Segmented
@@ -448,7 +501,7 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
       </div>
 
       <div className="review-summary">
-        {status?.branch !== undefined && status.branch !== null && (
+        {scope !== "turn" && status?.branch !== undefined && status.branch !== null && (
           <span className="review-branch" title={status.upstream ?? "No upstream"}>
             <GitBranch size={12} /> {status.branch}
             {(status.ahead ?? 0) > 0 && <span className="review-ahead">↑{status.ahead}</span>}
@@ -461,28 +514,28 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
           </span>
         )}
         <div className="pane-toolbar-spacer" />
-        {files.length > 0 && folder === undefined && <ReviewMyChanges threadId={threadId} />}
-        {scope !== "staged" && unstagedPaths.length > 0 && (
+        {scope !== "turn" && files.length > 0 && folder === undefined && <ReviewMyChanges threadId={threadId} />}
+        {scope !== "turn" && scope !== "staged" && unstagedPaths.length > 0 && (
           <Button size="sm" variant="ghost" icon={<Plus size={12} />} onClick={() => void mutate("git.stage", unstagedPaths)}>
             Stage all
           </Button>
         )}
-        {scope !== "unstaged" && stagedPaths.length > 0 && (
+        {scope !== "turn" && scope !== "unstaged" && stagedPaths.length > 0 && (
           <Button size="sm" variant="ghost" icon={<Minus size={12} />} onClick={() => void mutate("git.unstage", stagedPaths)}>
             Unstage all
           </Button>
         )}
       </div>
 
-      {conflicted > 0 && (
+      {scope !== "turn" && conflicted > 0 && (
         <div className="strip is-error">
           <CircleAlert size={13} />
           <span className="strip-text">{plural(conflicted, "file")} with merge conflicts. Resolve them before committing.</span>
         </div>
       )}
-      {status?.truncated === true && <div className="strip">Showing the first part of a very large change set.</div>}
+      {scope !== "turn" && status?.truncated === true && <div className="strip">Showing the first part of a very large change set.</div>}
 
-      {error !== undefined && diff !== undefined && (
+      {error !== undefined && shownDiff !== undefined && (
         <div className="strip" role="alert">
           Could not refresh the changes: {error}{" "}
           <Button size="sm" variant="ghost" onClick={() => void load()}>
@@ -490,19 +543,23 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
           </Button>
         </div>
       )}
-      {folder === undefined && <SelfReviewNotes threadId={threadId} />}
+      {scope !== "turn" && folder === undefined && <SelfReviewNotes threadId={threadId} />}
       <div ref={scrollRef} className="review-files">
-        {error !== undefined && diff === undefined ? (
+        {error !== undefined && shownDiff === undefined ? (
           <EmptyState icon={<CircleAlert size={20} />} title="Could not load changes" actions={<Button size="sm" onClick={() => void load()}>Try again</Button>}>
             {error}
           </EmptyState>
-        ) : diff === undefined ? (
+        ) : shownDiff === undefined && scope === "turn" && (turnChanges === undefined || turnChanges.paths.length === 0) && !loading ? (
+          <EmptyState icon={<FileDiff size={20} />} title={turnChanges === undefined ? "No turn selected" : "No files changed in this turn"}>
+            {turnChanges === undefined ? "Select a turn from its timeline summary to review its changes." : "This turn has no changed files to show."}
+          </EmptyState>
+        ) : shownDiff === undefined ? (
           <div className="pane-loading">
             <Spinner size={14} /> Loading changes…
           </div>
         ) : files.length === 0 ? (
-          <EmptyState icon={<FileDiff size={20} />} title={scope === "staged" ? "Nothing staged" : "No changes"}>
-            {scope === "staged" ? "Stage files from the All or Unstaged view to include them in the next commit." : "Edits the agent makes show up here for review before you commit."}
+          <EmptyState icon={<FileDiff size={20} />} title={scope === "turn" ? "No remaining changes from this turn" : scope === "staged" ? "Nothing staged" : "No changes"}>
+            {scope === "turn" ? "The files touched in this turn no longer have changes in the current checkout." : scope === "staged" ? "Stage files from the All or Unstaged view to include them in the next commit." : "Edits the agent makes show up here for review before you commit."}
           </EmptyState>
         ) : (
           <div ref={listRef} className="virtual-list" style={{ height: virtualizer.getTotalSize() }}>
@@ -516,7 +573,7 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
             })}
           </div>
         )}
-        {diff?.truncated === true && <div className="diff-note">Only the first {files.length} files are shown.</div>}
+        {shownDiff?.truncated === true && <div className="diff-note">Only the first {files.length} files are shown.</div>}
       </div>
 
       {comments.length > 0 && (
@@ -533,9 +590,9 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
         </div>
       )}
 
-      <CommitBox threadId={threadId} rpc={rpc} onStatus={(next) => patchStatus({ status: next, updatedAt: Date.now(), loading: false })} refresh={refresh} memoryKey={memoryKey} remote={folder === undefined} stagedCount={status?.counts.staged ?? 0} changedCount={(status?.counts.unstaged ?? 0) + (status?.counts.untracked ?? 0)} ahead={status?.ahead ?? 0} hasUpstream={typeof status?.upstream === "string"} branch={status?.branch ?? undefined} conflicted={conflicted > 0} pulls={pulls} pullsReady={pullsReady} onPulls={setPulls} refreshedAt={git.updatedAt} />
+      {scope !== "turn" && <CommitBox threadId={threadId} rpc={rpc} onStatus={(next) => patchStatus({ status: next, updatedAt: Date.now(), loading: false })} refresh={refresh} memoryKey={memoryKey} remote={folder === undefined} stagedCount={status?.counts.staged ?? 0} changedCount={(status?.counts.unstaged ?? 0) + (status?.counts.untracked ?? 0)} ahead={status?.ahead ?? 0} hasUpstream={typeof status?.upstream === "string"} branch={status?.branch ?? undefined} conflicted={conflicted > 0} pulls={pulls} pullsReady={pullsReady} onPulls={setPulls} refreshedAt={git.updatedAt} />}
 
-      {commits.length > 0 && <RecentCommits commits={commits} />}
+      {scope !== "turn" && commits.length > 0 && <RecentCommits commits={commits} />}
     </div>
   )
 }

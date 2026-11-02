@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-github-relay-status"
+description = "Enables the github_relay_status command without any pre-configured scope."
+commands.allow = ["github_relay_status"]
+
+[[permission]]
+identifier = "deny-github-relay-status"
+description = "Denies the github_relay_status command without any pre-configured scope."
+commands.deny = ["github_relay_status"]

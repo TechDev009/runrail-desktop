@@ -385,7 +385,8 @@ export function WorkingFooter({ threadId, runtime }: { readonly threadId: string
   if (runtime.engine === "starting")
     return (
       <div className="row-working">
-        <span className="shimmer">Starting agent…</span> <Spinner size={13} />
+        <span className="shimmer">Starting agent…</span>
+        <Spinner size={13} />
       </div>
     )
   const since = timeline.turnStartedAt
@@ -393,10 +394,10 @@ export function WorkingFooter({ threadId, runtime }: { readonly threadId: string
   return (
     <div className="row-working">
       <span className="shimmer">Working</span>
+      <Spinner size={13} />
       {since !== undefined && <span className="muted">· {duration(now - since)}</span>}
       {run !== undefined && <span className="muted working-model">· {runLabel(run)}</span>}
       <span className="muted working-hint">Esc to stop</span>
-      <Spinner size={13} />
     </div>
   )
 }
@@ -592,7 +593,7 @@ export function Timeline({ threadId, runtime, workspace }: { readonly threadId: 
           case "reasoning":
             return <ReasoningRow item={item} />
           case "approval": {
-            if (item.questions !== undefined) return <QuestionCard item={item} threadId={threadId} primary={item.key === firstPending} />
+            if (item.questions !== undefined) return <QuestionCard item={item} />
             const position = item.callKey === undefined ? undefined : timeline.index.get(item.callKey)
             const gate = position === undefined ? undefined : timeline.items[position]
             return <ApprovalCard item={item} threadId={threadId} primary={item.key === firstPending} {...(gate?.kind === "tool" ? { gate } : {})} />
@@ -605,7 +606,7 @@ export function Timeline({ threadId, runtime, workspace }: { readonly threadId: 
             return <NoticeRow item={item} threadId={threadId} />
           case "turn-end": {
             const changes = runtime.changes[item.turnId]
-            return <TurnEndRow item={item} folded={row.folded === true} {...(changes === undefined ? {} : { changes })} {...(row.checks === undefined ? {} : { checks: row.checks })} />
+            return <TurnEndRow item={item} threadId={threadId} folded={row.folded === true} {...(changes === undefined ? {} : { changes })} {...(row.checks === undefined ? {} : { checks: row.checks })} />
           }
         }
       }

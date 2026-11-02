@@ -1,7 +1,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { openUrl } from "@tauri-apps/plugin-opener"
-import type { AgentDefinition, AndroidApp, AndroidDevice, AndroidStatus, ComputerAccess, ComputerApp, EditorId, EngineInfo, EngineStartInput, Host, HostInfo, ImportedSkill, ListenInput, LoginItemStatus, McpServer, ModelProgress, NotifyStatus, OtherTools, PreviewState, ProjectInstructions, RunningComputerApp, SimulatorApp, SimulatorDevice, SimulatorScreen, SimulatorStatus, StartupTiming, StreamFrame, StreamState, Unsubscribe, VoiceDevice, VoiceEvent, VoiceModel, PhoneCall, PhonePushTarget, NewPhoneHook, PhoneShare, PhoneStatus, QuickMessage, QuickStatus, RemoteCheck, TailscaleStatus, RemoteMachine, WakeServiceStatus, WorkspaceInfo, SignInsSupport } from "./types"
+import type { AgentDefinition, AndroidApp, AndroidDevice, AndroidStatus, ComputerAccess, ComputerApp, EditorId, EngineInfo, EngineStartInput, GithubRelayEvent, GithubRelayStatus, Host, HostInfo, ImportedSkill, ListenInput, LoginItemStatus, McpServer, ModelProgress, NotifyStatus, OtherTools, PreviewState, ProjectInstructions, RunningComputerApp, SimulatorApp, SimulatorDevice, SimulatorScreen, SimulatorStatus, StartupTiming, StreamFrame, StreamState, Unsubscribe, VoiceDevice, VoiceEvent, VoiceModel, PhoneCall, PhonePushTarget, NewPhoneHook, PhoneShare, PhoneStatus, QuickMessage, QuickStatus, RemoteCheck, TailscaleStatus, RemoteMachine, WakeServiceStatus, WorkspaceInfo, SignInsSupport } from "./types"
 import { HostError, toHostError } from "./types"
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -43,6 +43,11 @@ export function createTauriHost(): Host {
     engineList: () => call<EngineInfo[]>("engine_list"),
     rpc: (engineId, method, params = {}) => call<unknown>("control_rpc", { engineId, method, params }),
     systemEngine: () => call<EngineInfo>("system_engine"),
+    githubRelayStatus: () => call<GithubRelayStatus>("github_relay_status"),
+    githubRelayPair: () => call<GithubRelayStatus>("github_relay_pair"),
+    githubRelayUnpair: () => call<GithubRelayStatus>("github_relay_unpair"),
+    githubRelayFetchEvents: () => call<readonly GithubRelayEvent[]>("github_relay_fetch_events"),
+    githubRelayAcknowledge: (deliveryIds) => call<void>("github_relay_acknowledge", { deliveryIds }),
     connectionSecretSet: (connectionId, secret, target) => call<unknown>("connection_secret_set", { connectionId, secret, tool: target === "tool", connector: target === "connector", mcp: target === "mcp-client" }),
     connectionSecretFromClipboard: (connectionId, target) => call<unknown>("connection_secret_from_clipboard", { connectionId, tool: target === "tool", connector: target === "connector", mcp: target === "mcp-client" }),
     authOpen: (loginId) => call<void>("auth_open", { loginId }),

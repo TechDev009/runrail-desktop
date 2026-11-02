@@ -141,6 +141,7 @@ export async function reviewMyChanges(threadId: string, focus?: string): Promise
     ...(thread.model === undefined ? {} : { model: thread.model }),
     ...(thread.connectionId === undefined ? {} : { connectionId: thread.connectionId }),
     ...(thread.thinking === undefined ? {} : { thinking: thread.thinking }),
+    ...(thread.fastMode === true ? { fastMode: true } : {}),
     mode: "plan",
     permission: "ask",
     title: `Review: ${thread.title}`.slice(0, 120),

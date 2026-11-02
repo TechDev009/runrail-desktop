@@ -60,7 +60,7 @@ describe("a remote thread's engine", () => {
 
   test("takes the model for a coding tool, not for Runrail's own loop, whose keys stay here", () => {
     const base = { engineId: "e-1", workspace: "/home/me/app", sessionId: "t1", behavior: undefined, remote: "rm-1", threadTools: true }
-    expect(remoteStart({ backend: "codex", model: "gpt-5.5", thinking: "high" }, base)).toEqual({ engineId: "e-1", workspace: "/home/me/app", backend: "codex", sessionId: "t1", remote: "rm-1", model: "gpt-5.5", thinking: "high", threadTools: true })
+    expect(remoteStart({ backend: "codex", model: "gpt-5.5", thinking: "high" }, base)).toEqual({ engineId: "e-1", workspace: "/home/me/app", backend: "codex", sessionId: "t1", remote: "rm-1", model: "gpt-5.5", thinking: "high", fastMode: false, threadTools: true })
     expect(remoteStart({ backend: "native", model: "claude-opus-5-5" }, { ...base, threadTools: false })).toEqual({ engineId: "e-1", workspace: "/home/me/app", backend: "native", sessionId: "t1", remote: "rm-1" })
   })
 })

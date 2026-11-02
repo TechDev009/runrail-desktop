@@ -59,7 +59,7 @@ test("a wait is saved with the thread, and a bad one is dropped", () => {
 })
 
 test("while a thread waits, Runrail stays in the menu bar and says so", () => {
-  const input = { runtime: {}, workflowRuns: [], setupRuns: [], evalRuns: [], sources: false, limitWaits: 1 }
+  const input = { runtime: {}, workflowRuns: [], setupRuns: [], evalRuns: [], sources: false, limitWaits: 1, ciWatchCount: 0, ciWatchNumbers: [] }
   expect(stayReasons(input)).toEqual(["limit-wait"])
   expect(stayLines(input, 0)[0]).toBe("1 waiting for a usage limit")
   expect(stayReasons({ ...input, limitWaits: 0 })).toEqual([])

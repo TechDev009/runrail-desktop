@@ -357,6 +357,7 @@ export function proposeWorkflowFrom(threadId: string): void {
     backend: thread.backend,
     ...(thread.model === undefined ? {} : { model: thread.model }),
     ...(thread.connectionId === undefined ? {} : { connectionId: thread.connectionId }),
+    ...(thread.fastMode === true ? { fastMode: true } : {}),
     mode: "plan",
     permission: "ask",
     title: `Workflow from ${thread.title}`,

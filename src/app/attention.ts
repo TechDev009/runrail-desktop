@@ -135,8 +135,8 @@ export function triageKey(event: TriageKey, item: WaitingItem | undefined, sessi
     return key === "x" && !event.shiftKey ? { kind: "dismiss" } : undefined
   }
   if (!settled) return undefined
-  // A question is answered in its thread: Enter opens it, and d skips it.
-  if (item.approval?.questions !== undefined) return key === "Enter" && !event.shiftKey ? { kind: "open" } : key === "d" && !event.shiftKey ? { kind: "deny" } : undefined
+  // Questions have no deny shortcut; declining would let the coding tool continue without an answer.
+  if (item.approval?.questions !== undefined) return key === "Enter" && !event.shiftKey ? { kind: "open" } : undefined
   if ((key === "Enter" || key === "a") && !event.shiftKey) return { kind: "approve" }
   if (key === "a" && event.shiftKey) return sessionOffered ? { kind: "approve", session: true } : undefined
   if (key === "d") return event.shiftKey ? { kind: "feedback" } : { kind: "deny" }

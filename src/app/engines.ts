@@ -47,6 +47,7 @@ import {
   type ThreadRuntime,
 } from "./store"
 import type { EngineInfo, EngineStartInput, Thinking } from "../host/types"
+import { supportsFastMode } from "./fastMode"
 import { knownConnections, listConnections, systemCapability, systemRpc, type Connection } from "./connections"
 import { imageToolsOn, knownTools } from "./connectionSettings"
 import { bump, noteOpen, recordError, stepClock } from "./diagnostics"
@@ -309,6 +310,7 @@ async function startEngine(threadId: string): Promise<string> {
       sessionId: threadId,
       behavior: integrations === undefined ? behavior : { ...behavior, integrations },
       ...(thread.thinking === undefined ? {} : { thinking: thread.thinking }),
+      ...(supportsFastMode(thread.backend) ? { fastMode: thread.fastMode === true } : {}),
       // The engine copies the earlier thread's conversation the first time only.
       ...(thread.parentThreadId === undefined ? {} : { continueFrom: thread.parentThreadId }),
       ...(thread.browser === undefined || !takesBrowser(thread.backend) ? {} : { browserTools: true,...(thread.browser.anySite === true ? { browserAnySite: true } : {}) }),
@@ -455,7 +457,7 @@ async function launch(thread: ThreadMeta, base: EngineStartInput): Promise<Engin
  * model, and nothing that lives only on this Mac: no connection or key, browser, related folders,
  * computer or image tools, and no conversation copied from a thread here.
  */
-export function remoteStart(thread: Pick<ThreadMeta, "backend" | "model" | "thinking">, base: { readonly engineId: string; readonly workspace: string; readonly sessionId: string; readonly behavior: EngineStartInput["behavior"]; readonly remote: string; readonly threadTools: boolean; readonly noNifra?: boolean }): EngineStartInput {
+export function remoteStart(thread: Pick<ThreadMeta, "backend" | "model" | "thinking" | "fastMode">, base: { readonly engineId: string; readonly workspace: string; readonly sessionId: string; readonly behavior: EngineStartInput["behavior"]; readonly remote: string; readonly threadTools: boolean; readonly noNifra?: boolean }): EngineStartInput {
   return {
     engineId: base.engineId,
     workspace: base.workspace,
@@ -465,6 +467,7 @@ export function remoteStart(thread: Pick<ThreadMeta, "backend" | "model" | "thin
     ...(base.behavior === undefined ? {} : { behavior: base.behavior }),
     ...(thread.model === undefined || thread.backend === "native" ? {} : { model: thread.model }),
     ...(thread.thinking === undefined ? {} : { thinking: thread.thinking }),
+    ...(supportsFastMode(thread.backend) ? { fastMode: thread.fastMode === true } : {}),
     ...(base.threadTools ? { threadTools: true } : {}),
     ...(base.noNifra === true ? { noNifra: true } : {}),
   }
@@ -771,7 +774,8 @@ async function computeTurnChanges(threadId: string, turnId: string): Promise<voi
       await threadRpc(threadId, "git.diff", { scope: "head", paths: [...paths].slice(0, 256), contextLines: 0, maxFiles: 256, maxBytes: 1_024 * 1_024, includeUntracked: true }),
     )
     if (diff === undefined) return
-    patchRuntime(threadId, (current) => ({ changes: { ...current.changes, [turnId]: diff.totals } }))
+    const changedPaths = [...new Set(diff.files.flatMap((file) => [file.path, ...(file.originalPath === undefined ? [] : [file.originalPath])]))]
+    patchRuntime(threadId, (current) => ({ changes: { ...current.changes, [turnId]: { ...diff.totals, paths: changedPaths } } }))
   } catch {
     // Not a repository, or git is unavailable: the turn summary omits the change count.
   }
@@ -1120,7 +1124,8 @@ export async function resolveApproval(threadId: string, approvalId: string, appr
   try {
     const taken = await threadRpc(threadId, "approval.resolve", { approvalId, approved, ...(reason === undefined ? {} : { reason }), ...(scope === undefined ? {} : { scope }), ...given, ...more })
     // `false` means the engine no longer had it waiting: someone else answered, or it timed out.
-    if (taken !== false) noteAnswered(threadId, approvalId, asked)
+    if (taken === false) return false
+    noteAnswered(threadId, approvalId, asked)
     return true
   } catch (error) {
     toast("error", `${answers === undefined ? "Approval" : "Answer"} failed: ${toHostError(error).message}`)
@@ -1210,6 +1215,14 @@ export function setModel(threadId: string, selection: { readonly model: string |
   applyRestart(threadId)
 }
 
+/** Fast mode is a launch setting for Codex and Claude Code, so a running engine restarts. */
+export function setFastMode(threadId: string, fastMode: boolean): void {
+  const thread = threadById(threadId)
+  if (thread === undefined || !supportsFastMode(thread.backend) || (thread.fastMode === true) === fastMode) return
+  patchThread(threadId, { fastMode })
+  applyRestart(threadId)
+}
+
 /** Something every engine starts with changed: idle engines restart now, busy ones when their turn ends. */
 export function restartEngines(projectId?: string): void {
   for (const thread of get().threads) if (projectId === undefined || thread.projectId === projectId) applyRestart(thread.id)
@@ -1278,7 +1291,7 @@ export function setSelection(threadId: string, selection: Selection): void {
   const previousRun = runForThread(thread)
   const kept = carried(selection)
   if (thread.backend === selection.backend && thread.model === kept.model && thread.connectionId === kept.connectionId) return
-  patchThread(threadId, { backend: selection.backend, model: kept.model, connectionId: kept.connectionId })
+  patchThread(threadId, { backend: selection.backend, model: kept.model, connectionId: kept.connectionId, fastMode: supportsFastMode(selection.backend) && thread.fastMode === true })
   noteModelSwitch(threadId, previousRun, { backend: selection.backend, ...kept })
   applyRestart(threadId)
 }

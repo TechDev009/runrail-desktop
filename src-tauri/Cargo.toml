@@ -40,6 +40,10 @@ sha2 = "0.10"
 base64 = "0.22"
 # Seals a project's saved browser sign-ins (AES-256-GCM). Already in the dependency tree.
 ring = "0.17"
+# Bounded HTTPS calls to the configured GitHub event relay.
+reqwest = { version = "0.13.5", default-features = false, features = ["blocking", "json", "rustls"] }
+# Relay bearer tokens are kept in the system Keychain / Secret Service / Windows credential store.
+keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
 # Scales an Android emulator's screen capture (PNG) into a JPEG, and encodes a Linux browser
 # preview's snapshot. image is already in the dependency tree; its JPEG feature adds zune-jpeg.
 image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
@@ -71,8 +75,6 @@ webkit2gtk = { version = "2.0", features = ["v2_40"] }
 x11rb = { version = "0.13", features = ["xtest", "res"] }
 # Keep awake: logind's idle and sleep inhibitors.
 keepawake = "0.6.1"
-# The key for saved browser sign-ins, in the Secret Service.
-keyring = { version = "4.2.0", default-features = false, features = ["v1"] }
 # System notifications with a click that opens the thread; tauri-plugin-notification reports no
 # click on desktop.
 notify-rust = "4.18.2"

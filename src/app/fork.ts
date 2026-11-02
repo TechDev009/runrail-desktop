@@ -47,6 +47,7 @@ export async function forkAt(threadId: string, key: string): Promise<void> {
       ...(thread.model === undefined ? {} : { model: thread.model }),
       ...(thread.connectionId === undefined ? {} : { connectionId: thread.connectionId }),
       ...(thread.thinking === undefined ? {} : { thinking: thread.thinking }),
+      ...(thread.fastMode === true ? { fastMode: true } : {}),
       mode: thread.mode,
       permission: thread.permission,
       title: `${base.slice(0, MAX_TITLE - FORK.length)}${FORK}`,

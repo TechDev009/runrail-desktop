@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-github-relay-pair"
+description = "Enables the github_relay_pair command without any pre-configured scope."
+commands.allow = ["github_relay_pair"]
+
+[[permission]]
+identifier = "deny-github-relay-pair"
+description = "Denies the github_relay_pair command without any pre-configured scope."
+commands.deny = ["github_relay_pair"]
