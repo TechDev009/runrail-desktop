@@ -394,25 +394,29 @@ fn read_json_response(mut response: Response) -> BridgeResult<Value> {
     serde_json::from_slice(&body).map_err(|_| invalid("the relay returned invalid JSON"))
 }
 
+fn configured_build_value(
+    value: Option<&'static str>,
+    message: &'static str,
+) -> BridgeResult<&'static str> {
+    value
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| BridgeError::new("GITHUB_RELAY_NOT_CONFIGURED", message))
+}
+
 fn configured_base_url() -> BridgeResult<Url> {
-    let value = option_env!("RUNRAIL_GITHUB_RELAY_URL").ok_or_else(|| {
-        BridgeError::new(
-            "GITHUB_RELAY_NOT_CONFIGURED",
-            "this build has no GitHub relay endpoint configured",
-        )
-    })?;
+    let value = configured_build_value(
+        option_env!("RUNRAIL_GITHUB_RELAY_URL"),
+        "this build has no GitHub relay endpoint configured",
+    )?;
     validate_base_url(value)
 }
 
 fn configured_app_slug() -> BridgeResult<&'static str> {
-    let slug = option_env!("RUNRAIL_GITHUB_APP_SLUG").ok_or_else(|| {
-        BridgeError::new(
-            "GITHUB_RELAY_NOT_CONFIGURED",
-            "this build has no GitHub App slug configured",
-        )
-    })?;
-    if slug.is_empty()
-        || slug.len() > 100
+    let slug = configured_build_value(
+        option_env!("RUNRAIL_GITHUB_APP_SLUG"),
+        "this build has no GitHub App slug configured",
+    )?;
+    if slug.len() > 100
         || !slug
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
@@ -566,6 +570,16 @@ fn valid_delivery_id(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn absent_or_empty_build_configuration_disables_the_relay() {
+        assert!(configured_build_value(None, "not configured").is_err());
+        assert!(configured_build_value(Some(""), "not configured").is_err());
+        assert_eq!(
+            configured_build_value(Some("https://relay.example/"), "not configured").unwrap(),
+            "https://relay.example/"
+        );
+    }
 
     #[test]
     fn relay_url_is_https_and_has_no_userinfo_query_or_fragment() {

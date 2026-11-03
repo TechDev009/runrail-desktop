@@ -1438,7 +1438,7 @@ function GithubEventRelaySettings() {
   const detail = status?.state === "paired"
     ? `Connected to installation ${status.installationId}. The relay keeps only CI event metadata. When you click Fix or enable Watch, selected log excerpts are added to the thread and sent to its connected model provider or coding tool; they remain in local thread history. GitHub credentials stay on this computer.`
     : status?.state === "unpaired"
-      ? "Optional. Receive CI event notices while Runrail is closed; local polling remains the fallback."
+      ? "Off by default. Connect the GitHub App only if you want CI event notices while Runrail is closed; local polling remains the fallback."
       : status?.message ?? "Checking GitHub event relay configuration…"
   return (
     <section className="github-relay-settings" data-setting="github-event-relay" aria-label="GitHub CI event relay">

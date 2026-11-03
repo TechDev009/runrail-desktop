@@ -41,17 +41,20 @@ jobs:
             echo "::error::a release needs the RUNRAIL_UPDATER_PUBKEY variable and the updater secrets (docs/RELEASE.md), or its installs never update"
             exit 1
           fi
-          if [ -z "$GITHUB_RELAY_URL" ] || [ -z "$GITHUB_APP_SLUG" ]; then
-            echo "::error::a release needs RUNRAIL_GITHUB_RELAY_URL and RUNRAIL_GITHUB_APP_SLUG repository variables; see services/github-relay/README.md"
+          if [ -z "$GITHUB_RELAY_URL" ] && [ -z "$GITHUB_APP_SLUG" ]; then
+            echo "GitHub CI event relay is disabled for this release (relay variables are unset)"
+          elif [ -z "$GITHUB_RELAY_URL" ] || [ -z "$GITHUB_APP_SLUG" ]; then
+            echo "::error::configure both RUNRAIL_GITHUB_RELAY_URL and RUNRAIL_GITHUB_APP_SLUG, or leave both unset to disable the optional relay"
             exit 1
-          fi
-          if ! bun -e 'try { const url = new URL(process.env.GITHUB_RELAY_URL); if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.pathname !== "/" || url.search || url.hash) process.exit(1) } catch { process.exit(1) }'; then
-            echo "::error::RUNRAIL_GITHUB_RELAY_URL must be an HTTPS Worker origin with no path, credentials, query, or fragment"
-            exit 1
-          fi
-          if [[ ! "$GITHUB_APP_SLUG" =~ ^[A-Za-z0-9-]{1,100}$ ]]; then
-            echo "::error::RUNRAIL_GITHUB_APP_SLUG is not a valid GitHub App slug"
-            exit 1
+          else
+            if ! bun -e 'try { const url = new URL(process.env.GITHUB_RELAY_URL); if (url.protocol !== "https:" || !url.hostname || url.username || url.password || url.pathname !== "/" || url.search || url.hash) process.exit(1) } catch { process.exit(1) }'; then
+              echo "::error::RUNRAIL_GITHUB_RELAY_URL must be an HTTPS Worker origin with no path, credentials, query, or fragment"
+              exit 1
+            fi
+            if [[ ! "$GITHUB_APP_SLUG" =~ ^[A-Za-z0-9-]{1,100}$ ]]; then
+              echo "::error::RUNRAIL_GITHUB_APP_SLUG is not a valid GitHub App slug"
+              exit 1
+            fi
           fi
           cargo="$(sed -n 's/^version = "\(.*\)"$/\1/p' src-tauri/Cargo.toml | head -n 1)"
           for found in "$(bun -p "require('./package.json').version")" "$(bun -p "require('./src-tauri/tauri.conf.json').version")" "$cargo"; do

@@ -70,7 +70,7 @@ Settings says so.
    a repository variable, overrides the feed address if updates are ever
    hosted elsewhere.
 
-**Optional: GitHub CI relay.** Relay-enabled releases require the public repository variables `RUNRAIL_GITHUB_RELAY_URL` and `RUNRAIL_GITHUB_APP_SLUG`; the build workflow fails a version-tag preflight if either is missing. The hosted Worker is deployed separately through the protected `github-relay` environment. See [GitHub review feedback and CI event relay](../services/github-relay/README.md) for App permissions, Cloudflare secrets, deployment, and verification.
+**Optional: GitHub CI relay.** Leave both `RUNRAIL_GITHUB_RELAY_URL` and `RUNRAIL_GITHUB_APP_SLUG` repository variables unset to ship builds with relay pairing disabled. To offer the feature, set both to the public HTTPS Worker origin and GitHub App slug; users must still choose **Connect GitHub App** in Settings to pair. A version-tag preflight rejects only partial or invalid relay configuration. The hosted Worker is deployed separately through the protected `github-relay` environment. See [GitHub review feedback and CI event relay](../services/github-relay/README.md) for App permissions, Cloudflare secrets, deployment, and verification.
 
 4. **Optional: a Developer ID for macOS.** Without one, the sign job signs the
    macOS app ad hoc, and Gatekeeper asks users to approve it once (the
