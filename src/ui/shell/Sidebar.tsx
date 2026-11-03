@@ -488,7 +488,7 @@ function GroupRow({
 
 const ThreadRow = memo(function ThreadRow({ thread, status, active, nested, project }: { readonly thread: ThreadMeta; readonly status: ThreadStatus; readonly active: boolean; readonly nested?: boolean; readonly project?: string | undefined }) {
   const [renaming, setRenaming] = useState(false)
-  const showStatus = status === "running" || status === "waiting" || status === "failed"
+  const showStatus = status === "running" || status === "waiting" || status === "completed" || status === "failed"
   const developer = useApp((state) => state.prefs.developer)
   const showTimestamps = useApp((state) => state.prefs.showThreadTimestamps)
   const background = useRunningCount(thread.id)
