@@ -259,6 +259,7 @@ describe("coding tools in Add provider", () => {
       ["tool:opencode", undefined, 0],
       ["tool:gemini", undefined, 0],
       ["tool:goose", undefined, 0],
+      ["tool:grok", undefined, 0],
       ["tool:pi", "Not installed", 0],
     ])
     expect(tiles.subscriptions.some((tile) => tile.key.startsWith("route:"))).toBe(false)

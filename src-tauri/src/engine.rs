@@ -244,7 +244,7 @@ impl EngineStartInput {
     fn normalized(mut self) -> BridgeResult<Self> {
         require_id(&self.engine_id, "engine id")?;
         require_id(&self.session_id, "session id")?;
-        if !matches!(self.backend.as_str(), "native" | "replay" | "pi" | "codex" | "claude-code" | "copilot" | "opencode" | "gemini" | "goose") {
+        if !matches!(self.backend.as_str(), "native" | "replay" | "pi" | "codex" | "claude-code" | "copilot" | "opencode" | "gemini" | "goose" | "grok") {
             return Err(BridgeError::new("CONTROL_INVALID_INPUT", "backend is not supported"));
         }
         if self.fast_mode && !matches!(self.backend.as_str(), "codex" | "claude-code") {

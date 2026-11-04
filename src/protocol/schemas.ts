@@ -1075,7 +1075,7 @@ export const WorkspaceEntrySchema = z.looseObject({ path: PathText, type: z.enum
 export const WorkspaceListSchema = z.looseObject({ path: z.string().max(MAX_PATH), entries: z.array(WorkspaceEntrySchema).max(4096), truncated: z.boolean().optional() })
 export type WorkspaceEntry = z.infer<typeof WorkspaceEntrySchema>
 const SetupRoleSchema = z.looseObject({
-  route: z.enum(["native", "claude-code", "codex", "pi", "copilot", "opencode", "gemini", "goose", "replay"]),
+  route: z.enum(["native", "claude-code", "codex", "pi", "copilot", "opencode", "gemini", "goose", "grok", "replay"]),
   model: z.string().max(200).optional(),
   connectionId: z.string().max(128).optional(),
   effort: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]).optional(),

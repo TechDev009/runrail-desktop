@@ -368,6 +368,7 @@ export const TOOL_DETAIL: Readonly<Record<ToolId, string>> = {
   opencode: "The providers you set up in OpenCode",
   gemini: "A Google sign-in, or a Gemini API key",
   goose: "The provider you set up in Goose",
+  grok: "Your Grok sign-in",
   pi: "Radius, and anything else you signed in to inside Pi",
 }
 
@@ -379,6 +380,7 @@ export const TOOL_BILLING: Readonly<Record<ToolId, string>> = {
   opencode: "OpenCode's threads are billed to the providers you set up in OpenCode.",
   gemini: "Signed in with Google, Gemini CLI's threads count against that account's Gemini limits; with an API key, they are billed to that key.",
   goose: "Goose's threads are billed to the provider you set up in Goose.",
+  grok: "Grok Build's threads use your Grok sign-in.",
   pi: "Pi's threads are billed to what you signed in to inside Pi.",
 }
 

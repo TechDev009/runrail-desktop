@@ -450,6 +450,7 @@ const FAKE_TOOLS = [
   { id: "opencode", name: "OpenCode", kind: "opencode" },
   { id: "gemini", name: "Gemini CLI", kind: "gemini" },
   { id: "goose", name: "Goose", kind: "goose" },
+  { id: "grok", name: "Grok Build", kind: "grok" },
   { id: "pi", name: "Pi", kind: "command" },
 ]
 
@@ -463,10 +464,10 @@ type ToolSeed = NonNullable<PreviewScenario["seed"]>
 function fakeToolStatus(seed: ToolSeed): unknown[] {
   const state: Record<string, "ready" | "signed-out" | "missing"> =
     seed === "mixed"
-      ? { "claude-code": "ready", codex: "signed-out", copilot: "ready", opencode: "ready", gemini: "ready", goose: "missing", pi: "missing" }
+      ? { "claude-code": "ready", codex: "signed-out", copilot: "ready", opencode: "ready", gemini: "ready", goose: "missing", grok: "missing", pi: "missing" }
       : seed === "empty"
-        ? { "claude-code": "ready", codex: "missing", copilot: "missing", opencode: "missing", gemini: "missing", goose: "missing", pi: "missing" }
-        : { "claude-code": "ready", codex: "ready", copilot: "ready", opencode: "ready", gemini: "ready", goose: "ready", pi: "ready" }
+        ? { "claude-code": "ready", codex: "missing", copilot: "missing", opencode: "missing", gemini: "missing", goose: "missing", grok: "missing", pi: "missing" }
+        : { "claude-code": "ready", codex: "ready", copilot: "ready", opencode: "ready", gemini: "ready", goose: "ready", grok: "ready", pi: "ready" }
   const found: Record<string, Record<string, unknown>> = {
     "claude-code": {
       version: "2.1.287",
@@ -503,6 +504,7 @@ function fakeToolStatus(seed: ToolSeed): unknown[] {
     },
     gemini: { version: "0.62.0", freeTextModel: true },
     goose: { version: "1.53.0", freeTextModel: true },
+    grok: { version: "0.2.103", freeTextModel: true },
     pi: {
       version: "0.84.1",
       models: [
@@ -518,7 +520,7 @@ function fakeToolStatus(seed: ToolSeed): unknown[] {
     if (tool === undefined) return { descriptor, available: true }
     if (tool === "missing") return { descriptor, available: false, reason: "not-installed" }
     // As the engine reports them: these tools have no command that says whether they are signed in.
-    const signedIn = ["copilot", "gemini", "goose"].includes(descriptor.id) ? {} : { signedIn: tool === "ready" }
+    const signedIn = ["copilot", "gemini", "goose", "grok"].includes(descriptor.id) ? {} : { signedIn: tool === "ready" }
     return { descriptor, available: true, ...(tool === "signed-out" ? { reason: "signed-out" } : {}), ...signedIn, ...found[descriptor.id] }
   })
 }

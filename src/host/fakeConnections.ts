@@ -305,7 +305,7 @@ function connectionId(value: unknown): string {
 }
 
 /** Tools a connection can be added for, the ones that take a key, and the ones that sign in as a second account. */
-const TOOLS: Readonly<Record<string, string>> = { "claude-code": "Claude Code", codex: "Codex", copilot: "GitHub Copilot", pi: "Pi", opencode: "OpenCode", gemini: "Gemini CLI", goose: "Goose" }
+const TOOLS: Readonly<Record<string, string>> = { "claude-code": "Claude Code", codex: "Codex", copilot: "GitHub Copilot", pi: "Pi", opencode: "OpenCode", gemini: "Gemini CLI", goose: "Goose", grok: "Grok Build" }
 const KEY_TOOLS = new Set(["claude-code", "codex", "gemini"])
 const SEPARATE_TOOLS = new Set(["claude-code", "codex"])
 const LOGINS: Readonly<Record<string, { command: string; args: string[]; variable: string }>> = {

@@ -150,6 +150,7 @@ const TOOL_FIX: Record<(typeof MODEL_TOOLS)[number], string> = {
   opencode: "Run `opencode auth login` in a terminal, then refresh.",
   gemini: "Run `gemini` in a terminal and sign in there, then refresh.",
   goose: "Run `goose configure` in a terminal, then refresh.",
+  grok: "Run `grok` in a terminal and sign in there, then refresh.",
   pi: "Run `pi` in a terminal and sign in there with `/login`, then refresh.",
 }
 /** Pi runs whatever it is signed in to, so its group is named for what it is: a way through. */

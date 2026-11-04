@@ -13,7 +13,7 @@ import { toHostError, type OtherTool } from "../../host"
 import { plural } from "../../lib/format"
 import { Button, cx, Spinner, Toggle } from "../common"
 
-const MONOGRAMS: Readonly<Record<ToolId, string>> = { "claude-code": "CC", codex: "Cx", copilot: "GH", opencode: "OC", gemini: "Gm", goose: "Gs", pi: "Pi" }
+const MONOGRAMS: Readonly<Record<ToolId, string>> = { "claude-code": "CC", codex: "Cx", copilot: "GH", opencode: "OC", gemini: "Gm", goose: "Gs", grok: "Gk", pi: "Pi" }
 
 const ACCESS: readonly { readonly value: PermissionPreset; readonly label: string; readonly detail: string }[] = [
   { value: "ask", label: "Ask", detail: "Asks before every command and file change" },

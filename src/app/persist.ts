@@ -606,7 +606,7 @@ export function defaultState(): DesktopState {
 const Id = z.string().min(1).max(128).regex(/^[A-Za-z0-9._-]+$/)
 /** What `check.run` accepts: shell text up to 4000 characters. */
 const CheckCommand = z.string().min(1).max(4_000).refine((value) => value.trim().length > 0 && !value.includes("\0"))
-const Backend = z.enum(["native", "replay", "pi", "codex", "claude-code", "copilot", "opencode", "gemini", "goose"])
+const Backend = z.enum(["native", "replay", "pi", "codex", "claude-code", "copilot", "opencode", "gemini", "goose", "grok"])
 const ConnectionId = z.string().regex(CONNECTION_ID)
 const Permission = z.enum(["ask", "auto-edit", "auto", "full"])
 const ThinkingSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"])
@@ -632,7 +632,7 @@ export const MAX_FAVORITE_MODELS = 32
 /** The engine takes at most this much instruction text from the behavior file. */
 export const MAX_INSTRUCTIONS = 8 * 1024
 /** Coding tools a thread can run on. Each takes a model from Runrail, or runs on its own when none is named. */
-export const MODEL_TOOLS = ["claude-code", "codex", "copilot", "opencode", "gemini", "goose", "pi"] as const satisfies readonly BackendId[]
+export const MODEL_TOOLS = ["claude-code", "codex", "copilot", "opencode", "gemini", "goose", "grok", "pi"] as const satisfies readonly BackendId[]
 /** Offered on their own logins while the tool connections are not known: before they are read, or when the system engine cannot list them. */
 export const LEGACY_TOOLS = ["claude-code", "codex", "copilot", "pi"] as const satisfies readonly (typeof MODEL_TOOLS)[number][]
 /** A coding tool's model id. Claude Code names context variants in brackets, such as `opus[1m]`. */
@@ -1186,4 +1186,4 @@ export const THINKING_LEVELS: readonly Thinking[] = ["off", "minimal", "low", "m
 export const ALL_THINKING_LEVELS: readonly Thinking[] = ["off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
 export const PERMISSION_LABELS: Record<PermissionPreset, string> = { ask: "Ask", "auto-edit": "Auto-edit", auto: "Auto", full: "Full access" }
 export const MODE_LABELS: Record<ThreadMode, string> = { agent: "Agent", plan: "Plan", goal: "Goal" }
-export const BACKEND_LABELS: Record<BackendId, string> = { native: "Runrail", "claude-code": "Claude Code", codex: "Codex", copilot: "GitHub Copilot", opencode: "OpenCode", gemini: "Gemini CLI", goose: "Goose", pi: "Pi", replay: "Replay" }
+export const BACKEND_LABELS: Record<BackendId, string> = { native: "Runrail", "claude-code": "Claude Code", codex: "Codex", copilot: "GitHub Copilot", opencode: "OpenCode", gemini: "Gemini CLI", goose: "Goose", grok: "Grok Build", pi: "Pi", replay: "Replay" }

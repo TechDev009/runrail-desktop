@@ -99,7 +99,7 @@ function index(words: PlatformWords): readonly SettingEntry[] {
     { id: "mcp-servers", section: "mcp", label: "MCP servers", keywords: "model context protocol tools integrations github database server add" },
     { id: "mcp-import", section: "mcp", label: "MCP servers from other tools", keywords: "claude code claude desktop codex cursor gemini opencode import mcp.json config.toml" },
     { id: "start-on", section: "models", label: "Default model and reasoning", keywords: "start new threads provider thinking effort level" },
-    { id: "connections", section: "models", label: "AI providers", keywords: "connections api key sign in subscription account login coding tools claude code codex copilot gemini goose opencode pi cli installed" },
+    { id: "connections", section: "models", label: "AI providers", keywords: "connections api key sign in subscription account login coding tools claude code codex copilot gemini goose grok opencode pi cli installed" },
     { id: "image-model", section: "models", label: "Image model", keywords: "picture image generation draw illustration gpt-image dall-e imagen flux openrouter make art" },
     { id: "default-permissions", section: "permissions", label: "Default permissions", keywords: "approval ask auto edit full access safety plan mode start new threads" },
     { id: "computer-use", section: "permissions", label: "Computer use", keywords: "apps mac screen recording accessibility click type screenshot allow control desktop linux x11 wayland share window portal" },

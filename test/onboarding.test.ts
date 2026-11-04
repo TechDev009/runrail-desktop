@@ -28,7 +28,7 @@ describe("onboarding: coding tools", () => {
       ["pi", true],
     ])
     expect(choices[1]).toMatchObject({ version: "0.48.0", signedIn: false })
-    expect(missingTools(found)).toEqual(["copilot", "opencode", "gemini", "goose"])
+    expect(missingTools(found)).toEqual(["copilot", "opencode", "gemini", "goose", "grok"])
   })
 
   test("a second account of a tool is not the one onboarding turns on or off", () => {

@@ -4,8 +4,8 @@
  * Tokens never cross this boundary.
  */
 
-export type BackendId = "native" | "replay" | "pi" | "codex" | "claude-code" | "copilot" | "opencode" | "gemini" | "goose"
-export const BACKENDS: readonly BackendId[] = ["native", "claude-code", "codex", "copilot", "opencode", "gemini", "goose", "pi", "replay"]
+export type BackendId = "native" | "replay" | "pi" | "codex" | "claude-code" | "copilot" | "opencode" | "gemini" | "goose" | "grok"
+export const BACKENDS: readonly BackendId[] = ["native", "claude-code", "codex", "copilot", "opencode", "gemini", "goose", "grok", "pi", "replay"]
 
 /**
  * The engine that owns connections and sign-ins. The host starts it with no project, so keys and

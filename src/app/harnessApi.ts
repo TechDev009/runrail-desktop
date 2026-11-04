@@ -75,7 +75,7 @@ export const CUSTOM_SCREEN_API_CATALOG = {
 
 const NewThreadSchema = z.object({
   projectId: z.string().min(1).max(128),
-  backend: z.enum(["native", "replay", "pi", "codex", "claude-code", "copilot", "opencode", "gemini", "goose"]).optional(),
+  backend: z.enum(["native", "replay", "pi", "codex", "claude-code", "copilot", "opencode", "gemini", "goose", "grok"]).optional(),
   model: z.string().max(256).optional(),
   connectionId: z.string().max(256).optional(),
   thinking: z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]).optional(),

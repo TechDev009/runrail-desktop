@@ -62,7 +62,7 @@ describe("coding tools in the catalog", () => {
     const id = use(() => new Promise((resolve) => (answer = resolve)))
     const first = await loadCatalog(id)
     // Before the tools have answered, nothing is known about any of them, and nothing is refused.
-    expect(first.harnesses.map((tool) => tool.id)).toEqual(["native", "claude-code", "codex", "copilot", "opencode", "gemini", "goose", "pi"])
+    expect(first.harnesses.map((tool) => tool.id)).toEqual(["native", "claude-code", "codex", "copilot", "opencode", "gemini", "goose", "grok", "pi"])
     expect(first.harnesses.every((tool) => tool.available === undefined)).toBe(true)
     expect(toolState(first.harnesses, "codex")).toBe("unknown")
     await until(async () => calls.length === 2)
@@ -137,7 +137,7 @@ describe("coding tools in the catalog", () => {
     await new Promise((resolve) => setTimeout(resolve, 20))
     expect(asked).toContain("harness.list")
     expect(asked).not.toContain("harness.status")
-    expect(tools.map((tool) => tool.id)).toEqual(["native", "claude-code", "codex", "copilot", "opencode", "gemini", "goose", "pi"])
+    expect(tools.map((tool) => tool.id)).toEqual(["native", "claude-code", "codex", "copilot", "opencode", "gemini", "goose", "grok", "pi"])
     expect(toolState((await loadCatalog(id)).harnesses, "codex")).toBe("unknown")
   })
 
