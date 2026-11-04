@@ -24,6 +24,7 @@ import { startPreviewOffice } from "./previewOffice"
 import { unlockTones } from "../lib/tones"
 import { initUpdates } from "./updates"
 import { createStateSaver, warnOnFailure } from "./stateSaver"
+import { deriveThemeTokens } from "./themeProfiles"
 
 const SAVE_DELAY_MS = 400
 
@@ -99,7 +100,20 @@ export async function boot(): Promise<void> {
   useApp.subscribe((state, previous) => {
     const prefs = state.prefs
     const before = previous.prefs
-    if (prefs.theme !== before.theme || prefs.palette !== before.palette || prefs.accent !== before.accent || prefs.density !== before.density || prefs.sidebarGlass !== before.sidebarGlass || prefs.textSize !== before.textSize || prefs.uiFont !== before.uiFont || prefs.codeFont !== before.codeFont || prefs.motion !== before.motion) applyTheme()
+    if (
+      prefs.theme !== before.theme ||
+      prefs.palette !== before.palette ||
+      prefs.accent !== before.accent ||
+      state.themeProfiles !== previous.themeProfiles ||
+      state.activeThemeProfileId !== previous.activeThemeProfileId ||
+      prefs.density !== before.density ||
+      prefs.sidebarGlass !== before.sidebarGlass ||
+      prefs.textSize !== before.textSize ||
+      prefs.uiFont !== before.uiFont ||
+      prefs.codeFont !== before.codeFont ||
+      prefs.motion !== before.motion
+    )
+      applyTheme()
   })
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme)
 }
@@ -159,6 +173,9 @@ function persistedChange(state: AppState, previous: AppState): boolean {
     state.projects !== previous.projects ||
     state.threads !== previous.threads ||
     state.prefs !== previous.prefs ||
+    state.themeProfiles !== previous.themeProfiles ||
+    state.activeThemeProfileId !== previous.activeThemeProfileId ||
+    state.usageHistory !== previous.usageHistory ||
     state.layout !== previous.layout ||
     state.learning !== previous.learning ||
     state.game !== previous.game
@@ -166,17 +183,35 @@ function persistedChange(state: AppState, previous: AppState): boolean {
 }
 
 function applyTheme(): void {
-  const { prefs, platform } = get()
+  const { prefs, platform, themeProfiles, activeThemeProfileId } = get()
   const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches
   const dark = prefs.theme === "dark" || (prefs.theme === "system" && systemDark)
   const root = document.documentElement
+  const profile = activeThemeProfileId === undefined ? undefined : themeProfiles.find((item) => item.id === activeThemeProfileId)
+  const palette = profile?.palette ?? prefs.palette
   root.dataset.theme = dark ? "dark" : "light"
   // macOS draws the sidebar material in the system's own light or dark look, so it is used only
   // when the app's theme matches it; otherwise the sidebar is solid. Its gray would also wash out a
   // flower palette's tint, so glass is for the default palette only.
-  root.dataset.glass = glassAvailable(platform) && prefs.sidebarGlass && dark === systemDark && prefs.palette === "default" ? "on" : "off"
-  root.dataset.palette = prefs.palette
-  root.dataset.accent = prefs.accent
+  root.dataset.glass = glassAvailable(platform) && prefs.sidebarGlass && dark === systemDark && palette === "default" ? "on" : "off"
+  root.dataset.palette = palette
+  root.dataset.accent = profile === undefined ? prefs.accent : "custom"
+  const customProperties = ["--accent", "--accent-hover", "--accent-soft", "--accent-line", "--text-on-accent", "--link", "--link-line", "--focus", "--effort-fill", "--effort-stop-on", "--effort-ink"]
+  for (const property of customProperties) root.style.removeProperty(property)
+  if (profile !== undefined) {
+    const tokens = deriveThemeTokens(profile.seedColor, dark)
+    root.style.setProperty("--accent", tokens.accent)
+    root.style.setProperty("--accent-hover", tokens.accentHover)
+    root.style.setProperty("--accent-soft", tokens.accentSoft)
+    root.style.setProperty("--accent-line", tokens.accentLine)
+    root.style.setProperty("--text-on-accent", tokens.textOnAccent)
+    root.style.setProperty("--link", tokens.link)
+    root.style.setProperty("--link-line", tokens.linkLine)
+    root.style.setProperty("--focus", tokens.focus)
+    root.style.setProperty("--effort-fill", tokens.effortFill)
+    root.style.setProperty("--effort-stop-on", tokens.effortStopOn)
+    root.style.setProperty("--effort-ink", tokens.effortInk)
+  }
   root.dataset.density = prefs.density
   root.dataset.textSize = prefs.textSize
   root.dataset.uiFont = prefs.uiFont

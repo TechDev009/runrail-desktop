@@ -14,6 +14,7 @@ mod android;
 mod approvals;
 mod background;
 mod computer;
+mod custom_screen;
 mod sign_ins;
 mod simulator;
 #[cfg(debug_assertions)]
@@ -289,31 +290,34 @@ async fn github_relay_acknowledge(delivery_ids: Vec<String>) -> BridgeResult<()>
 /// Write-only: stores a key for a connection. Nothing reads it back; the answer is the
 /// connection record without the key.
 /// `tool` names a coding-tool connection's key rather than an account's, `connector` a built-in
-/// connector's, `mcp` the secret of the app a remote MCP server signs in with.
+/// connector's, `mcp` the secret of the app a remote MCP server signs in with, `mcp_variable` a
+/// value for a variable an MCP server names.
 #[tauri::command]
-async fn connection_secret_set(state: State<'_, HostState>, connection_id: String, secret: String, tool: Option<bool>, connector: Option<bool>, mcp: Option<bool>) -> BridgeResult<Value> {
+async fn connection_secret_set(state: State<'_, HostState>, connection_id: String, secret: String, tool: Option<bool>, connector: Option<bool>, mcp: Option<bool>, mcp_variable: Option<bool>) -> BridgeResult<Value> {
     let secret = Zeroizing::new(secret);
     let supervisor = state.supervisor.clone();
-    blocking(move || supervisor.store_secret_for(secret_owner(tool, connector, mcp), &connection_id, secret)).await
+    blocking(move || supervisor.store_secret_for(secret_owner(tool, connector, mcp, mcp_variable), &connection_id, secret)).await
 }
 
 /// Same as `connection_secret_set`, but the host reads the clipboard itself so the key never
 /// enters the web view.
 #[tauri::command]
-async fn connection_secret_from_clipboard(state: State<'_, HostState>, connection_id: String, tool: Option<bool>, connector: Option<bool>, mcp: Option<bool>) -> BridgeResult<Value> {
+async fn connection_secret_from_clipboard(state: State<'_, HostState>, connection_id: String, tool: Option<bool>, connector: Option<bool>, mcp: Option<bool>, mcp_variable: Option<bool>) -> BridgeResult<Value> {
     let supervisor = state.supervisor.clone();
     blocking(move || {
         if !connections::valid_connection_id(&connection_id) {
             return Err(BridgeError::new("CONTROL_INVALID_INPUT", "connection id is invalid"));
         }
         let secret = connections::read_clipboard_secret()?;
-        supervisor.store_secret_for(secret_owner(tool, connector, mcp), &connection_id, secret)
+        supervisor.store_secret_for(secret_owner(tool, connector, mcp, mcp_variable), &connection_id, secret)
     })
     .await
 }
 
-fn secret_owner(tool: Option<bool>, connector: Option<bool>, mcp: Option<bool>) -> connections::SecretOwner {
-    if mcp == Some(true) {
+fn secret_owner(tool: Option<bool>, connector: Option<bool>, mcp: Option<bool>, mcp_variable: Option<bool>) -> connections::SecretOwner {
+    if mcp_variable == Some(true) {
+        connections::SecretOwner::McpVariable
+    } else if mcp == Some(true) {
         connections::SecretOwner::McpClient
     } else if connector == Some(true) {
         connections::SecretOwner::Connector
@@ -1100,6 +1104,12 @@ fn quick_context(quick: State<'_, Arc<quick::Quick>>) -> quick::QuickContext {
 }
 
 #[tauri::command]
+async fn quick_theme(state: State<'_, HostState>) -> BridgeResult<quick::QuickTheme> {
+    let app_data = state.supervisor.app_data().to_path_buf();
+    blocking(move || Ok(quick::theme(&app_data))).await
+}
+
+#[tauri::command]
 async fn quick_submit(app: tauri::AppHandle, quick: State<'_, Arc<quick::Quick>>, text: String, include_window: bool) -> BridgeResult<()> {
     let quick = Arc::clone(&quick);
     blocking(move || quick.submit(&app, &text, include_window)).await
@@ -1532,6 +1542,44 @@ async fn preview_open(app: tauri::AppHandle, tab: String, url: String, bounds: p
     blocking(move || app.state::<preview::Previews>().open(&app, &tab, &url, bounds, hidden == Some(true), project.as_deref())).await
 }
 
+#[tauri::command]
+async fn custom_screen_open(app: tauri::AppHandle, webview: tauri::Webview, source: custom_screen::Source, bounds: preview::Bounds) -> BridgeResult<()> {
+    if webview.label() != "main" {
+        return Err(BridgeError::new("CUSTOM_SCREEN_REFUSED", "only Runrail can open the custom screen").with_status(403));
+    }
+    blocking(move || app.state::<custom_screen::CustomScreen>().open(&app, source, bounds)).await
+}
+
+#[tauri::command]
+fn custom_screen_bounds(app: tauri::AppHandle, webview: tauri::Webview, bounds: Option<preview::Bounds>) -> BridgeResult<()> {
+    if webview.label() != "main" {
+        return Err(BridgeError::new("CUSTOM_SCREEN_REFUSED", "only Runrail can position the custom screen").with_status(403));
+    }
+    app.state::<custom_screen::CustomScreen>().bounds(&app, bounds)
+}
+
+#[tauri::command]
+fn custom_screen_close(app: tauri::AppHandle, webview: tauri::Webview) -> BridgeResult<()> {
+    if webview.label() != "main" {
+        return Err(BridgeError::new("CUSTOM_SCREEN_REFUSED", "only Runrail can close the custom screen").with_status(403));
+    }
+    app.state::<custom_screen::CustomScreen>().close(&app);
+    Ok(())
+}
+
+#[tauri::command]
+async fn custom_screen_request(app: tauri::AppHandle, webview: tauri::Webview, method: String, args: Value) -> BridgeResult<Value> {
+    custom_screen::request(app, webview, method, args).await
+}
+
+#[tauri::command]
+fn custom_screen_reply(app: tauri::AppHandle, webview: tauri::Webview, id: String, response: Value) -> BridgeResult<()> {
+    if webview.label() != "main" {
+        return Err(BridgeError::new("CUSTOM_SCREEN_REFUSED", "only Runrail can answer custom screen requests").with_status(403));
+    }
+    app.state::<custom_screen::CustomScreen>().reply(&id, response)
+}
+
 /// Whether a project has browser sign-ins saved.
 #[tauri::command]
 async fn sign_ins_saved(project: String) -> BridgeResult<bool> {
@@ -1695,7 +1743,9 @@ pub fn run() {
     }
     #[cfg(target_os = "linux")]
     preview_gtk::renderer_fallback();
-    let builder = tauri::Builder::default();
+    let builder = tauri::Builder::default().register_uri_scheme_protocol(custom_screen::SCHEME, |context, request| {
+        custom_screen::respond(context.app_handle(), context.webview_label(), &request)
+    });
     // A second launch reopens the window over the session bus; first, so it exits
     // before anything else starts. Without a session bus there is nothing to ask.
     #[cfg(target_os = "linux")]
@@ -1753,6 +1803,7 @@ pub fn run() {
                 preview_gtk::install(&window);
             }
             app.manage(preview::Previews::default());
+            app.manage(custom_screen::CustomScreen::default());
             let resolver = app.handle().clone();
             let assets: phone::Assets = Arc::new(move |path| resolver.asset_resolver().get(path.to_string()).map(|asset| (asset.bytes, asset.mime_type)));
             let phone = phone::Phone::new(&app_data, Arc::clone(&emit), assets);
@@ -1915,6 +1966,7 @@ pub fn run() {
             quick_status,
             quick_set,
             quick_context,
+            quick_theme,
             quick_submit,
             quick_hide,
             phone_set_push,
@@ -1949,6 +2001,11 @@ pub fn run() {
             update_check,
             update_install,
             preview_open,
+            custom_screen_open,
+            custom_screen_bounds,
+            custom_screen_close,
+            custom_screen_request,
+            custom_screen_reply,
             preview_bounds,
             preview_action,
             preview_external,
@@ -2163,7 +2220,11 @@ mod tests {
             if capability["webviews"] == serde_json::json!([quick::LABEL]) {
                 // Quick chat's window reads what was in front, hands on, and hides.
                 commands.sort();
-                assert_eq!(commands, ["quick_context", "quick_hide", "quick_submit"]);
+                assert_eq!(commands, ["quick_context", "quick_hide", "quick_submit", "quick_theme"]);
+                assert_eq!(capability["permissions"].as_array().unwrap().len(), commands.len());
+            } else if capability["webviews"] == serde_json::json!([custom_screen::LABEL]) {
+                commands.sort();
+                assert_eq!(commands, ["custom_screen_request"]);
                 assert_eq!(capability["permissions"].as_array().unwrap().len(), commands.len());
             } else {
                 assert_eq!(capability["webviews"], serde_json::json!(["main"]));

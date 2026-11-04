@@ -42,8 +42,8 @@ export interface Behavior {
 }
 
 /** Whose key: an account's, a coding-tool connection's, or a built-in connector's (named by its kind). */
-/** `mcp-client`: the secret of the app a remote MCP server signs in with, named by the engine's id for that server. */
-export type SecretTarget = "account" | "tool" | "connector" | "mcp-client"
+/** `mcp-client`: the secret of the app a remote MCP server signs in with, named by the engine's id for that server. `mcp-variable`: a value for a variable an MCP server names, as `mcp-var:<server>:<NAME>`. */
+export type SecretTarget = "account" | "tool" | "connector" | "mcp-client" | "mcp-variable"
 
 export interface EngineStartInput {
   readonly engineId: string
@@ -699,6 +699,11 @@ export interface Host {
   voiceCancel(session: number): Promise<void>
   onVoice(listener: (event: VoiceEvent) => void): Unsubscribe
   onVoiceModel(listener: (progress: ModelProgress) => void): Unsubscribe
+  customScreenOpen(source: CustomScreenSource, bounds: PreviewBounds): Promise<void>
+  customScreenBounds(bounds: PreviewBounds | null): Promise<void>
+  customScreenClose(): Promise<void>
+  onCustomScreenRequest(listener: (request: CustomScreenRequest) => void): Unsubscribe
+  customScreenReply(id: string, response: unknown): Promise<void>
 }
 
 export interface PreviewBounds {
@@ -706,6 +711,18 @@ export interface PreviewBounds {
   readonly y: number
   readonly width: number
   readonly height: number
+}
+
+export interface CustomScreenSource {
+  readonly html: string
+  readonly css: string
+  readonly javascript: string
+}
+
+export interface CustomScreenRequest {
+  readonly id: string
+  readonly method: string
+  readonly args: unknown
 }
 
 export type PreviewAction = "back" | "forward" | "reload" | "stop"

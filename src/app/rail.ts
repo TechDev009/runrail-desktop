@@ -2,9 +2,9 @@ import type { View } from "./store"
 
 /**
  * The rail's places, each with its digit: Threads 1, Reviews 2, Agents 3, Workflows 4, Evals 5,
- * Integrations 6, Memory 7, Office 8.
+ * Integrations 6, Memory 7, Office 8, Custom screen 9.
  */
-export type RailPlace = "threads" | "reviews" | "agents" | "workflows" | "evals" | "integrations" | "memory" | "office"
+export type RailPlace = "threads" | "reviews" | "agents" | "workflows" | "evals" | "integrations" | "memory" | "usage" | "office" | "custom"
 
 export interface RailItem {
   readonly place: RailPlace
@@ -24,6 +24,7 @@ export interface RailInput {
   readonly agentsWaiting?: number
   /** Evals running now. */
   readonly evalsRunning?: number
+  readonly customLabel?: string
 }
 
 const PLACES: readonly { readonly place: RailPlace; readonly label: string; readonly keys: string }[] = [
@@ -34,7 +35,9 @@ const PLACES: readonly { readonly place: RailPlace; readonly label: string; read
   { place: "evals", label: "Evals", keys: "mod+5" },
   { place: "integrations", label: "Integrations", keys: "mod+6" },
   { place: "memory", label: "Memory", keys: "mod+7" },
+  { place: "usage", label: "Usage", keys: "mod+0" },
   { place: "office", label: "Office", keys: "mod+8" },
+  { place: "custom", label: "Custom screen", keys: "mod+9" },
 ]
 
 export function placeOf(view: View): RailPlace {
@@ -55,17 +58,21 @@ export function placeOf(view: View): RailPlace {
       return "integrations"
     case "memory":
       return "memory"
+    case "usage":
+      return "usage"
     case "office":
       return "office"
+    case "custom-screen":
+      return "custom"
   }
 }
 
-export function railItems({ view, office, waiting, reviewsWaiting = 0, agentsWaiting = 0, evalsRunning = 0 }: RailInput): readonly RailItem[] {
+export function railItems({ view, office, waiting, reviewsWaiting = 0, agentsWaiting = 0, evalsRunning = 0, customLabel }: RailInput): readonly RailItem[] {
   const current = placeOf(view)
   const badges: Partial<Record<RailPlace, number>> = { office: waiting, reviews: reviewsWaiting, agents: agentsWaiting, evals: evalsRunning }
   return PLACES.filter((item) => item.place !== "office" || office).map((item) => {
     const badge = badges[item.place] ?? 0
-    return { ...item, active: item.place === current, ...(badge > 0 ? { badge } : {}) }
+    return { ...item, ...(item.place === "custom" && customLabel !== undefined ? { label: customLabel } : {}), active: item.place === current, ...(badge > 0 ? { badge } : {}) }
   })
 }
 

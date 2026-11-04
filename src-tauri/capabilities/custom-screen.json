@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "custom-screen",
+  "description": "The user-authored screen can call only the Runrail API broker.",
+  "webviews": ["custom-screen-runtime"],
+  "permissions": ["allow-custom-screen-request"]
+}

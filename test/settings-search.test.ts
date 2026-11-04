@@ -4,7 +4,7 @@ import { resolve } from "node:path"
 import { searchSettings, SECTION_LABELS, SETTINGS_INDEX } from "../src/ui/shell/settingsIndex"
 
 // Sections drawn in their own files count as the page too.
-const source = ["Settings.tsx", "McpSettings.tsx", "SubagentSettings.tsx", "ImportSettings.tsx", "ProjectGit.tsx", "ComputerSettings.tsx", "RemoteMachines.tsx", "PhoneAccess.tsx", "QuickChat.tsx", "../connections/ImageModelSection.tsx"].map((file) => readFileSync(resolve(import.meta.dir, "../src/ui/shell", file), "utf8")).join("\n")
+const source = ["Settings.tsx", "McpSettings.tsx", "SubagentSettings.tsx", "ImportSettings.tsx", "ProjectGit.tsx", "ComputerSettings.tsx", "RemoteMachines.tsx", "PhoneAccess.tsx", "QuickChat.tsx", "appearance.tsx", "../connections/ImageModelSection.tsx"].map((file) => readFileSync(resolve(import.meta.dir, "../src/ui/shell", file), "utf8")).join("\n")
 
 describe("settings search", () => {
   test("every indexed setting is a row the page draws, so a result always has somewhere to land", () => {

@@ -232,10 +232,10 @@ export function SubagentEditor({ project }: { readonly project: { readonly id: s
         </div>
       ) : (
         <div className="entry-add">
-          <Button size="sm" icon={<Plus size={13} />} disabled={editing !== undefined} onClick={() => setEditing("new")}>
+          <Button icon={<Plus size={13} />} disabled={editing !== undefined} onClick={() => setEditing("new")}>
             Add subagent
           </Button>
-          <Button size="sm" variant="ghost" icon={<Download size={13} />} disabled={editing !== undefined} title="Subagents set up in Claude Code and opencode" onClick={() => openDialog({ kind: "other-tools", section: "agents", projectId: project.id })} data-setting="subagent-import">
+          <Button icon={<Download size={13} />} disabled={editing !== undefined} title="Subagents set up in Claude Code and opencode" onClick={() => openDialog({ kind: "other-tools", section: "agents", projectId: project.id })} data-setting="subagent-import">
             From other tools…
           </Button>
         </div>

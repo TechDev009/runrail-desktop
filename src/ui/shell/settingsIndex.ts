@@ -38,6 +38,8 @@ function index(words: PlatformWords): readonly SettingEntry[] {
     { id: "theme", section: "general", label: "Theme", keywords: "dark light system appearance mode" },
     { id: "palette", section: "general", label: "Palette", keywords: "color colour scheme flower japanese sakura yozakura cherry blossom ume plum fuji wisteria ajisai hydrangea tsubaki camellia matcha green tea pink" },
     { id: "accent", section: "general", label: "Accent", keywords: "color colour highlight" },
+    { id: "theme-profiles", section: "general", label: "Saved themes", keywords: "custom themes profiles import export share rrtheme color seed" },
+    { id: "usage-history", section: "general", label: "Local usage history", keywords: "activity analytics messages turns tokens streak peak model privacy local" },
     { id: "text-size", section: "general", label: "Text size", keywords: "font size bigger smaller zoom" },
     { id: "glass", section: "general", label: "Translucent window", keywords: "glass vibrancy transparent sidebar blur frosted" },
     { id: "density", section: "general", label: "Density", keywords: "compact comfortable spacing" },

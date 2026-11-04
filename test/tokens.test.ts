@@ -17,7 +17,10 @@ const SHEETS = readdirSync(STYLES)
   .map((name) => ({ name, text: readFileSync(join(STYLES, name), "utf8") }))
 
 /** Raw colors allowed in TypeScript, each with its reason. */
-const TS_COLOR_ALLOWED = new Map([["lib/images.ts", "a pasted image with transparency is flattened onto white before it is sent"]])
+const TS_COLOR_ALLOWED = new Map([
+  ["lib/images.ts", "a pasted image with transparency is flattened onto white before it is sent"],
+  ["app/themeProfiles.ts", "a saved theme is one seed color; its accent tokens are computed from it with a contrast check"],
+])
 
 function sourceFiles(dir: string, prefix = ""): { readonly name: string; readonly text: string }[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

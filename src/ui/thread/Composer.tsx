@@ -784,7 +784,7 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
         setAttachments([])
         setTokens([])
         bytes.current.clear()
-        send(created.id, { text: message, attachments: moved, skills })
+        send(created.id, { text: message, attachments: moved, skills, trackUsage: true })
       } catch (error) {
         toast("error", `Could not start the thread: ${toHostError(error).message}`)
       } finally {
@@ -798,8 +798,8 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
     setTokens([])
     clearPageComments(threadId)
     bytes.current.clear()
-    if (intent === "steer" && running && canSteer) await steer(threadId, { text: message, attachments: outgoing, skills })
-    else send(threadId, { text: message, attachments: outgoing, skills })
+    if (intent === "steer" && running && canSteer) await steer(threadId, { text: message, attachments: outgoing, skills, trackUsage: true })
+    else send(threadId, { text: message, attachments: outgoing, skills, trackUsage: true })
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {

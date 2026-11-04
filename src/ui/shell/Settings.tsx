@@ -9,6 +9,7 @@ import { readClaudeSdk, useClaudeSdk } from "../../app/claudeSdk"
 import { NIFRA_SETTING_HINT, nifraOn } from "../../app/nifra"
 import { readAllProjectGit } from "../../app/projectGit"
 import { setPlanLimits } from "../../app/planUsage"
+import { setUsageEnabled } from "../../app/usageHistory"
 import { reportProblem } from "../../app/report"
 import { MAX_CHAIN, SENDS_PER_TURN } from "../../app/threadAgent"
 import { BACKEND_LABELS, glassAvailable, paletteChange, MAX_INSTRUCTIONS, MAX_VOICE_WORD, MAX_VOICE_WORDS, PASTE_THRESHOLDS, QUIET_MINUTES, VOICE_RATES, type NotifyOn, type VoicePrefs, type PasteThreshold, type Prefs, type QuietMinutes } from "../../app/persist"
@@ -35,7 +36,7 @@ import { ComputerSettings } from "./ComputerSettings"
 import { DIFF_LAYOUTS } from "../diff/DiffView"
 import { ModelPicker } from "../thread/ModelPicker"
 import { ProjectSkills } from "../views/Extensions"
-import { AccentDots, PaletteCards, ThemeCards } from "./appearance"
+import { AccentDots, PaletteCards, ThemeCards, ThemeProfiles } from "./appearance"
 import { ImportProviders } from "./ImportSettings"
 import { ProjectFolders } from "./ProjectFolders"
 import { PhoneAccess } from "./PhoneAccess"
@@ -292,6 +293,9 @@ function GameRow() {
 
 function General() {
   const prefs = usePrefs()
+  const themeProfiles = useApp((state) => state.themeProfiles)
+  const activeThemeProfileId = useApp((state) => state.activeThemeProfileId)
+  const usageEnabled = useApp((state) => state.usageHistory.enabled)
   const platform = useApp((state) => state.platform)
   const words = useWords()
   const editors = useEditors()
@@ -311,6 +315,7 @@ function General() {
       <Row id="accent" label="Accent" hint="Buttons, focus, and selection. Status keeps its own colors either way.">
         <AccentDots value={prefs.accent} palette={prefs.palette} onChange={(accent) => setPrefs({ accent })} />
       </Row>
+      <ThemeProfiles profiles={themeProfiles} activeId={activeThemeProfileId} />
       <Row id="text-size" label="Text size" hint="For the whole window: messages, code, and controls.">
         <Segmented
           label="Text size"
@@ -386,6 +391,9 @@ function General() {
             { value: "reduce", label: "Always" },
           ]}
         />
+      </Row>
+      <Row id="usage-history" label="Local usage history" hint="Counts future messages, turns, active days, and model selections on this computer. Prompts, transcripts, files, paths, and account details are never stored.">
+        <Toggle label="Local usage history" checked={usageEnabled} onChange={setUsageEnabled} />
       </Row>
       <h3>Office</h3>
       <Row id="office-mode" label="Office mode" hint="Each project is a room and each thread a person at a desk. People move only while their thread works, and clicking one opens the thread beside the floor.">
@@ -480,11 +488,11 @@ function General() {
           Run setup again
         </Button>
       </Row>
+      <QuickChat />
+      <PhoneAccess />
       <div data-setting="updates">
         <Updates />
       </div>
-      <QuickChat />
-      <PhoneAccess />
     </div>
   )
 }
@@ -1358,10 +1366,10 @@ function SkillsSection() {
         </div>
         {project !== undefined && (
           <div className="settings-head-actions">
-            <Button size="sm" variant="ghost" icon={<Download size={13} />} onClick={() => openDialog({ kind: "other-tools", section: "skills", projectId: project.id })} data-setting="skill-from-tools" title="Skills set up in Claude Code, Codex, opencode, and Pi">
+            <Button icon={<Download size={13} />} onClick={() => openDialog({ kind: "other-tools", section: "skills", projectId: project.id })} data-setting="skill-from-tools" title="Skills set up in Claude Code, Codex, opencode, and Pi">
               From other tools…
             </Button>
-            <Button size="sm" icon={<FolderOpen size={13} />} loading={importing} onClick={importFolder} data-setting="skill-import" title="Copy a folder with a SKILL.md into this project's .agents/skills">
+            <Button icon={<FolderOpen size={13} />} loading={importing} onClick={importFolder} data-setting="skill-import" title="Copy a folder with a SKILL.md into this project's .agents/skills">
               Import a folder…
             </Button>
           </div>

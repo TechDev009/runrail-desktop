@@ -7,8 +7,8 @@ import { EXTERNAL_SOURCES } from "../protocol/schemas"
 
 /**
  * Desktop state persisted by the host (app data, atomic writes). It holds projects, thread
- * metadata, preferences, and layout. It never holds transcripts, tool payloads, drafts, queued
- * prompts, or credentials; conversation history lives in the engine's store.
+ * metadata, preferences, layout, and the user's custom-screen source. It never holds transcripts,
+ * tool payloads, drafts, queued prompts, or credentials; conversation history lives in the engine's store.
  */
 
 export type PermissionPreset = "ask" | "auto-edit" | "auto" | "full"
@@ -20,6 +20,18 @@ export type Accent = (typeof ACCENTS)[number]
 /** `default` is the neutral black cockpit; the others are Japanese flower palettes, each with a light and a dark side. */
 export const PALETTES = ["default", "sakura", "ume", "fuji", "ajisai", "tsubaki", "matcha"] as const
 export type Palette = (typeof PALETTES)[number]
+
+export interface ThemeProfile {
+  readonly id: string
+  readonly name: string
+  readonly palette: Palette
+  readonly seedColor: string
+  readonly createdAt: number
+  readonly updatedAt: number
+}
+
+export const MAX_THEME_PROFILES = 50
+export const MAX_THEME_PROFILE_NAME = 64
 
 /** A flower palette picked while the accent is mono brings its own accent, once; a chosen accent stays. */
 export function paletteChange(prefs: Pick<Prefs, "accent">, palette: Palette): Partial<Prefs> {
@@ -457,14 +469,63 @@ export interface Layout {
   readonly panels: Readonly<Record<string, PanelState>>
 }
 
+export type CustomScreenIcon = "code" | "workflow" | "terminal" | "layout"
+
+export interface CustomScreen {
+  readonly name: string
+  readonly icon: CustomScreenIcon
+  readonly html: string
+  readonly css: string
+  readonly javascript: string
+  readonly designerThreadId?: string
+  readonly designerProjectId?: string
+  readonly designerPending?: boolean
+  readonly designerPendingAfterTurnId?: string
+  readonly designerPendingStartedAt?: number
+}
+
+export const MAX_CUSTOM_SCREEN_BYTES = 256 * 1024
+
+export const DEFAULT_CUSTOM_SCREEN: CustomScreen = {
+  name: "Custom screen",
+  icon: "code",
+  html: '<main class="card"><p class="eyebrow">YOUR RUNRAIL</p><h1>Build your screen</h1><p>Use the Runrail API to shape a workspace around the way you work.</p><button id="load">Load projects</button><pre id="output">Press the button to query Runrail.</pre></main>',
+  css: "body{font:16px system-ui,sans-serif;margin:0;padding:32px;background:#181818;color:#f5f5f5}.card{max-width:680px;margin:auto;padding:32px;border:1px solid #444;border-radius:16px;background:#222}.eyebrow{font:12px monospace;letter-spacing:.12em;color:#aaa}button{padding:10px 14px;border-radius:8px;border:0;background:#fff;color:#111;cursor:pointer}pre{white-space:pre-wrap;color:#bbb}",
+  javascript: 'document.querySelector("#load").addEventListener("click", async () => {\n  const projects = await runrail.projects.list()\n  document.querySelector("#output").textContent = JSON.stringify(projects, null, 2)\n})',
+}
+
 export interface DesktopState {
   readonly version: 1
   readonly projects: readonly Project[]
   readonly threads: readonly ThreadMeta[]
   readonly prefs: Prefs
+  readonly themeProfiles: readonly ThemeProfile[]
+  readonly activeThemeProfileId?: string
+  readonly usageHistory: UsageHistory
   readonly layout: Layout
   readonly learning: Learning
   readonly game: Game
+  readonly customScreen: CustomScreen
+}
+
+export interface UsageModel {
+  readonly key: string
+  readonly turns: number
+}
+
+export interface UsageDay {
+  readonly day: string
+  readonly messages: number
+  readonly turns: number
+  readonly activeHours: readonly number[]
+  readonly models: readonly UsageModel[]
+}
+
+export interface UsageHistory {
+  readonly enabled: boolean
+  readonly enabledAt?: number
+  readonly days: readonly UsageDay[]
+  readonly seen: readonly string[]
 }
 
 export const DEFAULT_PREFS: Prefs = {
@@ -528,7 +589,18 @@ export const DEFAULT_LAYOUT: Layout = {
 }
 
 export function defaultState(): DesktopState {
-  return { version: 1, projects: [], threads: [], prefs: DEFAULT_PREFS, layout: DEFAULT_LAYOUT, learning: EMPTY_LEARNING, game: EMPTY_GAME }
+  return {
+    version: 1,
+    projects: [],
+    threads: [],
+    prefs: DEFAULT_PREFS,
+    themeProfiles: [],
+    usageHistory: { enabled: false, days: [], seen: [] },
+    layout: DEFAULT_LAYOUT,
+    learning: EMPTY_LEARNING,
+    game: EMPTY_GAME,
+    customScreen: DEFAULT_CUSTOM_SCREEN,
+  }
 }
 
 const Id = z.string().min(1).max(128).regex(/^[A-Za-z0-9._-]+$/)
@@ -539,6 +611,21 @@ const ConnectionId = z.string().regex(CONNECTION_ID)
 const Permission = z.enum(["ask", "auto-edit", "auto", "full"])
 const ThinkingSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"])
 const Status = z.enum(["idle", "running", "waiting", "completed", "failed", "stopped"])
+const ThemeProfileSchema = z.object({
+  id: z.string().min(1).max(128).regex(/^[A-Za-z0-9._-]+$/),
+  name: z.string().min(1).max(MAX_THEME_PROFILE_NAME).refine((value) => value.trim().length > 0 && !value.includes("\0")),
+  palette: z.enum(PALETTES),
+  seedColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).transform((value) => value.toLowerCase()),
+  createdAt: z.number().finite(),
+  updatedAt: z.number().finite(),
+})
+const UsageDaySchema = z.object({
+  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  messages: z.number().int().min(0).max(10_000_000),
+  turns: z.number().int().min(0).max(10_000_000),
+  activeHours: z.array(z.number().int().min(0).max(23)).max(24),
+  models: z.array(z.object({ key: z.string().min(1).max(256), turns: z.number().int().min(0).max(10_000_000) })).max(32),
+})
 /** How many recently picked models are remembered. */
 export const RECENT_MODELS = 5
 export const MAX_FAVORITE_MODELS = 32
@@ -787,6 +874,24 @@ const LayoutSchema = z.object({
   panels: z.unknown().optional().transform((value) => cleanPanels(value)),
 })
 
+const CustomScreenSchema = z.object({
+  name: z.string().trim().min(1).max(40).catch(DEFAULT_CUSTOM_SCREEN.name),
+  icon: z.enum(["code", "workflow", "terminal", "layout"]).catch(DEFAULT_CUSTOM_SCREEN.icon),
+  html: z.string().max(MAX_CUSTOM_SCREEN_BYTES).catch(DEFAULT_CUSTOM_SCREEN.html),
+  css: z.string().max(MAX_CUSTOM_SCREEN_BYTES).catch(DEFAULT_CUSTOM_SCREEN.css),
+  javascript: z.string().max(MAX_CUSTOM_SCREEN_BYTES).catch(DEFAULT_CUSTOM_SCREEN.javascript),
+  designerThreadId: Id.optional().catch(undefined),
+  designerProjectId: Id.optional().catch(undefined),
+  designerPending: z.boolean().optional().catch(undefined),
+  designerPendingAfterTurnId: Id.optional().catch(undefined),
+  designerPendingStartedAt: z.number().finite().optional().catch(undefined),
+}).superRefine((screen, context) => {
+  const bytes = new TextEncoder().encode(screen.html).byteLength
+    + new TextEncoder().encode(screen.css).byteLength
+    + new TextEncoder().encode(screen.javascript).byteLength
+  if (bytes > MAX_CUSTOM_SCREEN_BYTES) context.addIssue({ code: "custom", message: "custom screen source is too large" })
+})
+
 const PanelTabSchema = z.object({ id: Id, kind: z.enum(PANEL_KINDS), url: z.string().optional().catch(undefined) })
 
 /**
@@ -918,6 +1023,45 @@ function parseGame(value: unknown): Game {
   }
 }
 
+function parseThemeProfiles(value: unknown): { readonly profiles: readonly ThemeProfile[]; readonly activeId?: string } {
+  const source = Array.isArray(value) ? value : []
+  const profiles: ThemeProfile[] = []
+  const ids = new Set<string>()
+  for (const item of source.slice(0, MAX_THEME_PROFILES)) {
+    const parsed = ThemeProfileSchema.safeParse(item)
+    if (!parsed.success || ids.has(parsed.data.id)) continue
+    ids.add(parsed.data.id)
+    profiles.push(parsed.data)
+  }
+  return { profiles }
+}
+
+function parseUsageHistory(value: unknown): UsageHistory {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return { enabled: false, days: [], seen: [] }
+  const record = value as Record<string, unknown>
+  const days = (Array.isArray(record.days) ? record.days : [])
+    .map((day) => UsageDaySchema.safeParse(day))
+    .filter((parsed): parsed is { success: true; data: z.infer<typeof UsageDaySchema> } => parsed.success)
+    .map((parsed) => parsed.data)
+    .slice()
+    .sort((left, right) => left.day.localeCompare(right.day))
+    .slice(-1_096)
+    .map((day) => ({
+      ...day,
+      activeHours: [...new Set(day.activeHours)].sort((left, right) => left - right),
+      models: day.models
+        .slice()
+        .sort((left, right) => right.turns - left.turns || left.key.localeCompare(right.key))
+        .slice(0, 32),
+    }))
+  return {
+    enabled: record.enabled === true,
+    ...(typeof record.enabledAt === "number" && Number.isFinite(record.enabledAt) ? { enabledAt: record.enabledAt } : {}),
+    days,
+    seen: [...new Set(Array.isArray(record.seen) ? record.seen.filter((item): item is string => typeof item === "string" && item.length > 0 && item.length <= 256) : [])].slice(-2_048),
+  }
+}
+
 /** Parses persisted state; invalid entries are dropped individually rather than losing everything. */
 export function parseState(value: unknown): DesktopState {
   if (typeof value !== "object" || value === null) return defaultState()
@@ -930,14 +1074,22 @@ export function parseState(value: unknown): DesktopState {
     .map(boundThread)
   const prefs = PrefsSchema.safeParse(record.prefs)
   const layout = LayoutSchema.safeParse(record.layout)
+  const themeData = parseThemeProfiles(record.themeProfiles)
+  const activeThemeProfileId = typeof record.activeThemeProfileId === "string" && themeData.profiles.some((profile) => profile.id === record.activeThemeProfileId) ? record.activeThemeProfileId : undefined
   return {
     version: 1,
     projects,
     threads: threads as ThreadMeta[],
     prefs: prefs.success ? (boundPrefs(prefs.data) as Prefs) : DEFAULT_PREFS,
+    themeProfiles: themeData.profiles,
+    ...(activeThemeProfileId === undefined ? {} : { activeThemeProfileId }),
+    usageHistory: parseUsageHistory(record.usageHistory),
     layout: layout.success ? { ...(layout.data as Layout), panels: Object.fromEntries(Object.entries(layout.data.panels).filter(([threadId]) => threads.some((thread) => thread.id === threadId))) } : DEFAULT_LAYOUT,
     learning: parseLearning(record.learning),
     game: parseGame(record.game),
+    customScreen: CustomScreenSchema.safeParse(record.customScreen).success
+      ? CustomScreenSchema.parse(record.customScreen)
+      : DEFAULT_CUSTOM_SCREEN,
   }
 }
 

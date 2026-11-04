@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-quick-theme"
+description = "Enables the quick_theme command without any pre-configured scope."
+commands.allow = ["quick_theme"]
+
+[[permission]]
+identifier = "deny-quick-theme"
+description = "Denies the quick_theme command without any pre-configured scope."
+commands.deny = ["quick_theme"]

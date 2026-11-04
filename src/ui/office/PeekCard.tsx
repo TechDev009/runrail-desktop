@@ -134,7 +134,7 @@ export function PeekBody({ thread, projectName, runtime, onClose }: { readonly t
   const submit = (event: FormEvent): void => {
     event.preventDefault()
     if (draft.trim().length === 0) return
-    send(threadId, { text: draft })
+    send(threadId, { text: draft, trackUsage: true })
     setDraft("")
   }
 

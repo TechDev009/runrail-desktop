@@ -1,7 +1,7 @@
 import { Channel, invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { openUrl } from "@tauri-apps/plugin-opener"
-import type { AgentDefinition, AndroidApp, AndroidDevice, AndroidStatus, ComputerAccess, ComputerApp, EditorId, EngineInfo, EngineStartInput, GithubRelayEvent, GithubRelayStatus, Host, HostInfo, ImportedSkill, ListenInput, LoginItemStatus, McpServer, ModelProgress, NotifyStatus, OtherTools, PreviewState, ProjectInstructions, RunningComputerApp, SimulatorApp, SimulatorDevice, SimulatorScreen, SimulatorStatus, StartupTiming, StreamFrame, StreamState, Unsubscribe, VoiceDevice, VoiceEvent, VoiceModel, PhoneCall, PhonePushTarget, NewPhoneHook, PhoneShare, PhoneStatus, QuickMessage, QuickStatus, RemoteCheck, TailscaleStatus, RemoteMachine, WakeServiceStatus, WorkspaceInfo, SignInsSupport } from "./types"
+import type { AgentDefinition, AndroidApp, AndroidDevice, AndroidStatus, ComputerAccess, ComputerApp, CustomScreenRequest, CustomScreenSource, EditorId, EngineInfo, EngineStartInput, GithubRelayEvent, GithubRelayStatus, Host, HostInfo, ImportedSkill, ListenInput, LoginItemStatus, McpServer, ModelProgress, NotifyStatus, OtherTools, PreviewState, ProjectInstructions, RunningComputerApp, SimulatorApp, SimulatorDevice, SimulatorScreen, SimulatorStatus, StartupTiming, StreamFrame, StreamState, Unsubscribe, VoiceDevice, VoiceEvent, VoiceModel, PhoneCall, PhonePushTarget, NewPhoneHook, PhoneShare, PhoneStatus, QuickMessage, QuickStatus, RemoteCheck, TailscaleStatus, RemoteMachine, WakeServiceStatus, WorkspaceInfo, SignInsSupport } from "./types"
 import { HostError, toHostError } from "./types"
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
@@ -48,8 +48,8 @@ export function createTauriHost(): Host {
     githubRelayUnpair: () => call<GithubRelayStatus>("github_relay_unpair"),
     githubRelayFetchEvents: () => call<readonly GithubRelayEvent[]>("github_relay_fetch_events"),
     githubRelayAcknowledge: (deliveryIds) => call<void>("github_relay_acknowledge", { deliveryIds }),
-    connectionSecretSet: (connectionId, secret, target) => call<unknown>("connection_secret_set", { connectionId, secret, tool: target === "tool", connector: target === "connector", mcp: target === "mcp-client" }),
-    connectionSecretFromClipboard: (connectionId, target) => call<unknown>("connection_secret_from_clipboard", { connectionId, tool: target === "tool", connector: target === "connector", mcp: target === "mcp-client" }),
+    connectionSecretSet: (connectionId, secret, target) => call<unknown>("connection_secret_set", { connectionId, secret, tool: target === "tool", connector: target === "connector", mcp: target === "mcp-client", mcpVariable: target === "mcp-variable" }),
+    connectionSecretFromClipboard: (connectionId, target) => call<unknown>("connection_secret_from_clipboard", { connectionId, tool: target === "tool", connector: target === "connector", mcp: target === "mcp-client", mcpVariable: target === "mcp-variable" }),
     authOpen: (loginId) => call<void>("auth_open", { loginId }),
     authSubmitInput: (loginId, input) => call<unknown>("auth_submit_input", { loginId, input }),
     streamStart: (engineId, afterSeq, afterLiveSeq) => {
@@ -160,6 +160,11 @@ export function createTauriHost(): Host {
     voiceCancel: (session) => call<void>("voice_cancel", { session }),
     onVoice: (listener) => subscribe<VoiceEvent>("voice:event", listener),
     onVoiceModel: (listener) => subscribe<ModelProgress>("voice:model", listener),
+    customScreenOpen: (source: CustomScreenSource, bounds) => call<void>("custom_screen_open", { source, bounds }),
+    customScreenBounds: (bounds) => call<void>("custom_screen_bounds", { bounds }),
+    customScreenClose: () => call<void>("custom_screen_close"),
+    onCustomScreenRequest: (listener) => subscribe<CustomScreenRequest>("custom-screen:request", listener),
+    customScreenReply: (id, response) => call<void>("custom_screen_reply", { id, response }),
     shellsList: () => call<string[]>("shells_list"),
     skillImport: (workspace) => call<ImportedSkill | null>("skill_import", { workspace }),
     agentsList: (workspace) => call<AgentDefinition[]>("agents_list", { workspace }),

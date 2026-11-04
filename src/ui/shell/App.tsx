@@ -3,6 +3,7 @@ import { focusComposer, openUrl, pickProject, startNewThread } from "../../app/a
 import { cancel } from "../../app/engines"
 import { closeWindow, installAppMenu, setOfficeInMenu } from "../../app/appMenu"
 import { activeTab, closePanelTab, cyclePanelTab, forgetPanel, openPanel, panelOf, requestLauncher, shownKind } from "../../app/panels"
+import { answerCustomScreenRequest } from "../../app/harnessApi"
 import { listenPreviewShortcuts } from "../../app/previewKeys"
 import { listShown, placeOf } from "../../app/rail"
 import { pendingQuestionQueue } from "../../app/pendingQuestions"
@@ -35,11 +36,13 @@ const ReviewsView = lazy(() => import("../views/Reviews").then((module) => ({ de
 const AgentsView = lazy(() => import("../views/Agents").then((module) => ({ default: module.AgentsView })))
 const EvalsView = lazy(() => import("../views/Evals").then((module) => ({ default: module.EvalsView })))
 const MemoryView = lazy(() => import("../views/Memory").then((module) => ({ default: module.MemoryView })))
+const UsageView = lazy(() => import("../views/Usage").then((module) => ({ default: module.UsageView })))
 const WorkflowsView = lazy(() => import("../views/Workflows").then((module) => ({ default: module.WorkflowsView })))
 const CompareView = lazy(() => import("../views/Compare").then((module) => ({ default: module.CompareView })))
 const OfficeView = lazy(() => import("../office/Office").then((module) => ({ default: module.OfficeView })))
 const ArchivedView = lazy(() => import("../views/Archived").then((module) => ({ default: module.ArchivedView })))
 const IntegrationsView = lazy(() => import("../views/Integrations").then((module) => ({ default: module.IntegrationsView })))
+const CustomScreenView = lazy(() => import("../views/CustomScreen").then((module) => ({ default: module.CustomScreenView })))
 const SettingsPage = lazy(() => import("./Settings").then((module) => ({ default: module.SettingsPage })))
 
 /**
@@ -72,15 +75,17 @@ export function App() {
   const medium = useMedia(MEDIUM)
   const inspectorWidth = useApp((state) => state.layout.inspectorWidth)
   const officeDrawer = useApp((state) => state.officeDrawer)
-  const threadShown = view.kind === "thread" || (view.kind === "office" && officeDrawer)
+  const threadShown = view.kind === "thread" || view.kind === "custom-screen" || (view.kind === "office" && officeDrawer)
   const panes = useApp(useShallow((state) => shownPanes(state.layout.panes, state.layout.activeThreadId, (id) => state.threads.some((thread) => thread.id === id))))
-  const previewShown = useApp((state) => (state.view.kind === "thread" || (state.view.kind === "office" && state.officeDrawer)) && shownKind(state.layout, activeThreadId) === "browser")
+  const previewShown = useApp((state) => (state.view.kind === "thread" || state.view.kind === "custom-screen" || (state.view.kind === "office" && state.officeDrawer)) && shownKind(state.layout, activeThreadId) === "browser")
 
   useGlobalKeys()
   useMenuShortcuts()
   useWindowTitle()
   useTerminalCleanup()
   useReviewsWaiting(loaded)
+
+  useEffect(() => getHost().onCustomScreenRequest((request) => void answerCustomScreenRequest(request)), [])
 
   // On narrow windows the sidebar is an overlay: picking a thread closes it.
   useEffect(() => {
@@ -109,6 +114,8 @@ export function App() {
       <EvalsView runId={view.runId} />
     ) : view.kind === "memory" ? (
       <MemoryView />
+    ) : view.kind === "usage" ? (
+      <UsageView />
     ) : view.kind === "workflows" ? (
       <WorkflowsView projectId={view.projectId} workflowId={view.workflowId} runId={view.runId} />
     ) : view.kind === "integrations" ? (
@@ -117,6 +124,8 @@ export function App() {
       <CompareView groupId={view.groupId} />
     ) : view.kind === "office" ? (
       <OfficeView />
+    ) : view.kind === "custom-screen" ? (
+      <CustomScreenView />
     ) : view.kind === "archived" ? (
       <ArchivedView />
     ) : panes.length > 1 && !narrow ? (
@@ -186,6 +195,8 @@ function useWindowTitle(): void {
     if (state.view.kind === "workflows") return "Workflows"
     if (state.view.kind === "evals") return "Evals"
     if (state.view.kind === "memory") return "Memory"
+    if (state.view.kind === "usage") return "Usage"
+    if (state.view.kind === "custom-screen") return state.customScreen.name
     if (state.view.kind === "integrations") return "Integrations"
     if (state.view.kind === "archived") return "Archived threads"
     if (state.view.kind === "office" && !state.officeDrawer) return "Office"
@@ -340,11 +351,17 @@ function run(id: ShortcutId): void {
     case "go-memory":
       goTo("memory")
       return
+    case "go-usage":
+      goTo("usage")
+      return
     case "go-integrations":
       goTo("integrations")
       return
     case "go-office":
       goTo("office")
+      return
+    case "go-custom":
+      goTo("custom")
       return
   }
 }

@@ -31,8 +31,10 @@ export type ShortcutId =
   | "go-workflows"
   | "go-evals"
   | "go-memory"
+  | "go-usage"
   | "go-integrations"
   | "go-office"
+  | "go-custom"
 
 export interface Shortcut {
   readonly id: ShortcutId
@@ -54,8 +56,10 @@ export const SHORTCUTS: readonly Shortcut[] = [
   { id: "go-workflows", keys: "mod+4", label: "Workflows", group: "Go to" },
   { id: "go-evals", keys: "mod+5", label: "Evals", group: "Go to" },
   { id: "go-memory", keys: "mod+7", label: "Memory", group: "Go to" },
+  { id: "go-usage", keys: "mod+0", label: "Usage history", group: "Go to" },
   { id: "go-integrations", keys: "mod+6", label: "Integrations", group: "Go to" },
   { id: "go-office", keys: "mod+8", label: "Office, when office mode is on", group: "Go to" },
+  { id: "go-custom", keys: "mod+9", label: "Custom screen", group: "Go to" },
   { id: "sidebar", keys: "mod+b", label: "Show or hide the threads list", group: "Layout" },
   { id: "inspector", keys: "mod+alt+b", label: "Toggle side panel", group: "Layout" },
   { id: "review", keys: "mod+shift+d", label: "Review changes", group: "Layout" },

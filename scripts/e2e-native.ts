@@ -34,6 +34,7 @@ const SETUP_NAME = "E2E plan, execute, review"
 
 const modelRuns = process.argv.includes("--model-runs")
 const setupRun = process.argv.includes("--setup-run")
+const customScreenOnly = process.argv.includes("--custom-screen-only")
 const ownAccounts = modelRuns || setupRun
 const root = join(import.meta.dir, "..")
 const realHome = homedir()
@@ -450,6 +451,93 @@ async function main(): Promise<number> {
       expect(seen.includes("onboarded true") && !seen.includes("plan limits on"), `onboarding ended with ${seen.slice(-2).join(", ")}`)
       return seen.join(" > ")
     })
+
+    await check("the custom screen opens from the rail, edits, and uses its isolated Runrail API", async () => {
+      const apiScript = "runrail.catalog().then((catalog) => { const ready = catalog.version === 1 && catalog.features.includes('integrations') && catalog.methods.includes('threads.send'); return runrail.app.open(ready ? 'integrations' : 'memory') }).catch(() => runrail.app.open('memory'))"
+      const result = await page<{ readonly label: string; readonly tabs: readonly string[]; readonly guide: boolean; readonly view: string; readonly closed: boolean; readonly aiFirst: boolean; readonly aiApplied: boolean }>(`
+        const { set, setCustomScreen, useApp } = await import("/src/app/store.ts")
+        const { createThread, patchRuntime } = await import("/src/app/store.ts")
+        const { applyFrames, emptyTimeline } = await import("/src/thread/reducer.ts")
+        const { railItems } = await import("/src/app/rail.ts")
+        const custom = await until(() => button("Custom screen"), 5000, "the custom screen rail item")
+        const order = railItems({ view: useApp.getState().view, office: true, waiting: 0, customLabel: "Custom screen" }).map((item) => item.place)
+        if (!custom || order.indexOf("office") < 0 || order.indexOf("custom") <= order.indexOf("office")) throw new Error("the custom screen rail item is missing or not below Office")
+        custom.click()
+        await until(() => document.querySelector(".custom-screen-view"), 15000, "the custom screen")
+        const designer = await until(() => document.querySelector(".custom-screen-designer"), 10000, "the AI harness builder")
+        const aiFirst = designer.querySelector("#screen-description") !== null
+          && designer.querySelector("h2")?.textContent === "What should this screen do?"
+          && document.querySelector(".custom-screen-editor") === null
+        button("Edit code").click()
+        const editor = await until(() => document.querySelector(".custom-screen-editor"), 10000, "the custom screen editor")
+        const tabs = [...editor.querySelectorAll(".custom-screen-tabs button")].map((node) => node.innerText.trim())
+        button("Runrail API", editor).click()
+        const guide = await until(() => document.querySelector(".custom-screen-api-guide h2")?.innerText === "Runrail API v1", 10000, "the API guide").then(() => true)
+        const replace = async (tab, field, value) => {
+          button(tab, editor).click()
+          const content = await until(() => {
+            const candidate = editor.querySelector(".cm-content")
+            const view = candidate?.cmTile?.root?.view
+            return view?.state.doc.toString() === useApp.getState().customScreen[field] ? candidate : undefined
+          }, 10000, tab + " editor content")
+          const view = content.cmTile?.root?.view
+          if (!view) throw new Error(tab + " editor instance is missing")
+          view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } })
+          await until(() => useApp.getState().customScreen[field] === value, 5000, tab + " source update")
+        }
+        await replace("HTML", "html", "<main><h1>Harness runtime</h1></main>")
+        await replace("CSS", "css", "body{margin:0}")
+        await replace("JavaScript", "javascript", ${JSON.stringify(apiScript)})
+        setCustomScreen({
+          name: "E2E harness",
+          icon: "workflow",
+        })
+        const label = await until(() => button("E2E harness")?.getAttribute("aria-label"), 5000, "the updated rail label")
+        button("Run", editor.closest(".custom-screen-view")).click()
+        await until(() => useApp.getState().view.kind === "integrations" || useApp.getState().view.kind === "memory", 20000, "the custom screen API response")
+        const view = useApp.getState().view.kind
+        if (view !== "integrations") throw new Error("the custom screen did not receive the API catalog response")
+        const screen = useApp.getState().customScreen
+        if (screen.name !== "E2E harness" || screen.icon !== "workflow" || !screen.javascript.includes("runrail.catalog()")) throw new Error("custom screen settings were not saved")
+        set({ view: { kind: "custom-screen" }, settings: false })
+        await until(() => document.querySelector(".custom-screen-designer"), 10000, "the AI builder after preview navigation")
+        const designerThread = createThread({ projectId: "e2e-harness-project", title: "Screen designer", permission: "ask", select: false })
+        setCustomScreen({ designerThreadId: designerThread.id, designerProjectId: designerThread.projectId, designerPending: true, designerPendingStartedAt: Date.now() })
+        const generated = JSON.stringify({ name: "AI generated E2E", icon: "layout", html: "<main><h1>AI built this</h1></main>", css: "body{margin:0}", javascript: "" })
+        const at = Date.now()
+        const timeline = applyFrames(emptyTimeline(), [
+          { kind: "event", data: { seq: 0, at, type: "turn.started", turnId: "e2e-ai-turn", prompt: "Build a test harness" } },
+          { kind: "event", data: { seq: 1, at: at + 1, type: "assistant.message", turnId: "e2e-ai-turn", text: generated } },
+          { kind: "event", data: { seq: 2, at: at + 2, type: "session.completed", snapshot: { id: "e2e-ai-session", backend: "native", status: "idle" } } },
+        ])
+        patchRuntime(designerThread.id, { timeline })
+        await until(() => useApp.getState().customScreen.name === "AI generated E2E" && useApp.getState().customScreen.designerPending !== true, 10000, "the AI response to update the screen")
+        const generatedScreen = useApp.getState().customScreen
+        if (generatedScreen.icon !== "layout" || generatedScreen.html !== "<main><h1>AI built this</h1></main>" || generatedScreen.javascript !== "") throw new Error("the AI response was not applied to the saved screen")
+        set({ view: { kind: "thread" }, settings: false })
+        await wait(1000)
+        const closed = await until(async () => {
+          const webviews = (await invoke("plugin:webview|get_all_webviews", {})).ok
+          return Array.isArray(webviews) && !webviews.some((webview) => webview.label === "custom-screen-runtime")
+        }, 10000, "the custom screen to close")
+        return { label: label ?? "", tabs, guide, view, closed, aiFirst, aiApplied: true }
+      `)
+      expect(result.label === "E2E harness", `the rail label is ${result.label}`)
+      expect(result.tabs.join(",") === "HTML,CSS,JavaScript,Runrail API", `the editor tabs are ${result.tabs.join(", ")}`)
+      expect(result.aiFirst, "the AI description builder is not the primary screen workflow")
+      expect(result.aiApplied, "the completed assistant response did not update the screen")
+      expect(result.guide && result.view === "integrations" && result.closed, `the API guide rendered ${String(result.guide)}, the API opened ${result.view}, and close was ${String(result.closed)}`)
+      return `rail order places the screen below Office; AI description builder is primary; simulated assistant response updates the saved screen; advanced code editors save changes; API guide rendered; isolated screen queries the API catalog and opens Integrations; child webview closes on navigation`
+    })
+
+    if (customScreenOnly) {
+      await check("no page errors", async () => {
+        const errors = await page<readonly string[]>(`return errors`)
+        expect(errors.length === 0, errors.join(" | "))
+        return "none"
+      })
+      return app.pid
+    }
 
     await check("folders nobody picked are refused", async () => {
       const refused = await page<Record<string, string>>(`

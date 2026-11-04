@@ -60,7 +60,7 @@ export async function startQuick(message: QuickMessage): Promise<void> {
       toast("error", `The window's picture could not be attached: ${toHostError(error).message}`)
     }
   }
-  send(thread.id, { text: message.text, attachments })
+  send(thread.id, { text: message.text, attachments, trackUsage: true })
 }
 
 /** Takes quick chat's messages while the app runs. */

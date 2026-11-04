@@ -41,6 +41,8 @@ export interface UserItem {
   readonly errorMessage?: string
   /** The key the message went to the engine under; sending it again under it cannot start a second turn. */
   readonly requestId?: string
+  /** This submission came from a person-facing message surface, not an internal helper prompt. */
+  readonly trackUsage?: true
   /** Memories the engine sent with the message, read back from its text. */
   readonly recalled?: readonly RecalledMemory[]
   /** Why local memory answered instead of the external server. */
@@ -1193,7 +1195,7 @@ export function appendNotice(
 /** Adds an optimistic user message; `turn.started` claims it. */
 export function addPendingUser(
   timeline: Timeline,
-  input: { readonly text: string; readonly attachments: number; readonly images?: readonly string[]; readonly sent?: readonly SentAttachment[]; readonly steer?: boolean; readonly requestId?: string },
+  input: { readonly text: string; readonly attachments: number; readonly images?: readonly string[]; readonly sent?: readonly SentAttachment[]; readonly steer?: boolean; readonly requestId?: string; readonly trackUsage?: true },
 ): { readonly timeline: Timeline; readonly key: string } {
   pendingOrdinal += 1
   const key = `p.${String(Date.now())}.${String(pendingOrdinal)}`
@@ -1208,6 +1210,7 @@ export function addPendingUser(
     state: input.steer === true ? "sent" : "sending",
     ...(input.steer === true ? { steer: true } : {}),
     ...(input.requestId === undefined ? {} : { requestId: input.requestId }),
+    ...(input.trackUsage === true ? { trackUsage: true as const } : {}),
     at: Date.now(),
   })
   return { timeline: draft.finish(), key }

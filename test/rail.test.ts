@@ -14,11 +14,12 @@ const REVIEWS: View = { kind: "reviews" }
 const AGENTS: View = { kind: "agents", runId: "setup-1" }
 const EVALS: View = { kind: "evals" }
 const MEMORY: View = { kind: "memory" }
+const USAGE: View = { kind: "usage" }
 
 describe("rail items", () => {
   test("lists the shipped places in rail order, with office only when office mode is on", () => {
-    expect(railItems({ view: THREAD, office: false, waiting: 0 }).map((item) => item.place)).toEqual(["threads", "reviews", "agents", "workflows", "evals", "integrations", "memory"])
-    expect(railItems({ view: THREAD, office: true, waiting: 0 }).map((item) => item.place)).toEqual(["threads", "reviews", "agents", "workflows", "evals", "integrations", "memory", "office"])
+    expect(railItems({ view: THREAD, office: false, waiting: 0 }).map((item) => item.place)).toEqual(["threads", "reviews", "agents", "workflows", "evals", "integrations", "memory", "usage", "custom"])
+    expect(railItems({ view: THREAD, office: true, waiting: 0 }).map((item) => item.place)).toEqual(["threads", "reviews", "agents", "workflows", "evals", "integrations", "memory", "usage", "office", "custom"])
   })
 
   test("marks exactly one place active for every view", () => {
@@ -30,6 +31,7 @@ describe("rail items", () => {
       [WORKFLOWS, "workflows"],
       [EVALS, "evals"],
       [MEMORY, "memory"],
+      [USAGE, "usage"],
       [INTEGRATIONS, "integrations"],
       [OFFICE, "office"],
     ] as const) {
@@ -52,7 +54,7 @@ describe("rail items", () => {
 
   test("keeps each place's digit, and every digit is a registered shortcut", () => {
     const keys = Object.fromEntries(railItems({ view: THREAD, office: true, waiting: 0 }).map((item) => [item.place, item.keys]))
-    expect(keys).toEqual({ threads: "mod+1", reviews: "mod+2", agents: "mod+3", workflows: "mod+4", evals: "mod+5", integrations: "mod+6", memory: "mod+7", office: "mod+8" })
+    expect(keys).toEqual({ threads: "mod+1", reviews: "mod+2", agents: "mod+3", workflows: "mod+4", evals: "mod+5", integrations: "mod+6", memory: "mod+7", office: "mod+8", custom: "mod+9", usage: "mod+0" })
     for (const value of Object.values(keys)) expect(SHORTCUTS.some((shortcut) => shortcut.keys === value)).toBe(true)
   })
 })

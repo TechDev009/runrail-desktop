@@ -310,8 +310,8 @@ function ReviewChanges({ threadId, folder }: { readonly threadId: string; readon
     // The agent works from the thread's checkout, so a related folder's files go by their full path.
     const text = commentPrompt(folder === undefined ? comments : comments.map((comment) => ({ ...comment, path: `${folder}/${comment.path}` })))
     // Cleared once the message is on its way; a failed send keeps them, and its bubble can be retried.
-    if (isBusy(runtimeOf(threadId).timeline)) await steer(threadId, { text })
-    else send(threadId, { text })
+    if (isBusy(runtimeOf(threadId).timeline)) await steer(threadId, { text, trackUsage: true })
+    else send(threadId, { text, trackUsage: true })
     clearComments()
     focusComposer()
   }

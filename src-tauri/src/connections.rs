@@ -323,14 +323,35 @@ pub enum SecretOwner {
     /// The secret of an app the person registered for a remote MCP server's sign-in, named by the
     /// id the engine gave that server (`mcp-oauth:<32 hex>`).
     McpClient,
+    /// A value the person typed for a variable an MCP server names, named
+    /// `mcp-var:<server>:<NAME>`. The engine hands it to that server when it starts.
+    McpVariable,
 }
 
 fn valid_mcp_client_id(value: &str) -> bool {
     value.strip_prefix("mcp-oauth:").is_some_and(|hex| hex.len() == 32 && hex.bytes().all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)))
 }
 
+fn valid_mcp_variable_id(value: &str) -> bool {
+    let Some(rest) = value.strip_prefix("mcp-var:") else { return false };
+    let Some((server, name)) = rest.split_once(':') else { return false };
+    let server = server.as_bytes();
+    let name = name.as_bytes();
+    !server.is_empty()
+        && server.len() <= 32
+        && server[0].is_ascii_lowercase()
+        && server.iter().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-'))
+        && !name.is_empty()
+        && name.len() <= 64
+        && (name[0].is_ascii_alphabetic() || name[0] == b'_')
+        && name.iter().all(|byte| byte.is_ascii_alphanumeric() || *byte == b'_')
+}
+
 pub fn secret_body_for(owner: SecretOwner, connection_id: &str, secret: &str) -> BridgeResult<Zeroizing<Vec<u8>>> {
-    if !valid_connection_id(connection_id) || (owner == SecretOwner::McpClient && !valid_mcp_client_id(connection_id)) {
+    if !valid_connection_id(connection_id)
+        || (owner == SecretOwner::McpClient && !valid_mcp_client_id(connection_id))
+        || (owner == SecretOwner::McpVariable && !valid_mcp_variable_id(connection_id))
+    {
         return Err(BridgeError::new("CONTROL_INVALID_INPUT", "connection id is invalid"));
     }
     let secret = bounded_input(secret, MAX_SECRET_BYTES, "CONNECTION_SECRET_INVALID", "the key is empty, too long, or not plain text")?;
@@ -339,6 +360,7 @@ pub fn secret_body_for(owner: SecretOwner, connection_id: &str, secret: &str) ->
         SecretOwner::ToolConnection => "connectionId",
         SecretOwner::Connector => "connectorId",
         SecretOwner::McpClient => "mcpClientId",
+        SecretOwner::McpVariable => "mcpVariable",
     };
     Ok(private_body(id_key, connection_id, "secret", secret))
 }
@@ -629,6 +651,11 @@ mod tests {
 
     #[test]
     fn private_bodies_are_exact_json() {
+        let variable = secret_body_for(SecretOwner::McpVariable, "mcp-var:linear:LINEAR_API_KEY", " lin_key ").unwrap();
+        assert_eq!(serde_json::from_slice::<Value>(&variable).unwrap(), json!({ "mcpVariable": "mcp-var:linear:LINEAR_API_KEY", "secret": "lin_key" }));
+        for id in ["mcp-var:Linear:KEY", "mcp-var:linear", "mcp-var:linear:1KEY", "mcp-var:linear:KE-Y", "mcp-oauth:linear:KEY", "openai-1", "mcp-var:linear:KEY:extra"] {
+            assert_eq!(secret_body_for(SecretOwner::McpVariable, id, "x").unwrap_err().code, "CONTROL_INVALID_INPUT", "{id}");
+        }
         let body = secret_body("conn-1", "  sk-\"quoted\"\\key  ").unwrap();
         let parsed: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(parsed, json!({ "accountId": "conn-1", "secret": "sk-\"quoted\"\\key" }));

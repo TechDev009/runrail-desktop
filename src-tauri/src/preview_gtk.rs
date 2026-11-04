@@ -22,7 +22,7 @@ const WAIT: Duration = Duration::from_secs(10);
 
 /// Every shortcut in `src/ui/shell/shortcuts.ts`, which a test keeps in step.
 const SHORTCUT_KEYS: &[&str] = &[
-    "mod+k", "mod+shift+f", "mod+n", "mod+o", "mod+,", "mod+/", "mod+1", "mod+2", "mod+3", "mod+4", "mod+5", "mod+7", "mod+6", "mod+8", "mod+b", "mod+alt+b", "mod+shift+d", "mod+p", "mod+j", "mod+shift+a", "mod+shift+b", "mod+t", "mod+w", "ctrl+tab", "ctrl+shift+tab", "mod+shift+[", "mod+shift+]",
+    "mod+k", "mod+shift+f", "mod+n", "mod+o", "mod+,", "mod+/", "mod+1", "mod+2", "mod+3", "mod+4", "mod+5", "mod+7", "mod+6", "mod+8", "mod+9", "mod+b", "mod+alt+b", "mod+shift+d", "mod+p", "mod+j", "mod+shift+a", "mod+shift+b", "mod+t", "mod+w", "ctrl+tab", "ctrl+shift+tab", "mod+shift+[", "mod+shift+]",
     "mod+l", "mod+f", "mod+.", "mod+shift+m", "mod+i",
 ];
 

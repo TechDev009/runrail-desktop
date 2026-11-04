@@ -65,6 +65,7 @@ import { readAnswer, speak, useVoice } from "./voice"
 import { threadIntegrations } from "./integrations"
 import { runLabel } from "./modelText"
 import { nifraOn, NifraUseSchema } from "./nifra"
+import { recordAcceptedMessage, recordTurn } from "./usageHistory"
 
 /**
  * Engine controller. One engine process per open thread (session id = thread id), started on
@@ -697,7 +698,11 @@ export async function stopProjectService(projectId: string): Promise<void> {
 
 function afterTimeline(threadId: string, before: Timeline, after: Timeline): void {
   noteTimeline(threadId, before, after)
-  if (after.lastTurnEnd !== undefined && after.lastTurnEnd !== before.lastTurnEnd) void onTurnEnd(threadId, after.lastTurnEnd)
+  if (after.lastTurnEnd !== undefined && after.lastTurnEnd !== before.lastTurnEnd) {
+    const ended = after.items.find((item) => item.kind === "turn-end" && item.turnId === after.lastTurnEnd?.turnId)
+    if (ended?.kind === "turn-end") recordTurn(threadId, ended.turnId, ended.startedAt, { backend: ended.backend, model: ended.model })
+    void onTurnEnd(threadId, after.lastTurnEnd)
+  }
   if (after.activeTurnId !== undefined && before.activeTurnId !== after.activeTurnId) patchThread(threadId, { lastStatus: "running" })
   const beforePending = pendingApprovals(before).length
   const afterPending = pendingApprovals(after).length
@@ -864,6 +869,8 @@ export interface SendInput {
   readonly requestId?: string
   /** Sent without the check for a used-up plan. */
   readonly anyway?: boolean
+  /** Count this accepted submission in local usage history. Internal helper prompts omit it. */
+  readonly trackUsage?: true
 }
 
 /** The engine's own loop takes skills by id (up to eight); a coding tool is asked in words. */
@@ -883,6 +890,8 @@ export function send(threadId: string, input: SendInput): void {
   const { text, skills } = withSkills(thread.backend, input.text.trim(), input.skills ?? [])
   const attachments = input.attachments ?? []
   if (text.length === 0 && attachments.length === 0) return
+  const requestId = input.requestId ?? newId("q")
+  const trackUsage = input.trackUsage === true
   noteSent(threadId, text)
   // A message sent before a usage limit resets takes the place of the wait for it.
   if (thread.resume !== undefined) patchThread(threadId, { resume: undefined })
@@ -893,10 +902,10 @@ export function send(threadId: string, input: SendInput): void {
 
   if (thread.mode === "goal" && runtimeOf(threadId).goal?.status !== "running") {
     patchRuntime(threadId, { goal: { objective: text, iteration: 1, max: GOAL_ITERATIONS, status: "running" } })
-    dispatch(threadId, { id: newId("q"), text: goalPrompt(text), attachments, ...(skills.length === 0 ? {} : { skills }) }, text)
+    dispatch(threadId, { id: newId("q"), text: goalPrompt(text), attachments, ...(skills.length === 0 ? {} : { skills }), ...(trackUsage ? { trackUsage: true as const } : {}) }, text)
     return
   }
-  const prompt: QueuedPrompt = { id: input.requestId ?? newId("q"), text, attachments, ...(skills.length === 0 ? {} : { skills }), ...(input.anyway === true ? { anyway: true as const } : {}) }
+  const prompt: QueuedPrompt = { id: requestId, text, attachments, ...(skills.length === 0 ? {} : { skills }), ...(input.anyway === true ? { anyway: true as const } : {}), ...(trackUsage ? { trackUsage: true as const } : {}) }
   if (shouldQueue(runtimeOf(threadId))) {
     patchRuntime(threadId, (current) => ({ queue: [...current.queue, prompt] }))
     return
@@ -954,7 +963,7 @@ function dispatch(threadId: string, prompt: QueuedPrompt, display?: string): voi
   const sent = prompt.attachments.map(({ path, kind, name, mediaType }) => ({ path, kind, name, ...(mediaType === undefined ? {} : { mediaType }) }))
   let key = ""
   patchRuntime(threadId, (current) => {
-    const added = addPendingUser(current.timeline, { text: display ?? prompt.text, attachments: prompt.attachments.length, images, sent, requestId: prompt.id })
+    const added = addPendingUser(current.timeline, { text: display ?? prompt.text, attachments: prompt.attachments.length, images, sent, requestId: prompt.id, ...(prompt.trackUsage === true ? { trackUsage: true as const } : {}) })
     key = added.key
     return { timeline: added.timeline, lastError: undefined }
   })
@@ -982,6 +991,7 @@ function dispatch(threadId: string, prompt: QueuedPrompt, display?: string): voi
       const recall = display === undefined && !quiet(threadId) && recalls(threadId)
       // A resend after a lost answer goes under the same key, so the engine runs it once.
       await threadRpc(threadId, "turn.enqueue", { message: messageFor(prompt.text, prompt.attachments, prompt.skills), idempotencyKey: prompt.id, ...(recall ? { recall: true } : {}) })
+      if (prompt.trackUsage === true) recordAcceptedMessage(threadId, prompt.id)
       // An engine that never announced the turn still took the message.
       patchRuntime(threadId, (current) => ({ timeline: markUser(current.timeline, key, "sent") }))
     } catch (error) {
@@ -1014,7 +1024,7 @@ export function retry(threadId: string, key: string, anyway = false): void {
   const item = position === undefined ? undefined : timeline.items[position]
   if (item?.kind !== "user") return
   patchRuntime(threadId, (current) => ({ timeline: removeItem(current.timeline, key), queuePaused: false }))
-  send(threadId, { text: item.text, ...(item.requestId === undefined ? {} : { requestId: item.requestId }), ...(anyway ? { anyway } : {}) })
+  send(threadId, { text: item.text, ...(item.requestId === undefined ? {} : { requestId: item.requestId }), ...(anyway ? { anyway } : {}), ...(item.trackUsage === true ? { trackUsage: true as const } : {}) })
 }
 
 /**
@@ -1052,7 +1062,7 @@ export function askAgain(threadId: string): void {
   for (let index = items.length - 1; index >= 0; index -= 1) {
     const item = items[index]
     if (item?.kind === "user" && item.steer !== true && item.text.trim().length > 0) {
-      send(threadId, { text: item.text })
+      send(threadId, { text: item.text, trackUsage: true })
       return
     }
   }
@@ -1067,18 +1077,23 @@ export async function steer(threadId: string, input: SendInput): Promise<void> {
   const { text, skills } = withSkills(threadById(threadId)?.backend ?? "native", input.text.trim(), input.skills ?? [])
   const attachments = input.attachments ?? []
   if (text.length === 0 && attachments.length === 0) return
+  const requestId = input.requestId ?? newId("s")
+  const trackUsage = input.trackUsage === true
   noteRescue(threadId)
   const liveOnly = runtimeOf(threadId).contract?.capabilities["turn.steer.live"] !== undefined
   let key = ""
   patchRuntime(threadId, (current) => {
-    const added = addPendingUser(current.timeline, { text, attachments: attachments.length, steer: true })
+    const added = addPendingUser(current.timeline, { text, attachments: attachments.length, steer: true, requestId, ...(trackUsage ? { trackUsage: true as const } : {}) })
     key = added.key
     return { timeline: added.timeline }
   })
   try {
-    const answer = await threadRpc(threadId, "turn.steer", { message: messageFor(text, attachments, skills), idempotencyKey: newId("s"), ...(liveOnly ? { liveOnly: true } : {}) })
-    if (!liveOnly || (answer as { readonly steered?: unknown } | null)?.steered !== false) return
-    const prompt: QueuedPrompt = { id: newId("q"), text, attachments, ...(skills.length === 0 ? {} : { skills }) }
+    const answer = await threadRpc(threadId, "turn.steer", { message: messageFor(text, attachments, skills), idempotencyKey: requestId, ...(liveOnly ? { liveOnly: true } : {}) })
+    if (!liveOnly || (answer as { readonly steered?: unknown } | null)?.steered !== false) {
+      if (trackUsage) recordAcceptedMessage(threadId, requestId)
+      return
+    }
+    const prompt: QueuedPrompt = { id: requestId, text, attachments, ...(skills.length === 0 ? {} : { skills }), ...(trackUsage ? { trackUsage: true as const } : {}) }
     patchRuntime(threadId, (current) => ({ timeline: removeItem(current.timeline, key), queue: [prompt, ...current.queue] }))
     const runtime = runtimeOf(threadId)
     if (!runtime.queuePaused && !shouldQueue(runtime)) dispatchNext(threadId)

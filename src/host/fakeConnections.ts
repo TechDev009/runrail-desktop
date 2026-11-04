@@ -337,6 +337,8 @@ export class FakeConnections {
   private readonly mcpSignIns = new Map<string, number>()
   /** Apps named for MCP servers whose authorization server registers none, by address. */
   private readonly mcpClients = new Map<string, { id: string; callbackPort?: number; secret: boolean }>()
+  /** Ids (`mcp-var:<server>:<NAME>`) with a kept value; the preview keeps no value. */
+  private readonly mcpVariables = new Set<string>()
   private readonly logins = new Map<string, FakeLogin>()
   private readonly scenario: PreviewScenario
   /** Settings beside each account; an account with none is on with every model. */
@@ -869,6 +871,14 @@ export class FakeConnections {
         this.mcpClients.set(url, client)
         return { id: mcpServerId(url), url, client }
       }
+      case "auth.mcp.variable.status": {
+        const { server, names } = this.variableTarget(params)
+        return { server, set: names.filter((name) => this.mcpVariables.has(`mcp-var:${server}:${name}`)) }
+      }
+      case "auth.mcp.variable.clear": {
+        const { server, names } = this.variableTarget(params)
+        return { server, cleared: names.filter((name) => this.mcpVariables.delete(`mcp-var:${server}:${name}`)) }
+      }
       case "auth.mcp.client.clear": {
         const url = mcpAddress(params.url)
         return { url, removed: this.mcpClients.delete(url) }
@@ -975,6 +985,20 @@ export class FakeConnections {
 
   mcpSignedIn(url: string): boolean {
     return this.mcpSignIns.has(mcpAddress(url))
+  }
+
+  private variableTarget(params: Record<string, unknown>): { server: string; names: string[] } {
+    const { server, names } = params
+    if (typeof server !== "string" || !/^[a-z][a-z0-9_-]{0,31}$/.test(server)) throw invalid("server is invalid")
+    if (!Array.isArray(names) || names.some((name) => typeof name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(name))) throw invalid("names are invalid")
+    return { server, names: names as string[] }
+  }
+
+  /** Marks a server variable as kept and drops the value: the preview keeps no secret. */
+  setMcpVariable(id: string): unknown {
+    if (!/^mcp-var:[a-z][a-z0-9_-]{0,31}:[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(id)) throw invalid("mcpVariable is invalid")
+    this.mcpVariables.add(id)
+    return { stored: true }
   }
 
   /** Marks the named app's secret as kept and drops the value: the preview keeps no secret. */

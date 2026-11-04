@@ -62,6 +62,8 @@ h1 span, h2 span { color: var(--color-accent); }
 .text-link:hover span { transform: translateX(4px); }
 .platform-note { margin: 20px 0 0; color: var(--color-dim); font: 10px var(--font-mono); }
 .platform-note span { padding: 0 5px; color: var(--color-accent); }
+.platform-note-detail { margin: 7px 0 0; color: var(--color-dim); font-size: 11px; line-height: 1.5; }
+.platform-note-detail a { color: var(--color-ink); text-decoration: underline; text-underline-offset: 3px; }
 .hero-shot { min-width: 0; align-self: center; }
  .hero-shot img { width: 100%; height: auto; border: 1px solid var(--color-rule); box-shadow: 0 24px 70px var(--color-shadow); }
 .hero-shot figcaption, .office-shot figcaption, .engine-video figcaption { display: flex; justify-content: space-between; gap: 14px; padding-top: 11px; color: var(--color-dim); font: 9px var(--font-mono); letter-spacing: .045em; }

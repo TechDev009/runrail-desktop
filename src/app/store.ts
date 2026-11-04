@@ -13,6 +13,7 @@ import {
   MAX_PROJECT_FOLDERS,
   MAX_THREAD_RUNS,
   newId,
+  type CustomScreen,
   type DesktopState,
   type Layout,
   type PermissionPreset,
@@ -23,6 +24,7 @@ import {
   type ThreadMeta,
   type ThreadRun,
   type ThreadMode,
+  type ThemeProfile,
 } from "./persist"
 import type { BackendId, EditorId, Thinking } from "../host/types"
 import { markThreadRead } from "./inbox"
@@ -47,6 +49,8 @@ export interface QueuedPrompt {
   readonly text: string
   readonly attachments: readonly Attachment[]
   readonly skills?: readonly string[]
+  /** Keep the person-facing submission marker while a prompt waits behind a running turn. */
+  readonly trackUsage?: true
   /** Goes even when the plan reads as used up: the person sent it again after it was held. */
   readonly anyway?: true
 }
@@ -111,12 +115,14 @@ export type View =
   | { readonly kind: "agents"; readonly runId?: string }
   | { readonly kind: "evals"; readonly runId?: string }
   | { readonly kind: "memory" }
+  | { readonly kind: "usage" }
   /** Workflows: a project's, one workflow, one of its runs. */
   | { readonly kind: "workflows"; readonly projectId?: string; readonly workflowId?: string; readonly runId?: string }
   /** Integrations: connectors, MCP servers, who may use what, plugins and skills. */
   | { readonly kind: "integrations"; readonly section?: "connectors" | "mcp" | "grants" | "extensions" }
   | { readonly kind: "compare"; readonly groupId: string }
   | { readonly kind: "office" }
+  | { readonly kind: "custom-screen" }
   /** Archived threads by project. */
   | { readonly kind: "archived" }
 
@@ -265,7 +271,39 @@ export function setLayout(patch: Partial<Layout>): void {
 }
 
 export function setPrefs(patch: Partial<Prefs>): void {
-  set((state) => ({ prefs: { ...state.prefs, ...patch } }))
+  set((state) => ({
+    prefs: { ...state.prefs, ...patch },
+    ...(patch.palette === undefined && patch.accent === undefined ? {} : { activeThemeProfileId: undefined }),
+  }))
+}
+
+export function setActiveThemeProfile(id: string | undefined): void {
+  set((state) => {
+    if (id !== undefined && !state.themeProfiles.some((profile) => profile.id === id)) return state
+    return id === undefined ? { activeThemeProfileId: undefined } : { activeThemeProfileId: id }
+  })
+}
+
+export function saveThemeProfile(profile: ThemeProfile, apply = false): void {
+  set((state) => {
+    const profiles = [...state.themeProfiles.filter((item) => item.id !== profile.id), profile].slice(-50)
+    return { themeProfiles: profiles, ...(apply ? { activeThemeProfileId: profile.id } : {}) }
+  })
+}
+
+export function removeThemeProfile(id: string): void {
+  set((state) => ({
+    themeProfiles: state.themeProfiles.filter((profile) => profile.id !== id),
+    ...(state.activeThemeProfileId === id ? { activeThemeProfileId: undefined } : {}),
+  }))
+}
+
+export function setUsageHistory(next: AppState["usageHistory"]): void {
+  set({ usageHistory: next })
+}
+
+export function setCustomScreen(patch: Partial<CustomScreen>): void {
+  set((state) => ({ customScreen: { ...state.customScreen, ...patch } }))
 }
 
 export function toast(level: Toast["level"], text: string, action?: Toast["action"]): void {
@@ -517,7 +555,19 @@ export function rememberThreadRun(threadId: string, run: ThreadRun): void {
 }
 
 export function persistedSlice(state: AppState): DesktopState {
-  return { version: 1, projects: state.projects, threads: state.threads.map(savedThread), prefs: state.prefs, layout: state.layout, learning: state.learning, game: state.game }
+  return {
+    version: 1,
+    projects: state.projects,
+    threads: state.threads.map(savedThread),
+    prefs: state.prefs,
+    themeProfiles: state.themeProfiles,
+    ...(state.activeThemeProfileId === undefined ? {} : { activeThemeProfileId: state.activeThemeProfileId }),
+    usageHistory: state.usageHistory,
+    layout: state.layout,
+    learning: state.learning,
+    game: state.game,
+    customScreen: state.customScreen,
+  }
 }
 
 /** An archived thread's per-turn models are not saved; its rows show the thread's own model if it comes back. */

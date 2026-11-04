@@ -29,7 +29,7 @@ const CODE_TEXT: Readonly<Record<string, string>> = {
   MCP_REMOTE_ERROR: "It answered with an error.",
   MCP_BRIDGE_INVALID: "Its tools have names Runrail cannot use.",
   MCP_BRIDGE_LIMIT: "It lists more tools than Runrail takes.",
-  MCP_TOKEN_MISSING: "Its token variable is not set in the shell Runrail started from.",
+  MCP_TOKEN_MISSING: "Its token has no value. Edit the server to enter one, or set the variable in the shell Runrail started from.",
   MCP_TOKEN_REJECTED: "It refused the token in its token variable.",
   MCP_SIGN_IN_REQUIRED: "It asks you to sign in. Use Sign in, then check it again.",
   MCP_SIGN_IN_UNAVAILABLE: "Its sign-in could not be read or renewed. Unlock the keychain, or sign in again.",
@@ -88,9 +88,38 @@ export async function setMcpEnabled(name: string, enabled: boolean): Promise<rea
 }
 
 export async function removeMcpServer(name: string): Promise<readonly McpServer[]> {
+  const before = (await getHost().mcpList().catch(() => [])).find((server) => server.name === name)
   const servers = await getHost().mcpRemove(name)
+  if (before !== undefined) await applyMcpVariables(name, {}, variableNames(before)).catch(() => undefined)
   afterChange()
   return servers
+}
+
+const VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]{0,63}$/
+
+/** The variables a server names: a program's environment names, or an address's token variable. */
+export function variableNames(server: Pick<McpServer, "url" | "env" | "bearerEnv">): readonly string[] {
+  const names = server.url === undefined ? server.env : server.bearerEnv === undefined ? [] : [server.bearerEnv]
+  return [...new Set(names.filter((name) => VARIABLE_NAME.test(name)))]
+}
+
+const McpVariableStatusSchema = z.object({ server: z.string(), set: z.array(z.string().max(64)).max(32) })
+
+/** Which of the server's variables have a value kept in the keychain; never the values. */
+export async function listMcpVariables(server: string, names: readonly string[]): Promise<ReadonlySet<string>> {
+  if (names.length === 0) return new Set()
+  const parsed = McpVariableStatusSchema.safeParse(await systemRpc("auth.mcp.variable.status", { server, names }))
+  return new Set(parsed.success ? parsed.data.set : [])
+}
+
+/**
+ * Keeps typed values and forgets removed ones for a server's variables. Values go to the engine
+ * through the host's own command, never as a call, and are read only when the server starts.
+ */
+export async function applyMcpVariables(server: string, values: Readonly<Record<string, string>>, clear: readonly string[] = []): Promise<void> {
+  if (clear.length > 0) await systemRpc("auth.mcp.variable.clear", { server, names: clear })
+  for (const [name, value] of Object.entries(values)) await getHost().connectionSecretSet(`mcp-var:${server}:${name}`, value, "mcp-variable")
+  if (clear.length > 0 || Object.keys(values).length > 0) afterChange()
 }
 
 /**

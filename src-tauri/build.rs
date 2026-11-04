@@ -1,6 +1,5 @@
-/// Every host command. With an app manifest each one needs a permission, and only the main
-/// webview's capability grants them, so a page in a browser preview reaches none, even one served
-/// from a local address. A test checks this list against `generate_handler!` and the capability.
+/// Every host command. The main webview gets the host API; custom screens get only their request
+/// broker, and browser previews get nothing. A test checks this list against the handler and ACL.
 const COMMANDS: &[&str] = &[
     "computer_access",
     "computer_request_access",
@@ -99,6 +98,7 @@ const COMMANDS: &[&str] = &[
     "quick_status",
     "quick_set",
     "quick_context",
+    "quick_theme",
     "quick_submit",
     "quick_hide",
     "phone_set_push",
@@ -133,6 +133,11 @@ const COMMANDS: &[&str] = &[
     "update_check",
     "update_install",
     "preview_open",
+    "custom_screen_open",
+    "custom_screen_bounds",
+    "custom_screen_close",
+    "custom_screen_request",
+    "custom_screen_reply",
     "preview_bounds",
     "preview_action",
     "preview_external",

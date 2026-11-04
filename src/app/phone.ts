@@ -131,7 +131,7 @@ export async function runPhoneCall(method: string, params: Readonly<Record<strin
       const thread = threadParam(params)
       const text = typeof params.text === "string" ? params.text.trim() : ""
       if (text.length === 0 || text.length > MAX_TEXT) throw new PhoneError("PHONE_BAD_MESSAGE", "Write a message of up to 20,000 characters.")
-      send(thread.id, { text })
+      send(thread.id, { text, trackUsage: true })
       return { sent: true }
     }
     case "stop": {

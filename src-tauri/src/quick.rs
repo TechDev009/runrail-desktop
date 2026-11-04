@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json, Value};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
@@ -97,6 +97,18 @@ pub struct QuickContext {
     pub capturable: bool,
     pub include_window: bool,
     pub screen_access: bool,
+}
+
+/// The small window consumes only the validated appearance fields it needs; it never receives the
+/// desktop state or a custom profile's metadata.
+#[derive(Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct QuickTheme {
+    pub theme: String,
+    pub palette: String,
+    pub accent: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seed_color: Option<String>,
 }
 
 pub struct Quick {
@@ -276,6 +288,54 @@ impl Quick {
         }
         crate::background::show(app);
         app.emit_to("main", "quick:submit", json!({ "text": text, "image": image })).map_err(|_| BridgeError::new("QUICK_FAILED", "Runrail's window did not take the message."))
+    }
+}
+
+fn allowed_theme(value: Option<&Value>) -> String {
+    match value.and_then(Value::as_str) {
+        Some("light") => "light".into(),
+        Some("dark") => "dark".into(),
+        _ => "system".into(),
+    }
+}
+
+fn allowed_palette(value: Option<&Value>) -> String {
+    match value.and_then(Value::as_str) {
+        Some(value @ ("default" | "sakura" | "ume" | "fuji" | "ajisai" | "tsubaki" | "matcha")) => value.into(),
+        _ => "default".into(),
+    }
+}
+
+fn allowed_accent(value: Option<&Value>) -> String {
+    match value.and_then(Value::as_str) {
+        Some(value @ ("mono" | "theme" | "blue" | "violet" | "orange" | "green" | "teal" | "rose" | "amber" | "indigo" | "cyan")) => value.into(),
+        _ => "mono".into(),
+    }
+}
+
+fn valid_seed(value: Option<&Value>) -> Option<String> {
+    let value = value.and_then(Value::as_str)?;
+    let bytes = value.as_bytes();
+    (bytes.len() == 7 && bytes[0] == b'#' && bytes[1..].iter().all(|byte| byte.is_ascii_hexdigit())).then(|| value.to_ascii_lowercase())
+}
+
+/// Reads the persisted appearance without exposing the rest of desktop state to quick chat.
+pub fn theme(app_data: &Path) -> QuickTheme {
+    let state = crate::store::load(app_data).ok().flatten().unwrap_or(Value::Null);
+    let prefs = state.get("prefs");
+    let profiles = state.get("themeProfiles").and_then(Value::as_array);
+    let active_id = state.get("activeThemeProfileId").and_then(Value::as_str);
+    let profile = active_id
+        .and_then(|id| profiles?.iter().find(|profile| profile.get("id").and_then(Value::as_str) == Some(id)))
+        .and_then(|profile| Some((allowed_palette(profile.get("palette")), valid_seed(profile.get("seedColor"))?)));
+    match profile {
+        Some((palette, seed_color)) => QuickTheme { theme: allowed_theme(prefs.and_then(|value| value.get("theme"))), palette, accent: "custom".into(), seed_color: Some(seed_color) },
+        None => QuickTheme {
+            theme: allowed_theme(prefs.and_then(|value| value.get("theme"))),
+            palette: allowed_palette(prefs.and_then(|value| value.get("palette"))),
+            accent: allowed_accent(prefs.and_then(|value| value.get("accent"))),
+            seed_color: None,
+        },
     }
 }
 

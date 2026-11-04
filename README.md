@@ -52,8 +52,9 @@ model you connect, or on Claude Code, Codex, GitHub Copilot, or Pi through their
   waiting on you, its checks and reviews, and post or merge after you confirm.
 - **Works while you're away.** Workflows on a schedule or a pull request event, notifications
   when a thread needs you, and a menu bar item that keeps work running after the window closes.
-- **Local and private.** No account, no telemetry. Keys stay in the system keychain, and the
-  window never holds a credential.
+- **Local and private.** No account or network telemetry. Optional usage history is off by
+  default and stays on this computer; prompts, transcripts, paths, and credentials are never
+  included. Keys stay in the system keychain, and the window never holds a credential.
 
 - **Start something new.** Create an app from a starter (Nifra, Vite, or Next.js) and open
   it as a project in one step.
@@ -101,7 +102,9 @@ Settings with a key or a browser sign-in.
 
 ## Privacy
 
-Runrail has no account, analytics, or telemetry. It contacts these services only for the features you use:
+Runrail has no account or network telemetry. Optional local usage history is off by default and
+stores only bounded counts on this computer. It never includes prompts, transcripts, paths,
+credentials, or account details. Runrail contacts these services only for the features you use:
 
 - the model providers and coding tools you connect, with your own sign-ins. Prompts, selected files, and tool results go to the provider or tool that handles the thread;
 - npm, once, to download the Claude Agent SDK after you allow it (Runrail asks before Claude Code's first message);

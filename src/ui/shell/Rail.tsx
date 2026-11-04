@@ -1,10 +1,11 @@
-import { Blocks, Bot, Brain, Building2, FlaskConical, GitPullRequest, MessagesSquare, Search, Settings, SquarePen, Workflow } from "lucide-react"
+import { Activity, Blocks, Bot, Brain, Building2, Code2, FlaskConical, GitPullRequest, LayoutDashboard, MessagesSquare, Search, Settings, SquarePen, Terminal, Workflow } from "lucide-react"
 import type { ReactNode } from "react"
 import { startNewThread } from "../../app/actions"
 import { unreadCount, useInbox } from "../../app/inbox"
 import { showList, showOffice } from "../../app/office"
 import { ariaKeys, railAction, railItems, type RailPlace } from "../../app/rail"
 import { get, set, setLayout, useApp } from "../../app/store"
+import type { CustomScreenIcon } from "../../app/persist"
 import { useReviews } from "../../app/reviews"
 import { useEvals } from "../../app/evals"
 import { useSetups } from "../../app/setups"
@@ -26,8 +27,17 @@ const ICONS: Readonly<Record<RailPlace, ReactNode>> = {
   workflows: <Workflow size={16} />,
   evals: <FlaskConical size={16} />,
   memory: <Brain size={16} />,
+  usage: <Activity size={16} />,
   integrations: <Blocks size={16} />,
   office: <Building2 size={16} />,
+  custom: <Code2 size={16} />,
+}
+
+const CUSTOM_ICONS: Readonly<Record<CustomScreenIcon, ReactNode>> = {
+  code: <Code2 size={16} />,
+  workflow: <Workflow size={16} />,
+  terminal: <Terminal size={16} />,
+  layout: <LayoutDashboard size={16} />,
 }
 
 export function goTo(place: RailPlace): void {
@@ -51,10 +61,14 @@ export function goTo(place: RailPlace): void {
     case "evals":
     case "integrations":
     case "memory":
+    case "usage":
       set({ view: { kind: place } })
       return
     case "office":
       showOffice()
+      return
+    case "custom":
+      set({ view: { kind: "custom-screen" } })
       return
   }
 }
@@ -64,11 +78,13 @@ export function Rail() {
   const office = useApp((state) => state.prefs.officeMode !== "off")
   const listOpen = useApp((state) => state.layout.sidebarOpen)
   const projects = useApp((state) => state.projects.length)
+  const customLabel = useApp((state) => state.customScreen.name)
+  const customIcon = useApp((state) => state.customScreen.icon)
   const waiting = useWaiting().length
   const reviewsWaiting = useReviews((state) => state.waiting)
   const agentsWaiting = useSetups((state) => Object.values(state.runs).filter((entry) => entry.run.waiting?.kind === "approve").length)
   const evalsRunning = useEvals((state) => Object.values(state.runs).filter((entry) => entry.run.state === "running").length)
-  const items = railItems({ view, office, waiting, reviewsWaiting, agentsWaiting, evalsRunning })
+  const items = railItems({ view, office, waiting, reviewsWaiting, agentsWaiting, evalsRunning, customLabel })
   return (
     <nav className="rail" aria-label="Primary">
       <div className="rail-top" data-tauri-drag-region />
@@ -85,7 +101,7 @@ export function Rail() {
           {...(item.badge === undefined ? {} : { badge: item.badge })}
           onClick={() => goTo(item.place)}
         >
-          {ICONS[item.place]}
+          {item.place === "custom" ? CUSTOM_ICONS[customIcon] : ICONS[item.place]}
         </RailButton>
       ))}
       <div className="rail-spacer" />

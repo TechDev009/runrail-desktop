@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core"
 import { StrictMode, useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react"
 import { createRoot } from "react-dom/client"
+import { deriveThemeTokens } from "../app/themeProfiles"
 import "../styles/tokens.css"
 import "../styles/checks.css"
 import "../styles/quick.css"
@@ -17,6 +18,13 @@ interface QuickContext {
   readonly capturable: boolean
   readonly includeWindow: boolean
   readonly screenAccess: boolean
+}
+
+interface QuickTheme {
+  readonly theme: "system" | "dark" | "light"
+  readonly palette: string
+  readonly accent: string
+  readonly seedColor?: string
 }
 
 function message(error: unknown): string {
@@ -98,11 +106,39 @@ function Quick() {
   )
 }
 
+const CUSTOM_THEME_VARS = ["--accent", "--accent-hover", "--accent-soft", "--accent-line", "--text-on-accent", "--link", "--link-line", "--focus", "--effort-fill", "--effort-stop-on", "--effort-ink"]
+
 function followTheme(): void {
   const light = window.matchMedia("(prefers-color-scheme: light)")
+  let saved: QuickTheme | undefined
   const apply = (): void => {
-    document.documentElement.dataset.theme = light.matches ? "light" : "dark"
+    const resolved = saved?.theme === "light" || saved?.theme === "dark" ? saved.theme : light.matches ? "light" : "dark"
+    document.documentElement.dataset.theme = resolved
+    document.documentElement.dataset.palette = saved?.palette ?? "default"
+    document.documentElement.dataset.accent = saved?.accent ?? "mono"
+    for (const variable of CUSTOM_THEME_VARS) document.documentElement.style.removeProperty(variable)
+    if (saved?.seedColor !== undefined) {
+      const tokens = deriveThemeTokens(saved.seedColor, resolved === "dark")
+      const values: Readonly<Record<string, string>> = {
+        "--accent": tokens.accent,
+        "--accent-hover": tokens.accentHover,
+        "--accent-soft": tokens.accentSoft,
+        "--accent-line": tokens.accentLine,
+        "--text-on-accent": tokens.textOnAccent,
+        "--link": tokens.link,
+        "--link-line": tokens.linkLine,
+        "--focus": tokens.focus,
+        "--effort-fill": tokens.effortFill,
+        "--effort-stop-on": tokens.effortStopOn,
+        "--effort-ink": tokens.effortInk,
+      }
+      for (const [variable, value] of Object.entries(values)) document.documentElement.style.setProperty(variable, value)
+    }
   }
+  void invoke<QuickTheme>("quick_theme").then((theme) => {
+    saved = theme
+    apply()
+  }).catch(() => apply())
   apply()
   light.addEventListener("change", apply)
 }

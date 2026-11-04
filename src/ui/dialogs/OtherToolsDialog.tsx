@@ -110,6 +110,16 @@ export function OtherToolsDialog({ section, projectId }: { readonly section: Oth
     return next
   })
 
+  const selectable = visible.filter((item) => item.blocked === undefined)
+  const pickedVisible = selectable.filter((item) => picked.has(item.key)).length
+  const toggleAll = (): void =>
+    setPicked((current) => {
+      const next = new Set(current)
+      if (pickedVisible === selectable.length) for (const item of selectable) next.delete(item.key)
+      else for (const item of selectable) next.add(item.key)
+      return next
+    })
+
   const run = async (): Promise<void> => {
     setBusy(true)
     const host = getHost()
@@ -187,6 +197,20 @@ export function OtherToolsDialog({ section, projectId }: { readonly section: Oth
           <input value={query} placeholder="Filter" aria-label="Filter" onChange={(event) => setQuery(event.target.value)} />
         </div>
       </div>
+      {selectable.length > 0 && (
+        <label className="import-select-all">
+          <input
+            type="checkbox"
+            checked={pickedVisible === selectable.length}
+            ref={(box) => {
+              if (box !== null) box.indeterminate = pickedVisible > 0 && pickedVisible < selectable.length
+            }}
+            disabled={busy}
+            onChange={toggleAll}
+          />
+          <span>{pickedVisible === selectable.length ? "Clear selection" : `Select all ${String(selectable.length)}`}</span>
+        </label>
+      )}
       <div className="import-list">
         {error !== undefined ? (
           <EmptyState icon={<TriangleAlert size={18} />} title="Could not read the other tools' settings">

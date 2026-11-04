@@ -2,7 +2,7 @@ import { Cable, CircleAlert, CircleCheck, Download, KeyRound, MoreHorizontal, Pl
 import { useEffect, useRef, useState } from "react"
 import { useShallow } from "zustand/react/shallow"
 import { confirmAction, openDialog } from "../../app/actions"
-import { checkMcpServer, clearMcpApp, HOSTED_SERVERS, joinArgs, listMcpSignIns, mcpFailureText, removeMcpServer, saveMcpServer, setMcpApp, setMcpEnabled, signInAddress, signInMcpServer, signOutMcpServer, signsIn, splitArgs, useMcpServers, type McpApp, type McpSignIn, type McpStatus } from "../../app/mcp"
+import { applyMcpVariables, checkMcpServer, clearMcpApp, listMcpVariables, variableNames, HOSTED_SERVERS, joinArgs, listMcpSignIns, mcpFailureText, removeMcpServer, saveMcpServer, setMcpApp, setMcpEnabled, signInAddress, signInMcpServer, signOutMcpServer, signsIn, splitArgs, useMcpServers, type McpApp, type McpSignIn, type McpStatus } from "../../app/mcp"
 import { useWords } from "../../app/platformWords"
 import type { SignInRun, SignInView } from "../../app/signIn"
 import { nifraOn } from "../../app/nifra"
@@ -35,6 +35,15 @@ interface Draft {
 }
 
 const EMPTY: Draft = { name: "", transport: "program", commandLine: "", env: "", url: "", bearerEnv: "", scope: "all" }
+
+/** The variable names the draft would give the server, as far as they are valid. */
+function draftVariableNames(draft: Draft): readonly string[] {
+  return variableNames({
+    url: draft.transport === "address" ? draft.url : undefined,
+    env: draft.env.split(/[\s,]+/).filter((entry) => entry.length > 0),
+    ...(draft.bearerEnv.trim().length === 0 ? {} : { bearerEnv: draft.bearerEnv.trim() }),
+  })
+}
 
 function draftOf(server: McpServer): Draft {
   return {
@@ -82,13 +91,40 @@ function Form({ initial, previous, enabled, project, onDone, onCancel }: { reado
   const [draft, setDraft] = useState(initial)
   const [error, setError] = useState<string | undefined>()
   const [saving, setSaving] = useState(false)
+  const words = useWords()
+  const [values, setValues] = useState<Readonly<Record<string, string>>>({})
+  const [saved, setSaved] = useState<ReadonlySet<string>>(new Set())
+  const [forgotten, setForgotten] = useState<ReadonlySet<string>>(new Set())
+  const names = draftVariableNames(draft)
+  useEffect(() => {
+    if (previous === undefined) return
+    let live = true
+    listMcpVariables(previous, variableNames({ url: initial.transport === "address" ? initial.url : undefined, env: initial.env.split(/[\s,]+/).filter((entry) => entry.length > 0), ...(initial.bearerEnv.length === 0 ? {} : { bearerEnv: initial.bearerEnv }) }))
+      .then((names) => live && setSaved(names))
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [previous]) // eslint-disable-line react-hooks/exhaustive-deps -- the saved keys are read once for the server being edited
+  const renamed = previous !== undefined && previous !== draft.name.trim()
+  const kept = (name: string): boolean => !renamed && saved.has(name) && !forgotten.has(name)
   const submit = (): void => {
     const parsed = parseDraft(draft, enabled)
     if (typeof parsed === "string") return setError(parsed)
+    const typed = Object.fromEntries(names.flatMap((name) => ((values[name] ?? "").trim().length === 0 ? [] : [[name, (values[name] ?? "").trim()] as const])))
+    if (Object.values(typed).some((value) => value.length > 4_096 || /[\0-\x1f\x7f]/.test(value))) return setError("A value is too long, or has a line break. Paste the key on its own.")
     setError(undefined)
     setSaving(true)
     saveMcpServer(parsed, previous)
-      .then((servers) => {
+      .then(async (servers) => {
+        try {
+          // A renamed server leaves its old keys behind; they are cleared, so re-entering is needed.
+          if (renamed) await applyMcpVariables(previous, {}, [...saved])
+          const stale = renamed ? [] : [...saved].filter((name) => forgotten.has(name) || !names.includes(name))
+          await applyMcpVariables(parsed.name, typed, stale.filter((name) => typed[name] === undefined))
+        } catch (caught) {
+          toast("error", `${parsed.name} saved, but its keys were not: ${toHostError(caught).message}`)
+        }
         onDone(servers)
         toast("success", `${parsed.name} saved. Threads pick it up when their agent next starts.`)
       })
@@ -133,7 +169,7 @@ function Form({ initial, previous, enabled, project, onDone, onCancel }: { reado
           <label className="entry-field">
             <span className="entry-field-label">Variables from your shell</span>
             <input className="input mono" value={draft.env} maxLength={1_200} placeholder="GITHUB_PERSONAL_ACCESS_TOKEN" spellCheck={false} onChange={(event) => setDraft({ ...draft, env: event.target.value })} />
-            <span className="entry-field-hint">Names only, comma separated. The server gets their values from the environment Runrail starts with; nothing secret is saved here.</span>
+            <span className="entry-field-hint">Names only, comma separated. The server gets each value from the keys you keep below, or else from the environment Runrail starts with.</span>
           </label>
         </>
       ) : (
@@ -146,9 +182,41 @@ function Form({ initial, previous, enabled, project, onDone, onCancel }: { reado
           <label className="entry-field">
             <span className="entry-field-label">Token variable (optional)</span>
             <input className="input mono" value={draft.bearerEnv} maxLength={64} placeholder="LINEAR_API_KEY" spellCheck={false} onChange={(event) => setDraft({ ...draft, bearerEnv: event.target.value })} />
-            <span className="entry-field-hint">The name of a shell variable holding the server's access token. Its value is sent to this address only, and is never saved here. Leave it empty for a server you sign in to in the browser.</span>
+            <span className="entry-field-hint">The variable that holds the server's access token, sent to this address only. Keep its value below, or set it in your shell. Leave it empty for a server you sign in to in the browser.</span>
           </label>
         </>
+      )}
+      {names.length > 0 && (
+        <div className="entry-field" data-setting="mcp-keys">
+          <span className="entry-field-label">Keys kept in your {words.keychain}</span>
+          <div className="entry-secrets">
+            {names.map((name) => (
+              <div key={name} className="entry-secret-row">
+                <code className="entry-secret-name">{name}</code>
+                <input
+                  className="input mono"
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  maxLength={4_096}
+                  aria-label={`Value for ${name}`}
+                  value={values[name] ?? ""}
+                  placeholder={kept(name) ? "Saved. Type to replace it." : "Paste the value (optional)"}
+                  onChange={(event) => setValues({ ...values, [name]: event.target.value })}
+                />
+                {kept(name) && (
+                  <Button size="sm" variant="ghost" type="button" onClick={() => setForgotten(new Set([...forgotten, name]))}>
+                    Forget
+                  </Button>
+                )}
+              </div>
+            ))}
+          </div>
+          <span className="entry-field-hint">
+            {renamed && saved.size > 0 ? "Renaming this server forgets its saved keys, so enter them again. " : ""}
+            Saved in the {words.keychain}, never in the server list, and handed only to this server when it starts. A value kept here wins over the same variable in your shell.
+          </span>
+        </div>
       )}
       {(project !== undefined || draft.scope !== "all") && (
         <label className="entry-field">
@@ -304,6 +372,7 @@ export function McpSection() {
   const [known, setKnown] = useState<ReadonlyMap<string, McpSignIn> | undefined>()
   const [signing, setSigning] = useState<{ readonly name: string; readonly view: SignInView } | undefined>()
   const [appFor, setAppFor] = useState<string | undefined>()
+  const [connecting, setConnecting] = useState<string | undefined>()
   const [seed, setSeed] = useState<Draft>(EMPTY)
   const run = useRef<SignInRun | undefined>(undefined)
   const nifra = useApp((state) => nifraOn(state.prefs))
@@ -349,6 +418,22 @@ export function McpSection() {
         toast("error", `${problem.title}. ${problem.next} (${view.code ?? "AUTH_FAILED"})`)
       } else if (view.phase === "cancelled") setSigning(undefined)
     })
+  }
+
+  /** Saves a hosted server after the host's confirmation, then starts its browser sign-in. */
+  const connectHosted = (hosted: (typeof HOSTED_SERVERS)[number]): void => {
+    const server: McpServer = { name: hosted.name, command: "", args: [], env: [], url: hosted.url, enabled: true }
+    setConnecting(hosted.name)
+    saveMcpServer(server, undefined)
+      .then((list) => {
+        set(list)
+        signIn({ ...server, url: hosted.url })
+      })
+      .catch((caught: unknown) => {
+        const failure = toHostError(caught)
+        if (failure.code !== "MCP_DECLINED") toast("error", failure.message)
+      })
+      .finally(() => setConnecting(undefined))
   }
 
   const forgetApp = (server: McpServer & { readonly url: string }): void => {
@@ -531,7 +616,6 @@ export function McpSection() {
           ) : (
             <div className="entry-add">
               <Button
-                size="sm"
                 icon={<Plus size={13} />}
                 disabled={servers.length >= 16 || editing !== undefined}
                 onClick={() => {
@@ -541,33 +625,33 @@ export function McpSection() {
               >
                 Add server
               </Button>
-              <Button size="sm" variant="ghost" icon={<Download size={13} />} disabled={project === undefined || servers.length >= 16 || editing !== undefined} title={project === undefined ? "Open a project first" : "Servers set up in Claude Code, Codex, Cursor, and other tools"} onClick={() => project !== undefined && openDialog({ kind: "other-tools", section: "servers", projectId: project.id })} data-setting="mcp-import">
+              <Button icon={<Download size={13} />} disabled={project === undefined || servers.length >= 16 || editing !== undefined} title={project === undefined ? "Open a project first" : "Servers set up in Claude Code, Codex, Cursor, and other tools"} onClick={() => project !== undefined && openDialog({ kind: "other-tools", section: "servers", projectId: project.id })} data-setting="mcp-import">
                 From other tools…
               </Button>
               {servers.length >= 16 && <span className="setting-hint">At most 16 servers.</span>}
             </div>
           )}
           {editing === undefined && servers.length < 16 && HOSTED_SERVERS.some((hosted) => !servers.some((server) => server.name === hosted.name || server.url === hosted.url)) && (
-            <p className="setting-hint" data-setting="mcp-hosted">
-              Sign in with your browser instead of a key:{" "}
-              {HOSTED_SERVERS.filter((hosted) => !servers.some((server) => server.name === hosted.name || server.url === hosted.url)).map((hosted, index) => (
-                <span key={hosted.name}>
-                  {index > 0 && ", "}
-                  <button
-                    type="button"
-                    className="link-button"
+            <div className="entry-hosted" data-setting="mcp-hosted">
+              <div className="entry-hosted-copy">
+                <span className="entry-hosted-title">Connect with a browser sign-in</span>
+                <span className="entry-hosted-hint">No key to paste. Runrail asks you to confirm the address, then opens the provider's page.</span>
+              </div>
+              <div className="entry-hosted-list">
+                {HOSTED_SERVERS.filter((hosted) => !servers.some((server) => server.name === hosted.name || server.url === hosted.url)).map((hosted) => (
+                  <Button
+                    key={hosted.name}
+                    icon={<KeyRound size={13} />}
+                    loading={connecting === hosted.name}
+                    disabled={connecting !== undefined || signing !== undefined}
                     title={hosted.ownApp === true ? `${hosted.url} (needs an app you register with GitHub)` : hosted.url}
-                    onClick={() => {
-                      setSeed({ ...EMPTY, name: hosted.name, transport: "address", url: hosted.url })
-                      setEditing("new")
-                    }}
+                    onClick={() => connectHosted(hosted)}
                   >
                     {hosted.label}
-                  </button>
-                </span>
-              ))}
-              .
-            </p>
+                  </Button>
+                ))}
+              </div>
+            </div>
           )}
         </>
       )}

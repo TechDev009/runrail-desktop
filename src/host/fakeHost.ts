@@ -2455,12 +2455,14 @@ export function createFakeHost(scenario: PreviewScenario = {}): Host {
     connectionSecretSet: async (connectionId, secret, target) => {
       await delay(80)
       if (target === "mcp-client") return connections.setMcpClientSecret(connectionId)
+      if (target === "mcp-variable") return connections.setMcpVariable(connectionId)
       return target === "connector" ? fakeConnectors.setSecret(connectionId) : connections.setSecret(connectionId, secret, target)
     },
     // The preview has no clipboard access; a placeholder stands in for whatever would be read.
     connectionSecretFromClipboard: async (connectionId, target) => {
       await delay(80)
       if (target === "mcp-client") return connections.setMcpClientSecret(connectionId)
+      if (target === "mcp-variable") return connections.setMcpVariable(connectionId)
       return target === "connector" ? fakeConnectors.setSecret(connectionId) : connections.setSecret(connectionId, "preview-placeholder", target)
     },
     authOpen: async (loginId) => connections.open(loginId),
@@ -2740,6 +2742,11 @@ export function createFakeHost(scenario: PreviewScenario = {}): Host {
         // Preview persistence is best effort.
       }
     },
+    customScreenOpen: async () => undefined,
+    customScreenBounds: async () => undefined,
+    customScreenClose: async () => undefined,
+    onCustomScreenRequest: () => () => undefined,
+    customScreenReply: async () => undefined,
     // A plain browser has no native webview; the panel shows the page in a frame instead.
     previewNative: false,
     // A project that keeps its sign-ins has some saved once one of its pages opens.
