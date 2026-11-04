@@ -5,7 +5,7 @@
 <h1 align="center">Runrail Desktop</h1>
 
 <p align="center"><b>A desktop cockpit for coding agents.</b><br>
-Run Claude Code, Codex, GitHub Copilot, Pi, or Runrail's own agent on any model you connect -<br>
+Run Claude Code, Codex, GitHub Copilot, Pi, OpenCode, Gemini CLI, Goose, or Runrail's own agent on any model you connect -<br>
 each thread in its own worktree, every command and edit behind your approval.</p>
 
 <p align="center">
@@ -40,7 +40,7 @@ each thread in its own worktree, every command and edit behind your approval.</p
 
 Runrail Desktop puts your coding agents in one window. Each thread runs on a local, supervised
 [Runrail](https://github.com/TechDev009/runrail) engine: on Runrail's own agent loop with any
-model you connect, or on Claude Code, Codex, GitHub Copilot, or Pi through their own sign-ins.
+model you connect, or on Claude Code, Codex, GitHub Copilot, Pi, OpenCode, Gemini CLI, or Goose through their own sign-ins.
 
 - **Every tool, one workflow.** Pick the model for each thread, from your connected providers
   or the coding tools you already pay for, and see each plan's usage beside the composer.
@@ -96,7 +96,7 @@ Runrail checks the latest release at launch and every six hours. An update downl
 you click Install and restart, and installs only if its signature matches the key built into
 the app.
 
-To work with Claude Code, Codex, GitHub Copilot, or Pi, install that tool and sign in to it
+To work with Claude Code, Codex, GitHub Copilot, Pi, OpenCode, Gemini CLI, or Goose, install that tool and sign in to it
 once; Runrail uses its login as it is. To use a model directly, connect a provider in
 Settings with a key or a browser sign-in.
 

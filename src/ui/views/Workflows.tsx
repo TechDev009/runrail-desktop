@@ -52,6 +52,7 @@ import { toHostError } from "../../host"
 import { duration, timeAgo } from "../../lib/format"
 import type { SetupInfo, SetupRole, WorkflowInfo, WorkflowRun, WorkflowRunRecord, WorkflowSchedule, WorkflowStep, WorkflowTrigger } from "../../protocol/schemas"
 import { Button, CopyButton, cx, EmptyState, IconButton, Menu, Segmented, Select, Spinner, Tabs, Toggle, useTicker } from "../common"
+import { templateDraft, WORKFLOW_TEMPLATES } from "../../app/workflowTemplates"
 import { RunsOnSelect } from "../RunsOnSelect"
 import { ProjectPicker } from "./ProjectPicker"
 
@@ -68,6 +69,7 @@ export function WorkflowsView({ projectId: wantedProject, workflowId, runId }: {
   const words = useWords()
   const [projectId, setProjectId] = useState(() => wantedProject ?? activeProject()?.id ?? projects[0]?.id)
   const [selected, setSelected] = useState<string | undefined>(workflowId)
+  const [template, setTemplate] = useState<string | undefined>()
   const listing = useWorkflows((state) => (projectId === undefined ? undefined : state.byProject[projectId]))
   const liveRuns = useWorkflows((state) => state.runs)
   const now = useTicker(
@@ -106,7 +108,7 @@ export function WorkflowsView({ projectId: wantedProject, workflowId, runId }: {
       <nav className="agents-list" aria-label="Workflows">
         <div className="agents-list-top" data-tauri-drag-region>
           <span className="agents-title">Workflows</span>
-          <IconButton label="New workflow" size="sm" onClick={() => setSelected(NEW)}>
+          <IconButton label="New workflow" size="sm" onClick={() => { setTemplate(undefined); setSelected(NEW) }}>
             <Plus size={14} />
           </IconButton>
         </div>
@@ -149,7 +151,7 @@ export function WorkflowsView({ projectId: wantedProject, workflowId, runId }: {
       <section className="agents-detail">
         <div className="agents-detail-top" data-tauri-drag-region />
         {selected === NEW ? (
-          <WorkflowDetail key={`${projectId}:new`} projectId={projectId} now={now} onSaved={setSelected} onDeleted={() => setSelected(undefined)} />
+          <WorkflowDetail key={`${projectId}:new:${template ?? ""}`} template={template} projectId={projectId} now={now} onSaved={setSelected} onDeleted={() => setSelected(undefined)} />
         ) : current !== undefined ? (
           <WorkflowDetail key={`${projectId}:${current.id}`} projectId={projectId} workflow={current} runId={runId} now={now} onSaved={setSelected} onDeleted={() => setSelected(undefined)} />
         ) : (
@@ -158,9 +160,16 @@ export function WorkflowsView({ projectId: wantedProject, workflowId, runId }: {
               icon={<Workflow size={20} />}
               title="Steps that run themselves"
               actions={
-                <Button size="sm" variant="primary" icon={<Plus size={13} />} onClick={() => setSelected(NEW)}>
-                  New workflow
-                </Button>
+                <>
+                  <Button size="sm" variant="primary" icon={<Plus size={13} />} onClick={() => { setTemplate(undefined); setSelected(NEW) }}>
+                    New workflow
+                  </Button>
+                  {WORKFLOW_TEMPLATES.map((item) => (
+                    <Button key={item.id} size="sm" title={item.summary} onClick={() => { setTemplate(item.id); setSelected(NEW) }}>
+                      {item.name}
+                    </Button>
+                  ))}
+                </>
               }
             >
               A trigger, then steps: an agent or a setup does the work, a check proves it, a decision or an approval decides what comes next, and an action opens a pull request or tells you. Runs on this {words.computer}
@@ -224,6 +233,7 @@ function toRole(selection: Selection): SetupRole {
 
 function WorkflowDetail({
   projectId,
+  template,
   workflow,
   runId,
   now,
@@ -231,6 +241,7 @@ function WorkflowDetail({
   onDeleted,
 }: {
   readonly projectId: string
+  readonly template?: string | undefined
   readonly workflow?: WorkflowInfo
   readonly runId?: string | undefined
   readonly now: number
@@ -241,7 +252,7 @@ function WorkflowDetail({
   const words = useWords()
   const project = projectById(projectId)
   const [tab, setTab] = useState<"steps" | "runs">(runId === undefined ? "steps" : "runs")
-  const [draft, setDraft] = useState<WorkflowDraft>(() => (workflow === undefined ? blankDraft(toRole(startSelection(prefs)), project?.git === true) : draftOf(workflow)))
+  const [draft, setDraft] = useState<WorkflowDraft>(() => (workflow === undefined ? (templateDraft(template, toRole(startSelection(prefs)), project?.git === true) ?? blankDraft(toRole(startSelection(prefs)), project?.git === true)) : draftOf(workflow)))
   const [focus, setFocus] = useState<string>("trigger")
   const [busy, setBusy] = useState<"save" | "run" | "approve">()
   const [error, setError] = useState<string>()
