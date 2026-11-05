@@ -74,7 +74,23 @@ pub fn inspect(path: &Path) -> WorkspaceInfo {
 }
 
 fn inside_git(path: &Path) -> bool {
-    path.ancestors().any(|dir| dir.join(".git").exists())
+    if path.join(".git").exists() {
+        return true;
+    }
+    // A folder the person picked under Desktop, Documents or Downloads is open to the app, but the
+    // folders above it are not: looking in them makes macOS ask for the whole folder.
+    !in_private_folder(path, std::env::var_os("HOME").as_deref().map(Path::new)) && path.ancestors().skip(1).any(|dir| dir.join(".git").exists())
+}
+
+/// Whether macOS guards `path` behind its own per-folder permission (Desktop, Documents, Downloads).
+#[cfg(target_os = "macos")]
+fn in_private_folder(path: &Path, home: Option<&Path>) -> bool {
+    home.is_some_and(|home| ["Desktop", "Documents", "Downloads"].iter().any(|name| path.starts_with(home.join(name))))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn in_private_folder(_path: &Path, _home: Option<&Path>) -> bool {
+    false
 }
 
 /// Identifiers for engines, sessions, and threads: short, portable, and safe as a directory name.
@@ -109,6 +125,16 @@ mod tests {
         assert!(!valid_id("a/b"));
         assert!(!valid_id("a..b"));
         assert!(!valid_id(&"a".repeat(65)));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn private_folders_are_not_searched_above_the_project() {
+        let home = Path::new("/Users/someone");
+        assert!(in_private_folder(Path::new("/Users/someone/Desktop/apps/app"), Some(home)));
+        assert!(in_private_folder(Path::new("/Users/someone/Documents"), Some(home)));
+        assert!(!in_private_folder(Path::new("/Users/someone/code/app"), Some(home)));
+        assert!(!in_private_folder(Path::new("/Users/someone/Desktop/app"), None));
     }
 
     #[test]

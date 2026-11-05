@@ -4,7 +4,7 @@ import { initSetupRuns } from "./setups"
 import { initBackground } from "./background"
 import { initEngines } from "./engines"
 import { glassAvailable, loadState, type StateProblem } from "./persist"
-import { get, persistedSlice, set, toast, useApp, type AppState } from "./store"
+import { activeProject, get, persistedSlice, set, toast, useApp, type AppState } from "./store"
 import { initKeepAwake } from "./power"
 import { initCiWatch } from "./ciFix"
 import { initCiRelay } from "./ciRelay"
@@ -18,7 +18,7 @@ import { initPhone } from "./phone"
 import { initQuick } from "./quick"
 import { initQuests } from "./questFiles"
 import { initPreviews } from "./previews"
-import { readAllProjectGit } from "./projectGit"
+import { readProjectGit } from "./projectGit"
 import { initPlanUsage } from "./planUsage"
 import { startPreviewOffice } from "./previewOffice"
 import { unlockTones } from "../lib/tones"
@@ -61,8 +61,13 @@ export async function boot(): Promise<void> {
       .openInApps()
       .then((openIn) => set({ openIn }))
       .catch(() => undefined)
-    // What each project is connected to, read once the window is usable so it never slows startup.
-    window.setTimeout(() => void readAllProjectGit(), 2_000)
+    // What the open project is connected to, read once the window is usable so it never slows startup.
+    // The others are read when opened: reading them here would make macOS ask to reach every folder
+    // they are in (Desktop, Documents) before the person has used them.
+    window.setTimeout(() => {
+      const open = activeProject()
+      if (open !== undefined) void readProjectGit(open.id)
+    }, 2_000)
     // Each account's plan usage, one tool at a time, the same way.
     initPlanUsage(2_000)
     // Read by the startup budget in docs/PERFORMANCE.md: launch to a usable window.
