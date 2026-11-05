@@ -70,7 +70,7 @@ export function placeOf(view: View): RailPlace {
 export function railItems({ view, office, waiting, reviewsWaiting = 0, agentsWaiting = 0, evalsRunning = 0, customLabel }: RailInput): readonly RailItem[] {
   const current = placeOf(view)
   const badges: Partial<Record<RailPlace, number>> = { office: waiting, reviews: reviewsWaiting, agents: agentsWaiting, evals: evalsRunning }
-  return PLACES.filter((item) => item.place !== "office" || office).map((item) => {
+  return PLACES.filter((item) => (item.place !== "office" || office) && item.place !== "custom").map((item) => {
     const badge = badges[item.place] ?? 0
     return { ...item, ...(item.place === "custom" && customLabel !== undefined ? { label: customLabel } : {}), active: item.place === current, ...(badge > 0 ? { badge } : {}) }
   })

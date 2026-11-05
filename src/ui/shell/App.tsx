@@ -360,9 +360,6 @@ function run(id: ShortcutId): void {
     case "go-office":
       goTo("office")
       return
-    case "go-custom":
-      goTo("custom")
-      return
   }
 }
 

@@ -48,7 +48,6 @@ const VIEW: readonly Entry[] = [
   { id: "go-integrations", text: "Integrations" },
   { id: "go-memory", text: "Memory" },
   { id: "go-usage", text: "Usage History" },
-  { id: "go-custom", text: "Custom Screen" },
   { id: "go-office", text: "Office" },
   "separator",
   { id: "sidebar", text: "Show or Hide Threads List" },
