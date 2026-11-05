@@ -4,6 +4,11 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-05
+
+- The Custom screen is no longer in the left rail, the Go menu, or on Cmd+9. It
+  was added to 0.4.0 before it was ready.
+
 ## [0.4.0] - 2026-11-05
 
 - Grok Build joins the coding tools in Add provider and onboarding. It never
