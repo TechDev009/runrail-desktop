@@ -55,7 +55,7 @@ export function branchView(status: GitStatus | undefined, worktree: ThreadWorktr
   if (status?.initial === true) return { label: `${branch} · no commits`, worktree: worktree !== undefined, title: `${branch} has no commits yet` }
   if (worktree === undefined) return withCounts({ label: branch, worktree: false, title: tracking })
   const base = worktree.base
-  const from = base === undefined ? "" : base.kind === "pr" ? ` · PR #${String(base.number)}` : ` · from ${base.name}`
+  const from = base === undefined ? "" : base.kind === "pr" ? ` · PR #${String(base.number)}` : base.kind === "issue" ? ` · Issue #${String(base.number)}` : ` · from ${base.name}`
   return withCounts({ label: `Worktree${from}`, worktree: true, title: `Worktree on ${tracking}\n${worktree.path}` })
 }
 
@@ -67,6 +67,7 @@ export function startView(head: ProjectHead | undefined, choice: { readonly work
   if (choice.worktree) {
     const start = choice.start
     if (start.kind === "pr") return { label: `Worktree · PR #${String(start.number)}`, worktree: true, title: `A new worktree from pull request #${String(start.number)}, on its own branch` }
+    if (start.kind === "issue") return { label: `Worktree · Issue #${String(start.number)}`, worktree: true, title: `A new worktree for issue #${String(start.number)}, on its own branch` }
     if (start.kind === "branch") {
       const name = start.remote === undefined ? start.name : `${start.remote}/${start.name}`
       return { label: `Worktree · from ${name}`, worktree: true, title: `A new worktree from ${name}, on its own branch` }

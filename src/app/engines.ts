@@ -1326,6 +1326,8 @@ export async function deleteThread(threadId: string): Promise<void> {
   // A thread continued on another model shares its worktree; the last thread to go takes it along.
   const worktree = thread.worktree
   const shared = worktree !== undefined && get().threads.some((item) => item.id !== threadId && item.worktree?.id === worktree.id)
+  // Loaded here because the scripts module calls back into this one.
+  if (worktree !== undefined && !shared) await import("./worktreeScripts").then((scripts) => scripts.runArchiveScript(thread.projectId, worktree.id)).catch(() => undefined)
   if (worktree !== undefined && !shared) await projectRpc(thread.projectId, "worktree.remove", { id: worktree.id, force: true, deleteBranch: true }).catch(() => undefined)
   owners.delete(engineIdFor(threadId))
   forgetThread(threadId)

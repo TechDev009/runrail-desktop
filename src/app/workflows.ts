@@ -8,7 +8,8 @@ import { newId, type Project, type ThreadMeta } from "./persist"
 import { readProjectGit } from "./projectGit"
 import { carried, type Selection } from "./picker"
 import { addProject, createThread, get, openThread, patchRuntime, patchThread, projectById, runtimeOf, set, startingModel, threadById, toast, type Attachment, type NewThreadInput } from "./store"
-import { HEAD_START, startBase, worktreeBranchNames, type WorktreeStart } from "./worktreeStart"
+import { HEAD_START, issueBranchNames, startBase, worktreeBranchNames, type WorktreeStart } from "./worktreeStart"
+import { runSetupScript } from "./worktreeScripts"
 // Registers the turn-end listener that checks a Best of N run when it finishes.
 import "./checks"
 
@@ -22,7 +23,7 @@ export async function createWorktreeThread(input: NewThreadInput, start: Worktre
   if (!project.git) throw new HostError("NOT_A_REPOSITORY", "worktrees need a git repository")
   const revision = await startRevision(project.id, start)
   const id = newId("wt").slice(0, 60)
-  const generated = worktreeBranchNames(naming.firstMessage, id, naming.run)
+  const generated = start.kind === "issue" ? issueBranchNames(start.number, start.title, id) : worktreeBranchNames(naming.firstMessage, id, naming.run)
   const names = naming.branch === undefined ? generated : [naming.branch, ...generated]
   let created: unknown
   for (const [index, branch] of names.entries()) {
@@ -36,6 +37,8 @@ export async function createWorktreeThread(input: NewThreadInput, start: Worktre
   }
   const worktree = parseOr(WorktreeSchema, created)
   if (worktree === undefined) throw new HostError("CONTROL_INVALID_RESPONSE", "worktree response was malformed")
+  // The agent starts after setup, so it finds the dependencies installed.
+  await runSetupScript(project.id, worktree.id)
   const base = startBase(start)
   return createThread({
     ...input,
@@ -46,6 +49,7 @@ export async function createWorktreeThread(input: NewThreadInput, start: Worktre
 /** A local branch is used as it is; a remote branch or a pull request is fetched first. */
 async function startRevision(projectId: string, start: WorktreeStart): Promise<string | undefined> {
   if (start.kind === "head") return undefined
+  if (start.kind === "issue") return undefined
   if (start.kind === "pr") return fetchRevision(projectId, { pullRequest: start.number, ...(start.remote === undefined ? {} : { remote: start.remote }) })
   const { name, remote } = start
   if (remote === undefined) return `refs/heads/${name}`

@@ -823,6 +823,43 @@ export const PullRequestEntrySchema = z.looseObject({
 })
 export type PullRequestEntry = z.infer<typeof PullRequestEntrySchema>
 
+export const IssueEntrySchema = z.looseObject({
+  number: z.number().int().positive(),
+  url: z.string().max(2048).optional(),
+  title: z.string().min(1).max(256),
+  author: z.string().max(64).optional(),
+  labels: z.array(z.string().max(50)).max(20).catch([]),
+  updatedAt: z.number().optional(),
+  body: z.string().max(8_000).optional(),
+})
+export type IssueEntry = z.infer<typeof IssueEntrySchema>
+
+export const IssueListSchema = z.looseObject({
+  owner: z.string().max(100),
+  repo: z.string().max(100),
+  issues: z.array(IssueEntrySchema).max(100),
+})
+
+export const IssueViewSchema = z.looseObject({ owner: z.string().max(100), repo: z.string().max(100), issue: IssueEntrySchema })
+
+/** `.runrail/worktree.json` as the engine read it, and the hash a person approves. */
+export const WorktreeScriptsSchema = z.looseObject({
+  scripts: z.looseObject({ setup: z.string().max(4_000).optional(), run: z.string().max(4_000).optional(), archive: z.string().max(4_000).optional() }),
+  hash: z.string().regex(/^[0-9a-f]{64}$/),
+})
+export type WorktreeScripts = z.infer<typeof WorktreeScriptsSchema>
+
+export const WorktreeScriptResultSchema = z.looseObject({
+  kind: z.enum(["setup", "archive"]),
+  ok: z.boolean(),
+  exitCode: z.number().int(),
+  timedOut: z.boolean(),
+  truncated: z.boolean(),
+  output: z.string().max(70_000),
+  durationMs: z.number().nonnegative(),
+})
+export type WorktreeScriptResult = z.infer<typeof WorktreeScriptResultSchema>
+
 const CheckState = z.enum(["passed", "failed", "pending", "skipped"])
 
 export const PullRequestStatusEntrySchema = PullRequestEntrySchema.extend({

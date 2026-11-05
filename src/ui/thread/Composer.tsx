@@ -40,6 +40,7 @@ import { readProjectGit } from "../../app/projectGit"
 import { createThread, draftSelection, get, paneFocused, patchRuntime, set, setPrefs, sitsOnDefault, toast, useApp, type Attachment, type QueuedPrompt } from "../../app/store"
 import { expandPastes, nextPasteId, pastePlaceholder, shouldFold, type PastedBlock } from "../../app/paste"
 import { continueInNewThread, createWorktreeThread, shareOffered, threadHasHistory } from "../../app/workflows"
+import { issueAsk, issueMessage, readIssue } from "../../app/issues"
 import { HEAD_START, type WorktreeStart } from "../../app/worktreeStart"
 import { getHost, toHostError } from "../../host"
 import type { Thinking } from "../../host/types"
@@ -709,7 +710,9 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
   /** `fromStore` reads the draft as stored, for dictation that wrote it since this render. */
   const submit = async (intent: "send" | "steer", fromStore = false): Promise<void> => {
     const value = expandPastes(fromStore ? (get().drafts[draftKey] ?? "") : text, pastes).trim()
-    if ((value.length === 0 && attachments.length === 0 && pageComments.length === 0) || uploading > 0 || creating) return
+    // A thread started from an issue needs no words of its own: the issue is the task.
+    const issueStart = threadId === undefined && config.worktree && config.start.kind === "issue" ? config.start : undefined
+    if ((value.length === 0 && attachments.length === 0 && pageComments.length === 0 && issueStart === undefined) || uploading > 0 || creating) return
     const exact = value.startsWith("/") && !value.includes(" ") ? commands.find((command) => command.label === value) : undefined
     if (exact !== undefined) {
       setText("")
@@ -747,7 +750,16 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
     if (empty.length > 0) toast("info", `Nothing to add from ${empty.join(", ")}: it has no conversation yet.`)
     const withContexts = contexts.reduce((text, context) => (context.block === undefined ? text : `${text}\n\n${context.block}`), words)
     // Comments on page elements go with this message, after the person's words.
-    const message = pageComments.length === 0 ? withContexts : [withContexts, pageCommentsBlock(pageComments)].filter((part) => part.length > 0).join("\n\n")
+    const withComments = pageComments.length === 0 ? withContexts : [withContexts, pageCommentsBlock(pageComments)].filter((part) => part.length > 0).join("\n\n")
+    let message = withComments
+    if (issueStart !== undefined) {
+      try {
+        message = issueMessage(await readIssue(projectId, issueStart.number), withComments)
+      } catch (error) {
+        toast("error", `Could not read issue #${String(issueStart.number)}: ${toHostError(error).message}. Starting without its text.`)
+        message = withComments.length > 0 ? withComments : issueAsk(issueStart.number, issueStart.title)
+      }
+    }
     if (threadId === undefined) {
       if (project === undefined) return
       setCreating(true)
@@ -907,7 +919,9 @@ export function Composer({ threadId, projectId }: { readonly threadId?: string; 
     if (dropped.length > 0) void addFiles(dropped)
   }
 
-  const empty = text.trim().length === 0 && attachments.length === 0 && pageComments.length === 0
+  // A new thread started from an issue has its task already; sending needs no words.
+  const issueOnly = threadId === undefined && config.worktree && config.start.kind === "issue"
+  const empty = text.trim().length === 0 && attachments.length === 0 && pageComments.length === 0 && !issueOnly
   const sendHint = sendKey === "enter" ? "enter" : "mod+enter"
   const otherKey = sendKey === "enter" ? "mod+enter" : "mod+alt+enter"
   const steerKey = steerFirst ? sendHint : otherKey

@@ -141,7 +141,7 @@ export function closeDialog(): void {
   set({ dialog: undefined })
 }
 
-export function confirmAction(input: { readonly title: string; readonly body: string; readonly confirm: string; readonly danger?: boolean; readonly onConfirm: () => void }): void {
+export function confirmAction(input: { readonly title: string; readonly body: string; readonly confirm: string; readonly danger?: boolean; readonly onConfirm: () => void; readonly onCancel?: () => void }): void {
   set({ dialog: { kind: "confirm", ...input } })
 }
 

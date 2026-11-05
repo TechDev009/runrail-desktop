@@ -143,7 +143,7 @@ export type Dialog =
    * (a new key, or signing in again when `flow` is set too).
    */
   | { readonly kind: "connect"; readonly presetId?: string; readonly flow?: string; readonly connectionId?: string; readonly custom?: { readonly label: string; readonly address: string }; readonly tool?: string; readonly models?: string }
-  | { readonly kind: "confirm"; readonly title: string; readonly body: string; readonly confirm: string; readonly danger?: boolean; readonly onConfirm: () => void }
+  | { readonly kind: "confirm"; readonly title: string; readonly body: string; readonly confirm: string; readonly danger?: boolean; readonly onConfirm: () => void; readonly onCancel?: () => void }
   | { readonly kind: "shift-report" }
   | { readonly kind: "quests"; readonly projectId: string }
   /** Going back to before a message, its files ticked. */

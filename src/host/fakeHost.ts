@@ -96,6 +96,8 @@ const CAPABILITIES: Record<string, string> = {
   "git.branches": "available",
   "git.fetch": "available",
   "git.pr.list": "available",
+  "git.issue.list": "available",
+  "worktree.scripts": "available",
   "git.pr.reviews": "available",
   "git.pr.review.post": "available",
   "git.pr.merge": "available",
@@ -1942,6 +1944,22 @@ class FakeEngine {
           ],
         }
       }
+      case "git.issue.list":
+      case "git.issue.view": {
+        await delay(200)
+        const day = 24 * 3_600_000
+        const issues = [
+          { number: 142, title: "Search results flicker while typing", author: "mira", labels: ["bug", "ui"], updatedAt: Date.now() - 5 * 3_600_000, url: "https://github.com/example/project/issues/142", body: "Typing in the search box re-renders the whole list on every keystroke.\n\nExpected: results keep their place until the new ones arrive." },
+          { number: 139, title: "Export the report as CSV", author: "devon", labels: ["feature"], updatedAt: Date.now() - 2 * day, url: "https://github.com/example/project/issues/139", body: "Add an Export CSV button to the report page." },
+          { number: 131, title: "Docs: explain worktrees", author: "sam", labels: ["docs"], updatedAt: Date.now() - 6 * day, url: "https://github.com/example/project/issues/131", body: "The README never says what a worktree is." },
+        ]
+        if (method === "git.issue.list") return { owner: "example", repo: "project", remote: "origin", source: "gh", issues: issues.map(({ body: _body, ...rest }) => rest) }
+        const found = issues.find((issue) => issue.number === params.number)
+        if (found === undefined) throw new HostError("CONTROL_PR_NOT_FOUND", "the repository or pull request was not found, or this sign-in cannot see it", 404)
+        return { owner: "example", repo: "project", remote: "origin", source: "gh", issue: found }
+      }
+      case "worktree.scripts":
+        return { scripts: {}, hash: "0".repeat(64) }
       case "git.pr.create": {
         if (params.confirm !== true) throw new HostError("CONTROL_INVALID_INPUT", "confirmation is required", 400)
         const pull = { number: 42, url: "https://github.com/example/project/pull/42", title: params.title, head: String(this.gitStatus().branch ?? "main"), base: params.base, draft: params.draft === true, state: "open", merged: false, review: "required", mergeable: "unknown", checks: { passed: 0, failed: 0, pending: 2, skipped: 0, items: [{ name: "build", state: "pending" }, { name: "test", state: "pending" }] } }

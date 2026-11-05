@@ -79,6 +79,11 @@ export interface Project {
   /** The check command last used for Best of N here, offered next time. */
   readonly checkCommand?: string
   /**
+   * The hash of the project's `.runrail/worktree.json` the person approved. The scripts run only
+   * while the file still hashes to this, so any edit asks again.
+   */
+  readonly worktreeScriptsApproved?: string
+  /**
    * Related folders: absolute paths the agent may read and edit beside the
    * project's own folder. Every thread still runs in the project's folder.
    */
@@ -108,7 +113,7 @@ export const MAX_DISABLED_SKILLS = 128
 export const SKILL_ID = /^[a-z][a-z0-9._:-]{0,127}$/i
 
 /** Where a worktree started, when it was not the project's own HEAD. */
-export type WorktreeBase = { readonly kind: "branch"; readonly name: string } | { readonly kind: "pr"; readonly number: number; readonly title?: string }
+export type WorktreeBase = { readonly kind: "branch"; readonly name: string } | { readonly kind: "pr"; readonly number: number; readonly title?: string } | { readonly kind: "issue"; readonly number: number; readonly title?: string }
 
 export interface ThreadWorktree {
   readonly id: string
@@ -651,6 +656,7 @@ const ProjectSchema = z.object({
   // A bad list is dropped, not the project.
   disabledSkills: z.array(z.string().regex(SKILL_ID)).max(MAX_DISABLED_SKILLS).optional().catch(undefined),
   checkCommand: CheckCommand.optional().catch(undefined),
+  worktreeScriptsApproved: z.string().regex(/^[0-9a-f]{64}$/).optional().catch(undefined),
   folders: z
     .array(z.string().regex(/^\/[^\0\r\n]{0,4095}$/))
     .max(MAX_PROJECT_FOLDERS)
@@ -710,6 +716,7 @@ const ThreadSchema = z.object({
         .discriminatedUnion("kind", [
           z.object({ kind: z.literal("branch"), name: z.string().min(1).max(255) }),
           z.object({ kind: z.literal("pr"), number: z.number().int().positive().max(1_000_000_000), title: z.string().max(256).optional() }),
+          z.object({ kind: z.literal("issue"), number: z.number().int().positive().max(1_000_000_000), title: z.string().max(256).optional() }),
         ])
         .optional()
         .catch(undefined),

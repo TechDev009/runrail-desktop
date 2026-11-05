@@ -111,15 +111,19 @@ function BlockingQuestionDialog({ question, position, total }: { readonly questi
 }
 
 function ConfirmDialog({ dialog }: { readonly dialog: Extract<Dialog, { kind: "confirm" }> }) {
+  const decline = (): void => {
+    closeDialog()
+    dialog.onCancel?.()
+  }
   return (
     <Modal
       title={dialog.title}
-      onClose={closeDialog}
+      onClose={decline}
       width={440}
       footer={
         <>
           {/* Return confirms a plain question; a destructive one starts on Cancel. */}
-          <Button variant="ghost" onClick={closeDialog} data-autofocus={dialog.danger === true ? "" : undefined}>
+          <Button variant="ghost" onClick={decline} data-autofocus={dialog.danger === true ? "" : undefined}>
             Cancel
           </Button>
           <Button
@@ -135,7 +139,7 @@ function ConfirmDialog({ dialog }: { readonly dialog: Extract<Dialog, { kind: "c
         </>
       }
     >
-      <p className="dialog-text">{dialog.body}</p>
+      <p className="dialog-text" style={{ whiteSpace: "pre-wrap" }}>{dialog.body}</p>
     </Modal>
   )
 }

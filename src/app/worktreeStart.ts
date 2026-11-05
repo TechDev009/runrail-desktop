@@ -1,11 +1,15 @@
 import type { GitBranches, PullRequestEntry } from "../protocol/schemas"
 import type { WorktreeBase } from "./persist"
 
-/** Where a new thread's worktree starts: the project's HEAD, a branch, or a GitHub pull request. */
+/**
+ * Where a new thread's worktree starts: the project's HEAD, a branch, or a GitHub pull request.
+ * An issue starts from HEAD too; it only names the branch and gives the agent its task.
+ */
 export type WorktreeStart =
   | { readonly kind: "head" }
   | { readonly kind: "branch"; readonly name: string; readonly remote?: string }
   | { readonly kind: "pr"; readonly number: number; readonly title?: string; readonly remote?: string }
+  | { readonly kind: "issue"; readonly number: number; readonly title?: string }
 
 export const HEAD_START: WorktreeStart = { kind: "head" }
 const MAX_ROWS = 50
@@ -13,17 +17,20 @@ const MAX_ROWS = 50
 export function startLabel(start: WorktreeStart): string {
   if (start.kind === "head") return "New worktree"
   if (start.kind === "pr") return `PR #${String(start.number)}`
+  if (start.kind === "issue") return `Issue #${String(start.number)}`
   return `From ${start.remote === undefined ? start.name : `${start.remote}/${start.name}`}`
 }
 
 export function startBase(start: WorktreeStart): WorktreeBase | undefined {
   if (start.kind === "head") return undefined
+  if (start.kind === "issue") return { kind: "issue", number: start.number, ...(start.title === undefined ? {} : { title: start.title.slice(0, 256) }) }
   if (start.kind === "branch") return { kind: "branch", name: start.remote === undefined ? start.name : `${start.remote}/${start.name}` }
   return { kind: "pr", number: start.number, ...(start.title === undefined ? {} : { title: start.title.slice(0, 256) }) }
 }
 
 /** The thread header's note: "from main", "PR #12". */
 export function baseLabel(base: WorktreeBase): string {
+  if (base.kind === "issue") return `Issue #${String(base.number)}`
   return base.kind === "pr" ? `PR #${String(base.number)}` : `from ${base.name}`
 }
 
@@ -60,6 +67,25 @@ export function typedPullRequest(query: string): number | undefined {
   const match = /^#?(\d{1,10})$/.exec(text) ?? /^https:\/\/[^/\s]+\/[^/\s]+\/[^/\s]+\/pull\/(\d{1,10})(?:[/?#]\S*)?$/.exec(text)
   const value = match?.[1] === undefined ? Number.NaN : Number(match[1])
   return Number.isSafeInteger(value) && value >= 1 && value <= 1_000_000_000 ? value : undefined
+}
+
+/** An issue number typed as `12`, `#12`, or a GitHub issue link. */
+export function typedIssue(query: string): number | undefined {
+  const text = query.trim()
+  const match = /^#?(\d{1,10})$/.exec(text) ?? /^https:\/\/[^/\s]+\/[^/\s]+\/[^/\s]+\/issues\/(\d{1,10})(?:[/?#]\S*)?$/.exec(text)
+  const value = match?.[1] === undefined ? Number.NaN : Number(match[1])
+  return Number.isSafeInteger(value) && value >= 1 && value <= 1_000_000_000 ? value : undefined
+}
+
+/** Open issues matching the query by number, title, label, or author. */
+export function issueRows<T extends { readonly number: number; readonly title: string; readonly author?: string; readonly labels: readonly string[] }>(issues: readonly T[], query: string): readonly T[] {
+  const number = typedIssue(query)
+  if (number !== undefined) return issues.filter((issue) => issue.number === number)
+  const words = query.toLowerCase().split(/\s+/).filter((word) => word.length > 0)
+  return issues.filter((issue) => {
+    const text = `${issue.title} ${issue.author ?? ""} ${issue.labels.join(" ")}`.toLowerCase()
+    return words.every((word) => text.includes(word))
+  })
 }
 
 /** Open pull requests matching the query by number, title, branch, or author. */
@@ -111,4 +137,11 @@ export function worktreeBranchNames(firstMessage: string | undefined, id: string
   if (slug.length === 0) return [fallback]
   const base = run === undefined ? `runrail/${slug}` : `runrail/${slug}-${String(run)}`
   return [base, ...Array.from({ length: CLASH_RETRIES }, (_, index) => `${base}-${String(index + 2)}`), fallback]
+}
+
+/** `runrail/issue-41-search-is-slow`: the branch names an issue's worktree tries, as `worktreeBranchNames` does. */
+export function issueBranchNames(number: number, title: string | undefined, id: string): readonly string[] {
+  const slug = branchSlug(title ?? "")
+  const base = slug.length === 0 ? `runrail/issue-${String(number)}` : `runrail/issue-${String(number)}-${slug}`
+  return [base, ...Array.from({ length: CLASH_RETRIES }, (_, index) => `${base}-${String(index + 2)}`), `runrail/${id}`]
 }

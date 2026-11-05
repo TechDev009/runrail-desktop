@@ -1,4 +1,4 @@
-import { AppWindowMac, ArrowLeft, AtSign, Bot, Check, ChevronDown, ChevronRight, Columns2, File, Folder, FolderGit2, GitBranch, GitPullRequest, Globe, ImagePlus, Laptop, ListTodo, MessageSquare, MessagesSquare, MousePointerClick, Play, Plug, Plus, Search, Settings2, Shield, ShieldCheck, ShieldHalf, ShieldOff, Target, X, Zap } from "lucide-react"
+import { AppWindowMac, ArrowLeft, AtSign, Bot, Check, ChevronDown, CircleDot, ChevronRight, Columns2, File, Folder, FolderGit2, GitBranch, GitPullRequest, Globe, ImagePlus, Laptop, ListTodo, MessageSquare, MessagesSquare, MousePointerClick, Play, Plug, Plus, Search, Settings2, Shield, ShieldCheck, ShieldHalf, ShieldOff, Target, X, Zap } from "lucide-react"
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react"
 import { ACCESS_LABELS, ACCESS_ORDER, offersAuto, type Access } from "../../app/access"
 import { loadAndroidStatus, useAndroid } from "../../app/android"
@@ -18,8 +18,8 @@ import type { BackendId, McpServer } from "../../host/types"
 import { toHostError } from "../../host"
 import { relativeTime } from "../../lib/format"
 import { rank } from "../../lib/fuzzy"
-import { GitBranchesSchema, PullRequestListSchema, parseOr, type GitBranches, type PullRequestEntry } from "../../protocol/schemas"
-import { branchRows, HEAD_START, pullRequestRows, startLabel, typedPullRequest, type WorktreeStart } from "../../app/worktreeStart"
+import { GitBranchesSchema, IssueListSchema, PullRequestListSchema, parseOr, type GitBranches, type IssueEntry, type PullRequestEntry } from "../../protocol/schemas"
+import { branchRows, HEAD_START, issueRows, pullRequestRows, startLabel, typedIssue, typedPullRequest, type WorktreeStart } from "../../app/worktreeStart"
 import { cx, IconButton, Kbd, Menu, Popover, Spinner } from "../common"
 import { openComputerSettings } from "../shell/revealSetting"
 import { useThread } from "../hooks"
@@ -519,7 +519,7 @@ export function WorktreeMenu({ projectId, value, onChange }: { readonly projectI
           aria-expanded={open}
           title={view?.title ?? "Runs in your checkout"}
         >
-          {value.start.kind === "pr" && value.worktree ? <GitPullRequest size={12} /> : <GitBranch size={12} />}
+          {value.start.kind === "pr" && value.worktree ? <GitPullRequest size={12} /> : value.start.kind === "issue" && value.worktree ? <CircleDot size={12} /> : <GitBranch size={12} />}
           <span className="bar-branch-name">{label}</span>
           <ChevronDown size={11} className="tool-chip-chevron" />
         </button>
@@ -530,7 +530,7 @@ export function WorktreeMenu({ projectId, value, onChange }: { readonly projectI
   )
 }
 
-type WorktreePage = "main" | "branch" | "pr"
+type WorktreePage = "main" | "branch" | "pr" | "issue"
 
 type Loaded<T> = { readonly state: "loading" } | { readonly state: "ready"; readonly value: T } | { readonly state: "failed"; readonly code: string; readonly message: string }
 
@@ -559,6 +559,7 @@ function useProjectList<T>(projectId: string, active: boolean, method: string, p
 
 const parseBranches = (value: unknown): GitBranches | undefined => parseOr(GitBranchesSchema, value)
 const parsePullRequests = (value: unknown): readonly PullRequestEntry[] | undefined => parseOr(PullRequestListSchema, value)?.pullRequests
+const parseIssues = (value: unknown): readonly IssueEntry[] | undefined => parseOr(IssueListSchema, value)?.issues
 
 function WorktreePanel({ projectId, value, onChange, close }: { readonly projectId: string; readonly value: WorktreeChoice; readonly onChange: (value: WorktreeChoice) => void; readonly close: () => void }) {
   const [page, setPage] = useState<WorktreePage>("main")
@@ -566,6 +567,7 @@ function WorktreePanel({ projectId, value, onChange, close }: { readonly project
   const search = useRef<HTMLInputElement | null>(null)
   const branches = useProjectList(projectId, page === "branch", "git.branches", { maxBranches: 200 }, parseBranches)
   const pulls = useProjectList(projectId, page === "pr", "git.pr.list", { limit: 100 }, parsePullRequests)
+  const issues = useProjectList(projectId, page === "issue", "git.issue.list", { limit: 100 }, parseIssues)
   const typed = query.trim()
 
   const go = (next: WorktreePage): void => {
@@ -605,6 +607,7 @@ function WorktreePanel({ projectId, value, onChange, close }: { readonly project
         <div className="menu-sep" role="separator" />
         <Row icon={<GitBranch size={14} />} label="From a branch" page="branch" hint={value.worktree && value.start.kind === "branch" ? startLabel(value.start).replace(/^From /, "") : undefined} trailing={<ChevronRight size={13} className="add-chevron" />} onSelect={() => go("branch")} />
         <Row icon={<GitPullRequest size={14} />} label="From a pull request" page="pr" hint={value.worktree && value.start.kind === "pr" ? startLabel(value.start) : undefined} trailing={<ChevronRight size={13} className="add-chevron" />} onSelect={() => go("pr")} />
+        <Row icon={<CircleDot size={14} />} label="From an issue" page="issue" hint={value.worktree && value.start.kind === "issue" ? startLabel(value.start) : undefined} trailing={<ChevronRight size={13} className="add-chevron" />} onSelect={() => go("issue")} />
       </>
     )
   } else if (page === "branch") {
@@ -626,6 +629,36 @@ function WorktreePanel({ projectId, value, onChange, close }: { readonly project
         </>
       )
     }
+  } else if (page === "issue") {
+    const number = typedIssue(typed)
+    const listed = issues.state === "ready" ? issueRows(issues.value, typed) : []
+    const chosen = (number: number): boolean => value.worktree && value.start.kind === "issue" && value.start.number === number
+    const typedRow = number !== undefined && !listed.some((issue) => issue.number === number) && (
+      <Row icon={<CircleDot size={14} />} label={`Issue #${String(number)}`} description="Read from GitHub when the thread starts" checked={chosen(number)} trailing={mark(chosen(number))} onSelect={() => choose({ worktree: true, start: { kind: "issue", number } })} />
+    )
+    body = (
+      <>
+        {typedRow}
+        {issues.state === "loading" && <div className="add-empty"><Spinner size={12} /> Reading issues…</div>}
+        {issues.state === "failed" && <div className="add-note">{listProblem("issues", issues.code, issues.message)}</div>}
+        {listed.map((issue) => (
+          <Row
+            key={issue.number}
+            icon={<CircleDot size={14} />}
+            label={
+              <>
+                <span className="pr-number">#{issue.number}</span> {issue.title}
+              </>
+            }
+            description={[issue.labels.slice(0, 3).join(", "), issue.author, issue.updatedAt === undefined ? undefined : relativeTime(issue.updatedAt)].filter((part) => part !== undefined && part.length > 0).join(" · ")}
+            checked={chosen(issue.number)}
+            trailing={mark(chosen(issue.number))}
+            onSelect={() => choose({ worktree: true, start: { kind: "issue", number: issue.number, title: issue.title } })}
+          />
+        ))}
+        {issues.state === "ready" && listed.length === 0 && typedRow === false && <div className="add-empty">{typed.length > 0 ? `No open issue matches “${typed}”.` : "No open issues."}</div>}
+      </>
+    )
   } else {
     const number = typedPullRequest(typed)
     const listed = pulls.state === "ready" ? pullRequestRows(pulls.value, typed) : []
@@ -636,7 +669,7 @@ function WorktreePanel({ projectId, value, onChange, close }: { readonly project
       <>
         {typedRow}
         {pulls.state === "loading" && <div className="add-empty"><Spinner size={12} /> Reading pull requests…</div>}
-        {pulls.state === "failed" && <div className="add-note">{pullListProblem(pulls.code, pulls.message)}</div>}
+        {pulls.state === "failed" && <div className="add-note">{listProblem("pull requests", pulls.code, pulls.message)}</div>}
         {listed.map((pull) => (
           <Row
             key={pull.number}
@@ -657,7 +690,7 @@ function WorktreePanel({ projectId, value, onChange, close }: { readonly project
     )
   }
 
-  const placeholder = page === "branch" ? "Search branches" : page === "pr" ? "Search, or enter a number" : undefined
+  const placeholder = page === "branch" ? "Search branches" : page === "main" ? undefined : "Search, or enter a number"
   return (
     <div className="add-panel" role="menu" onKeyDown={onKeyDown}>
       {page === "main" ? (
@@ -683,7 +716,7 @@ function WorktreePanel({ projectId, value, onChange, close }: { readonly project
                 onChange={(event) => setQuery(event.target.value)}
               />
             </label>
-            <span className="add-page-title">{page === "branch" ? "Branches" : "Pull requests"}</span>
+            <span className="add-page-title">{page === "branch" ? "Branches" : page === "issue" ? "Issues" : "Pull requests"}</span>
           </div>
           <div className="add-list">{body}</div>
         </>
@@ -693,10 +726,10 @@ function WorktreePanel({ projectId, value, onChange, close }: { readonly project
 }
 
 /** The engine's own words, except where there is something the person can do about it. */
-function pullListProblem(code: string, message: string): string {
-  if (code === "CONTROL_PR_UNAVAILABLE") return "Install the GitHub CLI (gh) to list pull requests here. You can still enter a number."
-  if (code === "CONTROL_PR_CREDENTIALS") return "Sign in to the GitHub CLI (run gh auth login in a terminal) to list pull requests. You can still enter a number."
-  if (code === "CONTROL_GIT_NOT_FOUND") return "This project has no remote to list pull requests from."
+function listProblem(noun: "pull requests" | "issues", code: string, message: string): string {
+  if (code === "CONTROL_PR_UNAVAILABLE") return `Install the GitHub CLI (gh) to list ${noun} here. You can still enter a number.`
+  if (code === "CONTROL_PR_CREDENTIALS") return `Sign in to the GitHub CLI (run gh auth login in a terminal) to list ${noun}. You can still enter a number.`
+  if (code === "CONTROL_GIT_NOT_FOUND") return `This project has no remote to list ${noun} from.`
   if (code === "CONTROL_INVALID_INPUT" && /owner\/repo/.test(message)) return "This project's remote is not on GitHub."
-  return `Could not list pull requests: ${message}`
+  return `Could not list ${noun}: ${message}`
 }

@@ -41,6 +41,7 @@ import { setOfficeMode, showList, showOffice } from "../../app/office"
 import { signOutConnection, type Connection } from "../../app/connections"
 import { compactThread, threadCapability } from "../../app/engines"
 import { newPanelTab, openPanel } from "../../app/panels"
+import { runScriptInTerminal } from "../../app/worktreeScripts"
 import { activeProject, activeThread, get, openThread, set, setLayout, setPrefs, toast, useApp } from "../../app/store"
 import { proposeWorkflowFrom } from "../../app/workflowRuns"
 import { reportProblem } from "../../app/report"
@@ -128,6 +129,9 @@ export function paletteCommands(connections: readonly Connection[]): Entry[] {
     out.push({ id: "switch-model", group: "Commands", label: "Switch model", detail: "Model and reasoning level", keywords: "change pick choose reasoning thinking effort", icon: <Zap size={14} />, run: () => switchModel() })
     out.push({ id: "import", group: "Commands", label: "Import session…", detail: "Claude Code, Codex, OpenCode, Gemini CLI, and more", keywords: "continue transcript history", icon: <Import size={14} />, run: () => openDialog({ kind: "import", projectId: project.id }) })
     if (project.git) out.push({ id: "best-of", group: "Commands", label: "Best of N…", detail: "Run one prompt on several models", keywords: "compare parallel candidates", icon: <Columns3 size={14} />, run: () => openDialog({ kind: "best-of-n", projectId: project.id }) })
+  }
+  if (thread?.worktree !== undefined) {
+    out.push({ id: "run-script", group: "Commands", label: "Run the project's run script", detail: "From .runrail/worktree.json, in a new terminal tab", keywords: "dev server start worktree script", icon: <SquareTerminal size={14} />, run: () => void runScriptInTerminal(thread.projectId) })
   }
   if (thread !== undefined) {
     out.push({ id: "workflow-from-thread", group: "Commands", label: "Make a workflow from this thread", detail: "An agent proposes one; nothing runs until you approve it", keywords: "automate repeat schedule propose", icon: <Workflow size={14} />, run: () => proposeWorkflowFrom(thread.id) })
