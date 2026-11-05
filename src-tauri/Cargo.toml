@@ -1,6 +1,6 @@
 [package]
 name = "runrail-desktop-web"
-version = "0.3.0"
+version = "0.4.0"
 description = "Runrail desktop"
 authors = ["Runrail"]
 license = "AGPL-3.0-only"

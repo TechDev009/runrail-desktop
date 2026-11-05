@@ -3966,7 +3966,7 @@ dependencies = [
 
 [[package]]
 name = "runrail-desktop-web"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "arboard",
  "ashpd",

@@ -4,6 +4,23 @@ All notable changes to Runrail Desktop will be documented here.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-05
+
+- Grok Build joins the coding tools in Add provider and onboarding. It never
+  asks before it edits files or runs commands, so threads on it need full
+  access.
+- Settings keeps a history of plan usage per account, and themes can be saved
+  and switched between.
+- MCP servers take their keys in the app: values go to the OS keychain and are
+  never shown again. Importing skills has select all, one-click browser
+  sign-in for remote servers, and clearer buttons; Updates is last in General.
+- Workflows start from templates for pull request review and a model relay.
+- A thread can start from a GitHub issue, and a project's
+  `.runrail/worktree.json` setup and archive commands run in each worktree only
+  after the exact commands are approved. Editing the file asks again.
+- Adding a project under Desktop, Documents or Downloads no longer makes macOS
+  ask for the whole folder, and launch reads only the open project.
+
 ## [0.3.0] - 2026-11-02
 
 - Office mode now has a Sakura theme and a Needs attention board for approvals
